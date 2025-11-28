@@ -555,14 +555,30 @@ Navigate to your experiment to see the registered model with metrics and paramet
 
 Deploy your trained model (replace `<experiment_id>` and `<run_id>` with values from MLflow UI):
 
+> **📖 Sample training script for house price prediction: [examples/house-price-prediction/train_house_pricing_model.ipynb](examples/house-price-prediction/train_house_pricing_model.ipynb)**
+
 ```bash
 # Activate Hermes CLI
 source hermes-cli/.venv/bin/activate
 
-# Deploy your model (one-click deployment)
+# 1. Configure Hermes CLI with authentication token (one-time)
+export HERMES_USER_TOKEN=admin-token-default-change-in-production
+hermes configure
+
+# 2. Create environment
+hermes create-environment --name local --domain-suffix .local --cluster-name kind
+
+# 3. Create serve
+hermes create-serve \
+  --name housing-model \
+  --type api \
+  --space serve \
+  --description "House Price Prediction model"
+
+# 4. Deploy model (one-click)
 hermes deploy-model \
   --serve-name housing-model \
-  --model-uri mlflow-artifacts:/1/<experiment_id>/<run_id>/artifacts/model \
+  --model-uri mlflow-artifacts:/<experiment_id>/<run_id>/artifacts/model \
   --cores 2 \
   --memory 4 \
   --node-capacity spot \
@@ -577,10 +593,75 @@ Test your deployed model:
 ```bash
 curl -X POST http://localhost/housing-model/predict \
   -H "Content-Type: application/json" \
-  -d '{"input": [[3, 2, 1500, 2020]]}'
+  -d '{
+    "features": {
+      "MedInc": 3.5214,
+      "HouseAge": 15.0,
+      "AveRooms": 6.575757575757576,
+      "AveBedrms": 1.0196969696969697,
+      "Population": 1447.0,
+      "AveOccup": 3.0144927536231883,
+      "Latitude": 37.63,
+      "Longitude": -122.43
+    }
+  }'
 ```
 
 Once deployed, your model is accessible as a real-time inference API.
+
+---
+
+### 🌸 Alternative Example: Iris Classification
+
+You can also try the Iris classification model as an alternative example:
+
+> **📖 Sample training script for iris classification: [examples/iris-classification/train_iris_model.ipynb](examples/iris-classification/train_iris_model.ipynb)**
+
+**Deploy the Iris model:**
+
+```bash
+# Activate Hermes CLI
+source hermes-cli/.venv/bin/activate
+
+# 1. Configure Hermes CLI with authentication token (one-time)
+export HERMES_USER_TOKEN=admin-token-default-change-in-production
+hermes configure
+
+# 2. Create environment
+hermes create-environment --name local --domain-suffix .local --cluster-name kind
+
+# 3. Create serve
+hermes create-serve \
+  --name iris-classifier \
+  --type api \
+  --space serve \
+  --description "Iris Species Classification model"
+
+# 4. Deploy model (one-click)
+hermes deploy-model \
+  --serve-name iris-classifier \
+  --model-uri mlflow-artifacts:/<experiment_id>/<run_id>/artifacts/model \
+  --cores 2 \
+  --memory 4 \
+  --node-capacity spot \
+  --min-replicas 1 \
+  --max-replicas 2
+```
+
+**Test the Iris model:**
+
+```bash
+curl -X POST http://localhost/iris-classifier/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "features": {
+      "sepal_length": 5.1,
+      "sepal_width": 3.5,
+      "petal_length": 1.4,
+      "petal_width": 0.2
+    }
+  }'
+```
 
 > **📖 For detailed deployment commands, see [hermes-cli/CLI.md](hermes-cli/CLI.md)**
 
