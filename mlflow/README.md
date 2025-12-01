@@ -2,6 +2,28 @@
 
 A comprehensive MLflow platform implementation, providing experiment tracking, model management, and ML lifecycle management capabilities.
 
+## ⚖️ Attribution
+
+This project contains a modified version of [Apache MLflow](https://github.com/mlflow/mlflow), originally developed by Databricks, Inc. and licensed under the Apache License 2.0.
+
+**Original Work:**
+- Project: Apache MLflow
+- Copyright: 2018 Databricks, Inc.
+- License: Apache License 2.0
+- Repository: https://github.com/mlflow/mlflow
+
+**Modifications by DS Horizon:**
+
+This Darwin MLflow Platform builds upon the original MLflow codebase with the following key modifications:
+- Custom authentication and authorization layer
+- Integration with Darwin's user management and permissions system
+- Custom experiment and run management APIs
+- Customized UI integration and proxy layer
+- S3 bucket initialization utilities
+- Integration with Darwin's MySQL database for metadata storage
+
+All modifications are provided under the terms of the Apache License 2.0, maintaining full attribution to the original MLflow authors. See the [LICENSE](LICENSE) and [NOTICE](NOTICE) files for complete details.
+
 ## 📋 Table of Contents
 
 - [Overview](#overview)
