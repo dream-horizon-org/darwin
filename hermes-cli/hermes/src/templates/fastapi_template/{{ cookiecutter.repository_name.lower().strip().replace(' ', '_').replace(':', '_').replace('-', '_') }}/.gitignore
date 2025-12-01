@@ -1,0 +1,12 @@
+# Exclude build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Python cache files
+**/__pycache__/
+**/*.py[cod]
+
+# Virtual environment
+.venv/
