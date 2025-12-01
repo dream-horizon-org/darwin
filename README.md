@@ -1,6 +1,6 @@
 # Darwin ML Platform
 
-🌐 **[Visit Darwin Platform](https://darwin.horizonos.in/)**
+🌐 **[Visit Darwin Platform](https://darwin.dreamhorizon.org/)**
 
 **Darwin** is an enterprise-grade, end-to-end machine learning platform designed for production-scale AI/ML workloads. It provides a unified ecosystem for the complete ML lifecycle—from distributed compute and feature engineering to experiment tracking, model deployment, and real-time inference serving.
 
