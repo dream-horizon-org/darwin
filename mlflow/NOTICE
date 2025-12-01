@@ -1,0 +1,31 @@
+Apache MLflow
+Copyright 2018 Databricks, Inc.
+
+This product includes software developed at Databricks, Inc. (https://www.databricks.com/).
+
+================================================================================
+
+This project contains a modified version of MLflow (https://github.com/mlflow/mlflow).
+
+The original MLflow software is licensed under the Apache License 2.0.
+Original copyright: Copyright 2018 Databricks, Inc.
+
+Modifications made by DS Horizon for the Darwin platform:
+- Added custom authentication and authorization layer
+- Integrated with Darwin's user management and permissions system
+- Added custom experiment and run management APIs
+- Customized UI integration and proxy layer
+- Added S3 bucket initialization utilities
+- Integrated with Darwin's MySQL database for metadata storage
+
+These modifications are provided under the terms described in the LICENSE file,
+while maintaining attribution to the original MLflow authors as required by
+the Apache License 2.0.
+
+================================================================================
+
+MLflow Trademark Notice:
+Apache MLflow, MLflow, Apache, the Apache feather logo, and the Apache MLflow
+project logo are either registered trademarks or trademarks of The Apache
+Software Foundation in the United States and other countries.
+
