@@ -1,0 +1,6 @@
+query Workspaces {
+  workspaces {
+    status
+    data
+  }
+}

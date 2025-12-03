@@ -1,0 +1,41 @@
+query fetchFeatureJobsById($featureJobId: String!) {
+  fetchFeatureJobsById(featureJobId: $featureJobId) {
+    message
+    comments
+    response {
+      featureJobId
+      version
+      name
+      tags
+      descriptions
+      dataSourceConfigs {
+        destinations {
+          type
+          config {
+            featureGroup
+          }
+        }
+      }
+      dataSinkConfigs {
+        destinations {
+          type
+          config {
+            featureGroup
+          }
+        }
+      }
+      computeType
+      computeMetadata {
+        query
+      }
+      featureType
+      schedule
+      owner
+      featureGroupId
+      schedulerId
+      createdAt
+      updatedAt
+      state
+    }
+  }
+}

@@ -1,0 +1,9 @@
+mutation StartSparkHistoryServer($resource: String, $ttl: Int) {
+  startSparkHistoryServer(resource: $resource, ttl: $ttl) {
+    status
+    data {
+      server_id
+    }
+    message
+  }
+}

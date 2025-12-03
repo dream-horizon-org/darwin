@@ -1,0 +1,20 @@
+query GetAllPurposeClusters($query: String, $pageSize: Int, $offset: Int, $sortBy: String, $sortOrder: String, $filters: GetAllPurposeClustersFilters, $excludeFilters: GetAllPurposeClustersFilters) {
+  getAllPurposeClusters(query: $query, page_size: $pageSize, offset: $offset, sort_by: $sortBy, sort_order: $sortOrder, filters: $filters, exclude_filters: $excludeFilters) {
+    status
+    result_size
+    page_size
+    offset
+    data {
+      cluster_id
+      name
+      status
+      total_cores
+      total_memory
+      runtime
+      created_on
+      last_used_on
+      create_by
+      estimated_cost
+    }
+  }
+}

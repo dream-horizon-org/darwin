@@ -1,0 +1,8 @@
+mutation stopCluster($input: IClusterId) {
+  stopCluster(input: $input) {
+    status
+    data {
+      cluster_id
+    }
+  }
+}

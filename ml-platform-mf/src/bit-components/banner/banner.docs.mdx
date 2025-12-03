@@ -1,0 +1,38 @@
+---
+description: A Banner component.
+---
+
+import {Banner} from './banner'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+
+A component is used to alert and messages in a form of banner inside a modal.
+
+### Component usage
+
+```js
+import {
+  Banner,
+  BannerProps,
+  Severity
+} from '@sporta-technology/d11-web-components.banner'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+;<Banner messages={'Dummy Text for Banner Component'} />
+```
+
+### Render Banner component
+
+```js live
+<div
+  style={{
+    background: '#121212',
+    padding: '20px'
+  }}
+>
+  <Banner
+    message={'Dummy Text for Banner Component'}
+    severity={'success'}
+    open={true}
+    leadingIcon={Icons.ICON_CHECK_CIRCLE_OUTLINE}
+  />
+</div>
+```

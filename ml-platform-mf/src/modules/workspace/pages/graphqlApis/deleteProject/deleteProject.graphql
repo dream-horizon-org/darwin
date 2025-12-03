@@ -1,0 +1,8 @@
+mutation DeleteProject($projectId: String) {
+  deleteProject(project_id: $projectId) {
+    status
+    data {
+      project_id
+    }
+  }
+}

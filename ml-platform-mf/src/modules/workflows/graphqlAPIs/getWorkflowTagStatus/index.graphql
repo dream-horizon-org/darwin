@@ -1,0 +1,7 @@
+query GetWorkflowStatus($workflowId: String) {
+  getWorkflowDetails(workflowId: $workflowId) {
+    data {
+      workflow_status
+    }
+  }
+}

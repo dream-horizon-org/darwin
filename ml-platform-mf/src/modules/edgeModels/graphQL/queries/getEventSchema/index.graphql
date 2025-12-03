@@ -1,0 +1,40 @@
+query GetEventSchema($appVersionId: String) {
+  getEventSchema(appVersionId: $appVersionId) {
+    data {
+      globalProperties {
+        androidfull {
+          name
+          expectedValue
+          rawDataType
+        }
+        ios {
+          name
+          expectedValue
+          rawDataType
+        }
+      }
+      events {
+        metadata {
+          androidfull {
+            eventName
+            platform
+            propertyMetadata {
+              expectedValue
+              name
+              rawDataType
+            }
+          }
+          ios {
+            eventName
+            platform
+            propertyMetadata {
+              expectedValue
+              name
+              rawDataType
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+query GetProjects($query: String, $myProjects: Boolean, $sortBy: String, $user: String) {
+  getProjects(query: $query, myProjects: $myProjects, sortBy: $sortBy, user: $user) {
+    status
+    data {
+      project_id
+      project_name
+      number_of_codespaces
+      last_updated
+      created_on
+      created_by
+    }
+  }
+}

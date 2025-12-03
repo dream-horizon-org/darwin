@@ -1,0 +1,12 @@
+mutation PublishDeployment(
+  $modelDeploymentId: String!
+  $appVersion: [String!]!
+) {
+  publishDeployment(
+    modelDeploymentId: $modelDeploymentId
+    appVersion: $appVersion
+  ) {
+    failureReason
+    success
+  }
+}

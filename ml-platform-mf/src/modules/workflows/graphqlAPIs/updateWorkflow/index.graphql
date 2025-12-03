@@ -1,0 +1,74 @@
+mutation UpdateWorkflow($workflowId: String, $input: WorkflowDataInput) {
+  updateWorkflow(workflowId: $workflowId, input: $input) {
+    data {
+      workflow_id
+      workflow_name
+      description
+      tags
+      schedule
+      retries
+      notify_on
+      parameters
+      max_concurrent_runs
+      created_by
+      last_updated_on
+      created_at
+      workflow_status
+      expected_run_duration
+      queue_enabled
+      notification_preference {
+        on_start
+        on_skip
+        on_success
+        on_fail
+      }
+      tasks {
+        task_name
+        source_type
+        source
+        file_path
+        dynamic_artifact
+        cluster_type
+        ha_config {
+          enable_ha
+        }
+        notify_on
+        trigger_rule
+        notification_preference {
+          on_fail
+        }
+        attached_cluster {
+          cluster_id
+          runtime
+          cluster_name
+          cluster_status
+          memory
+          cores
+          ray_dashboard
+          logs_dashboard
+          events_dashboard
+        }
+        dependent_libraries
+        packages {
+          source
+          body {
+            path
+            name
+            version
+            metadata {
+              repository
+              exclusions
+            }
+          }
+        }
+        input_parameters
+        retries
+        timeout
+        depends_on
+        task_validation_status
+        run_status
+      }
+      next_run_time
+    }
+  }
+}

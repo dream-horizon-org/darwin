@@ -1,0 +1,25 @@
+query SearchAssets(
+    $asset_name_regex: String
+    $asset_prefix_regex: String
+    $page_size: Int
+    $offset: Int
+    $depth: Int
+) {
+    searchAssets(
+        asset_name_regex: $asset_name_regex
+        asset_prefix_regex: $asset_prefix_regex
+        page_size: $page_size
+        offset: $offset
+        depth: $depth
+    ) {
+        total
+        offset
+        page_size
+        data {
+            asset_name
+            asset_prefix
+            depth
+            is_terminal
+        }
+    }
+}

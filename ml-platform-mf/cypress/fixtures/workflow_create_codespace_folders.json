@@ -1,0 +1,75 @@
+{
+  "data": {
+    "codespaceFolders": {
+      "status": "SUCCESS",
+      "data": {
+        "files": [
+          {
+            "name": "untitled.ipynb"
+          }
+        ],
+        "sub_folders": []
+      }
+    }
+  },
+  "extensions": {
+    "tracing": {
+      "version": 1,
+      "startTime": "2024-02-26T10:09:57.687Z",
+      "endTime": "2024-02-26T10:09:58.360Z",
+      "duration": 673122334,
+      "execution": {
+        "resolvers": [
+          {
+            "path": ["codespaceFolders"],
+            "parentType": "Query",
+            "fieldName": "codespaceFolders",
+            "returnType": "ICodespaceFoldersResponse",
+            "startOffset": 573125,
+            "duration": 671223292
+          },
+          {
+            "path": ["codespaceFolders", "status"],
+            "parentType": "ICodespaceFoldersResponse",
+            "fieldName": "status",
+            "returnType": "String",
+            "startOffset": 672416250,
+            "duration": 19834
+          },
+          {
+            "path": ["codespaceFolders", "data"],
+            "parentType": "ICodespaceFoldersResponse",
+            "fieldName": "data",
+            "returnType": "IFolderData",
+            "startOffset": 672559125,
+            "duration": 8792
+          },
+          {
+            "path": ["codespaceFolders", "data", "files"],
+            "parentType": "IFolderData",
+            "fieldName": "files",
+            "returnType": "[IFilesData]",
+            "startOffset": 672692500,
+            "duration": 7084
+          },
+          {
+            "path": ["codespaceFolders", "data", "sub_folders"],
+            "parentType": "IFolderData",
+            "fieldName": "sub_folders",
+            "returnType": "[IFilesData]",
+            "startOffset": 672788792,
+            "duration": 12875
+          },
+          {
+            "path": ["codespaceFolders", "data", "sub_folders", 0, "name"],
+            "parentType": "IFilesData",
+            "fieldName": "name",
+            "returnType": "String",
+            "startOffset": 672904292,
+            "duration": 3125
+          }
+        ]
+      }
+    }
+  }
+}

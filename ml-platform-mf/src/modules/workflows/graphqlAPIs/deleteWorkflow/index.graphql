@@ -1,0 +1,8 @@
+mutation DeleteWorkflow($workflowId: String) {
+  deleteWorkflow(workflowId: $workflowId) {
+    data {
+      workflow_id
+      is_deleted
+    }
+  }
+}

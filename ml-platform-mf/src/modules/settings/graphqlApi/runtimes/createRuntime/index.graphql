@@ -1,0 +1,7 @@
+mutation CreateRuntime($runtimeName: String!, $dockerFile: String!) {
+  createRuntime(runtimeName: $runtimeName, dockerFile: $dockerFile) {
+    status
+    message
+    is_unique
+  }
+}

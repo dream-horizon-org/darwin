@@ -1,0 +1,48 @@
+query GetFeatureGroups(
+  $searchString: String
+  $pageSize: Int
+  $offset: Int
+  $sortBy: String
+  $sortOrder: String
+  $filters: [IFilterSet]
+  $type: String
+  $user: String
+) {
+  getFeatureGroups(
+    searchString: $searchString
+    pageSize: $pageSize
+    offset: $offset
+    sortBy: $sortBy
+    sortOrder: $sortOrder
+    filters: $filters
+    type: $type
+    user: $user
+  ) {
+    status
+    statusCode
+    resultSize
+    pageSize
+    offset
+    totalRecordsCount
+    data {
+      id
+      title
+      description
+      version
+      allVersions
+      featuresCount
+      devUsage
+      prodUsage
+      lastValueUpdated
+      createdBy
+      tags
+      lastFiveRuns
+      type
+      typesAvailable
+      copyCode {
+        name
+        value
+      }
+    }
+  }
+}

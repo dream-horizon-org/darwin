@@ -1,0 +1,8 @@
+mutation PauseWorkflowSchedule($workflowId: String) {
+  pauseWorkflowSchedule(workflowId: $workflowId) {
+    data {
+      workflow_status
+      workflow_id
+    }
+  }
+}

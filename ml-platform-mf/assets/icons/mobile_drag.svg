@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="6px" height="10px" viewBox="0 0 6 10" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Group 4</title>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="02_Sports-Status-Control_MOB_Edit-Mode" transform="translate(-16.000000, -379.000000)" fill="#ABABAB">
+            <g id="Group-4" transform="translate(16.000000, 379.000000)">
+                <circle id="Oval" cx="1" cy="1" r="1"></circle>
+                <circle id="Oval" cx="5" cy="1" r="1"></circle>
+                <circle id="Oval" cx="1" cy="5" r="1"></circle>
+                <circle id="Oval" cx="5" cy="5" r="1"></circle>
+                <circle id="Oval" cx="1" cy="9" r="1"></circle>
+                <circle id="Oval" cx="5" cy="9" r="1"></circle>
+            </g>
+        </g>
+    </g>
+</svg>

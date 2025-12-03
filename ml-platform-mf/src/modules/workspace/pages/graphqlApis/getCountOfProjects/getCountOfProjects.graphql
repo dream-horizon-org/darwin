@@ -1,0 +1,9 @@
+query GetCountOfProjects {
+  getCountOfProjects {
+    status
+    data {
+      my_projects
+      other_projects
+    }
+  }
+}

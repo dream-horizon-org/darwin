@@ -1,0 +1,33 @@
+---
+description: A Popout component.
+---
+
+import {Popout} from './popout'
+
+A component that renders popout
+
+### Component usage
+
+```js
+import {Popout} from '@sporta-technology/d11-web-components.popout'
+
+<Popout
+  anchorEl={<anchorEl>}
+  optionsList={popoutMockData}
+  handleClose={handleClose}
+/>
+```
+
+### Render Popout
+
+```js live
+<Popout
+  anchorEl={null}
+  optionsList={[
+    {
+      label: 'Test1'
+    }
+  ]}
+  handleClose={() => {}}
+/>
+```

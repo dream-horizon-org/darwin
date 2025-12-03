@@ -1,0 +1,8 @@
+mutation GetWorkflowYaml($workflowId: String) {
+  getWorkflowYaml(workflowId: $workflowId) {
+    data {
+      yaml
+      workflow_id
+    }
+  }
+}

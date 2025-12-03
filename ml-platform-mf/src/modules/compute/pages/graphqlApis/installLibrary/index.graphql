@@ -1,0 +1,15 @@
+query InstallLibrary($clusterId: String, $packages: [IInstallLibraryBody]) {
+  installLibrary(cluster_id: $clusterId, packages: $packages) {
+    status
+    message
+    data {
+      cluster_id
+      packages {
+        id
+        name
+        version
+        status
+      }
+    }
+  }
+}

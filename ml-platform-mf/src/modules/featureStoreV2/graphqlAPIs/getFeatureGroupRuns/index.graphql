@@ -1,0 +1,24 @@
+query GetFeatureGroupRuns($fg_name: String, $version: Int) {
+  getFeatureGroupRuns(fg_name: $fg_name, version: $version) {
+    status
+    statusCode
+    data {
+      status
+      message
+      statusCode
+      executionTime
+      duration
+      link
+      totalRecordsCount
+      features {
+        title
+        otherFactors {
+          name
+          value
+        }
+        sampleData
+      }
+    }
+    error
+  }
+}

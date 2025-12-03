@@ -1,0 +1,13 @@
+query getActionGroupDetails($clusterRuntimeId: String, $sortOrder: String) {
+  getActionGroupDetails(
+    clusterRuntimeId: $clusterRuntimeId
+    sortOrder: $sortOrder
+  ) {
+    status
+    data {
+      timestamp
+      event_name
+      event_description
+    }
+  }
+}

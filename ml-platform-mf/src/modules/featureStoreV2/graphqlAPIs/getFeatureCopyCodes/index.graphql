@@ -1,0 +1,15 @@
+query GetFeatureCopyCodes(
+  $featureTitles: [String]
+  $featureDataSourceId: String
+  $featureGroupName: String
+) {
+  getFeatureCopyCodes(
+    featureTitles: $featureTitles
+    featureDataSourceId: $featureDataSourceId
+    featureGroupName: $featureGroupName
+  ) {
+    data
+    status
+    statusCode
+  }
+}

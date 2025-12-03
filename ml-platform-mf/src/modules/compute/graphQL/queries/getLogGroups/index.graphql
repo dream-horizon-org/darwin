@@ -1,0 +1,9 @@
+query GetLogGroups($clusterId: String!) {
+  getLogGroups(cluster_id: $clusterId) {
+    data {
+      session_id
+      start_timestamp
+      end_timestamp
+    }
+  }
+}

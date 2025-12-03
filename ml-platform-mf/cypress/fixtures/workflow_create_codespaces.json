@@ -1,0 +1,74 @@
+{
+  "data": {
+    "getCodespaces": {
+      "status": "SUCCESS",
+      "data": [
+        {
+          "codespace_id": "1",
+          "codespace_name": "codespace_1",
+          "created_by": "all@all.com"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "tracing": {
+      "version": 1,
+      "startTime": "2024-02-26T10:09:18.695Z",
+      "endTime": "2024-02-26T10:09:19.435Z",
+      "duration": 739543875,
+      "execution": {
+        "resolvers": [
+          {
+            "path": ["getCodespaces"],
+            "parentType": "Query",
+            "fieldName": "getCodespaces",
+            "returnType": "ICodespacesResponse",
+            "startOffset": 9525041,
+            "duration": 728407125
+          },
+          {
+            "path": ["getCodespaces", "status"],
+            "parentType": "ICodespacesResponse",
+            "fieldName": "status",
+            "returnType": "String",
+            "startOffset": 738556708,
+            "duration": 16625
+          },
+          {
+            "path": ["getCodespaces", "data"],
+            "parentType": "ICodespacesResponse",
+            "fieldName": "data",
+            "returnType": "[ICodespacesList]",
+            "startOffset": 738665708,
+            "duration": 7958
+          },
+          {
+            "path": ["getCodespaces", "data", 0, "codespace_id"],
+            "parentType": "ICodespacesList",
+            "fieldName": "codespace_id",
+            "returnType": "String",
+            "startOffset": 739166666,
+            "duration": 9792
+          },
+          {
+            "path": ["getCodespaces", "data", 0, "codespace_name"],
+            "parentType": "ICodespacesList",
+            "fieldName": "codespace_name",
+            "returnType": "String",
+            "startOffset": 739281250,
+            "duration": 2625
+          },
+          {
+            "path": ["getCodespaces", "data", 0, "created_by"],
+            "parentType": "ICodespacesList",
+            "fieldName": "created_by",
+            "returnType": "String",
+            "startOffset": 739327666,
+            "duration": 2125
+          }
+        ]
+      }
+    }
+  }
+}

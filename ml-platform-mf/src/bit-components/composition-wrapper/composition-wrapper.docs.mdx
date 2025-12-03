@@ -1,0 +1,29 @@
+---
+description: A CompositionWrapper component.
+---
+
+import {CompositionWrapper} from './composition-wrapper'
+
+Here's a corrected version of the sentence:
+
+A component that facilitates the wrapping of child components and passing props to those components using a list.
+This approach helps reduce the number of compositions. For instance, when you toggle, you can observe different compositions within the same component. Lists of props can be passed as an object to the component. Please refer to the example below.
+
+     const TagsSizeList = [
+        {value: TagsSizes.Medium, text: 'M'},
+        {value: TagsSizes.Large, text: 'L'},
+        {value: TagsSizes.Small, text: 'S'},
+        {value: TagsSizes.XS, text: 'XS'}
+    ]
+
+    const TagsTypeList = [
+        {value: TagsType.Default, text: 'Default'},
+        {value: TagsType.Valid, text: 'Success'},
+        {value: TagsType.Invalid, text: 'Error'},
+        {value: TagsType.Neutral, text: 'Info'},
+        {value: TagsType.Header, text: 'Warning'}
+    ]
+
+     <CompositionWrapper lists={{size: TagsSizeList, type: TagsTypeList}}>
+        <Tags label={'Label'} />
+      </CompositionWrapper>

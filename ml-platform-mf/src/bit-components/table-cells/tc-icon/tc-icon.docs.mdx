@@ -1,0 +1,20 @@
+---
+description: A TcIcon component.
+---
+
+A component that renders icon button inside the table cell.
+
+### Component usage
+
+```js
+import {TcIcon} from '@sporta-technology/d11-web-components.table-cells.tc-icon'
+import {TableCellSize} from '@sporta-technology/d11-web-components.table-cells.tc-cell'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+import {ActionableIconButtonVariants} from '@sporta-technology/d11-web-components.icon-button'
+;<TcIcon
+  size={TableCellSize.Large}
+  leadingIcon={Icons.ICON_HIGHLIGHT_OFF}
+  onClick={handleOnClick}
+  actionableVariants={ActionableIconButtonVariants.ACTIONABLE_PRIMARY}
+/>
+```

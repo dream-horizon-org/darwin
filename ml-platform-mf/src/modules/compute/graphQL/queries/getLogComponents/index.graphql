@@ -1,0 +1,8 @@
+query GetLogComponents {
+  getLogComponents {
+    data {
+      id
+      label
+    }
+  }
+}

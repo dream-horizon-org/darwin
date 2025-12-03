@@ -1,0 +1,10 @@
+query GetCodespaces($projectId: String) {
+  getCodespaces(project_id: $projectId) {
+    status
+    data {
+      codespace_id
+      codespace_name
+      created_by
+    }
+  }
+}

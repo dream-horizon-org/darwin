@@ -1,0 +1,7 @@
+mutation UpdateJobClusterDefinition($clusterId: String, $input: ClusterCreate) {
+  updateJobClusterDefinition(clusterId: $clusterId, input: $input) {
+    data {
+      job_cluster_definition_id
+    }
+  }
+}

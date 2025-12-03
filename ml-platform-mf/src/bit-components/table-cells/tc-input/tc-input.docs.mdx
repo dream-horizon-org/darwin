@@ -1,0 +1,23 @@
+---
+description: A TcInput component.
+---
+
+import {TcInput} from './tc-input'
+
+A component that renders input inside the tc-cell.
+
+### Component usage
+
+```js
+import {TcInput} from '@sporta-technology/d11-web-components.table-cells.tc-input'
+import {TableCellSize} from '@sporta-technology/d11-web-components.table-cells.tc-cell'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+;<TcInput
+  size={TableCellSize.Large}
+  label={'Label'}
+  name={'Input'}
+  value={value}
+  onChange={handleChange}
+  icon={Icons.ICON_INFORMATION}
+/>
+```

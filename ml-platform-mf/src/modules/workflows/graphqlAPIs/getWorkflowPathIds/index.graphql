@@ -1,0 +1,8 @@
+query GetWorkflowPathIds($workspacePath: String!) {
+  getWorkflowPathDetails(workspacePath: $workspacePath) {
+    data {
+      codespace_id
+      project_id
+    }
+  }
+}

@@ -1,0 +1,38 @@
+---
+description: A TcIconButton component.
+---
+
+import {TcIconButton} from './tc-icon-button'
+
+A component that render icon button.
+
+### Component usage
+
+```js
+import {TcIconButton} from '@sporta-technology/d11-web-components.table-cells.tc-icon-button'
+import {TableCellSize} from '@sporta-technology/d11-web-components.table-cells.tc-cell'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+import {
+  ActionableIconButtonSizes,
+  ActionableIconButtonVariants
+} from '@sporta-technology/d11-web-components.icon-button'
+;<TcIconButton
+  size={TableCellSize.Large}
+  leadingIcon={Icons.ICON_HIGHLIGHT_OFF}
+  onClick={handleOnClick}
+  actionableVariants={ActionableIconButtonVariants.ACTIONABLE_PRIMARY}
+  actionableSizes={ActionableIconButtonSizes.LARGE}
+/>
+```
+
+### Render icon button!
+
+```js live
+<TcIconButton
+  size={TableCellSize.Large}
+  leadingIcon={Icons.ICON_HIGHLIGHT_OFF}
+  onClick={handleOnClick}
+  actionableVariants={ActionableIconButtonVariants.ACTIONABLE_PRIMARY}
+  actionableSizes={ActionableIconButtonSizes.LARGE}
+/>
+```

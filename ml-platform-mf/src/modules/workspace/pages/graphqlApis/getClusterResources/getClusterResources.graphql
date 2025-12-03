@@ -1,0 +1,10 @@
+query GetClusterResources($clusterId: String) {
+  getClusterResources(cluster_id: $clusterId) {
+    status
+    data {
+      cores_used
+      memory_used
+    }
+    message
+  }
+}

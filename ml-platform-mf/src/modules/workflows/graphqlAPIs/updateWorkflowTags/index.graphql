@@ -1,0 +1,8 @@
+mutation UpdateWorkflowTags($workflowId: String, $tags: [String]) {
+  updateWorkflowTags(workflowId: $workflowId, tags: $tags) {
+    data {
+      workflow_id
+      tags
+    }
+  }
+}

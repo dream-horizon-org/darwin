@@ -1,0 +1,10 @@
+query GetComputeTemplates {
+  getComputeTemplates {
+    status
+    data {
+      template_id
+      display_name
+      memory_per_core
+    }
+  }
+}

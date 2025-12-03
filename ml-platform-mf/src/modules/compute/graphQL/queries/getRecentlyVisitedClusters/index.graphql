@@ -1,0 +1,13 @@
+query GetRecentlyVisitedClusters {
+  getRecentlyVisitedClusters {
+    status
+    data {
+      cluster_id
+      cluster_name
+      status
+      total_cores
+      total_memory
+      last_visited
+    }
+  }
+}

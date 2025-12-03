@@ -1,0 +1,31 @@
+---
+description: A IconButton component.
+---
+
+import {IconButton} from './icon-button'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+import {style} from './utils'
+
+Buttons allow users to take actions, and make choices, with a single tap.
+
+### Component usage
+
+```js
+import {IconButton,IconButtonProps,IconButtonSizes,IconButtonVariants} from '@sporta-technology/d11-web-components.icon-button'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+
+<IconButton leadingIcon={Icons.ICON_HIGHLIGHT_OFF} onClick={handleOnClick} />
+```
+
+### Render Icon Button!
+
+```js live
+<div style={style}>
+  <IconButton
+    leadingIcon={Icons.ICON_HIGHLIGHT_OFF}
+    onClick={() => {
+      alert('Icon button is clicked')
+    }}
+  />
+</div>
+```

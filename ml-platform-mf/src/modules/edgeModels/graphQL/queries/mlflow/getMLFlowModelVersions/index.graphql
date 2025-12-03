@@ -1,0 +1,12 @@
+query getMLFlowModelVersions($modelName: String!) {
+  getMLFlowModelVersions(modelName: $modelName) {
+    model_versions {
+        name
+        version
+        creation_timestamp
+        last_updated_timestamp
+        status
+        run_id
+    }
+  }
+}

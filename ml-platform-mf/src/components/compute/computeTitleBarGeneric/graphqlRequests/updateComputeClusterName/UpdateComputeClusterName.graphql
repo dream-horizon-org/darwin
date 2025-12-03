@@ -1,0 +1,8 @@
+mutation UpdateComputeClusterName($input: ClusterNameUpdate) {
+  updateComputeClusterName(input: $input) {
+    status
+    data {
+      name
+    }
+  }
+}

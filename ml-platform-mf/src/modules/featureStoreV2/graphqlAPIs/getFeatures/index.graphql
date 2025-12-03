@@ -1,0 +1,25 @@
+query GetFeatures($searchString: String, $featureGroupId: String, $version: Int, $pageSize: Int, $offset: Int, $sortBy: String, $sortOrder: String, $type: String) {
+  getFeatures(searchString: $searchString, featureGroupId: $featureGroupId, version: $version, pageSize: $pageSize, offset: $offset, sortBy: $sortBy, sortOrder: $sortOrder, type: $type) {
+    status
+    statusCode
+    resultSize
+    pageSize
+    offset
+    totalRecordsCount
+    data {
+      title
+      description
+      tags
+      type
+      copyCode {
+        name
+        value
+      }
+      isPrimaryKey
+      usage {
+        prodCount
+        devCount
+      }
+    }
+  }
+}

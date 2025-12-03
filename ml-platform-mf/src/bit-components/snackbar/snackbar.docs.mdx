@@ -1,0 +1,31 @@
+---
+description: A Snackbar component.
+---
+
+import {Snackbar} from './snackbar'
+
+A component is used to show alerts in form of snackbar with four different severity and in four different directions.
+
+### Component usage
+
+```js
+import {Snackbar} from '@sporta-technology/d11-web-components.snackbar'
+;<Snackbar message={'Dummy Text for Snackbar Component'} />
+```
+
+### Render Snackbar Component!
+
+```js live
+<div
+  style={{
+    background: '#121212'
+  }}
+>
+  <Snackbar
+    message={'Dummy Text for Snackbar Component'}
+    severity={'success'}
+    onClose={() => {}}
+    open={true}
+  />
+</div>
+```

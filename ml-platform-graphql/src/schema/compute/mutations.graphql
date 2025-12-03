@@ -1,0 +1,21 @@
+type IRecentlyVisitedCluster {
+  status: String
+}
+
+type IStartSparkHistoryServerData {
+  server_id: String
+}
+
+type IStartSparkHistoryServerResponse {
+  status: String
+  data: IStartSparkHistoryServerData
+  message: String
+}
+
+type Mutation {
+  addRecentlyVisitedCluster(cluster_id: String): IRecentlyVisitedCluster
+  startSparkHistoryServer(
+    resource: String
+    ttl: Int
+  ): IStartSparkHistoryServerResponse
+}

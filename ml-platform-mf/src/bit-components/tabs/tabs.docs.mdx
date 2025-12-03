@@ -1,0 +1,29 @@
+---
+description: Tabs make it easy to explore and switch between different views.
+---
+
+import {Tabs} from './tabs'
+import {basicTab} from './utils'
+
+Tabs make it easy to explore and switch between different views.
+
+### Component usage
+
+```js
+import {TabsProps, Tabs, TabLabelProps} from '@sporta-technology/d11-web-components.tabs'
+
+const basicTab = [
+  {
+    label: 'TAB 1',
+    counter: 10,
+    disabled: true
+  }
+]
+<Tabs onChange={handleChange} value={0} tabLabels={basicTab} />
+```
+
+### Render tabs!
+
+```js live
+<Tabs onChange={() => {}} value={0} tabLabels={basicTab} />
+```

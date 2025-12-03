@@ -1,0 +1,8 @@
+mutation UpdateWorkflowSchedule($workflowId: String, $schedule: String) {
+  updateWorkflowSchedule(workflowId: $workflowId, schedule: $schedule) {
+    data {
+      workflow_id
+      schedule
+    }
+  }
+}

@@ -1,0 +1,8 @@
+query GetEventTypes {
+  getEventTypes {
+    data {
+      event
+      default
+    }
+  }
+}

@@ -1,0 +1,8 @@
+query GetWorkflowFilters {
+  getWorkflowFilters {
+    data {
+      status
+      users
+    }
+  }
+}

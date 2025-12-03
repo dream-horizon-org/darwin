@@ -1,0 +1,24 @@
+query GetMavenPackages(
+    $search: String
+    $page_size: Int
+    $offset: Int
+    $repository: RepositoryType
+) {
+  getMavenPackages(
+    search: $search
+    page_size: $page_size
+    offset: $offset
+    repository: $repository
+  ) {
+    status
+    message
+    data {
+        result_size
+        packages {
+            group_id
+            artifact_id
+            version
+        }
+    }
+  }
+}

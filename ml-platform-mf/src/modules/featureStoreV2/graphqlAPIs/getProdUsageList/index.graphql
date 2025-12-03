@@ -1,0 +1,11 @@
+query GetProdUsageList($featureGroupId: String, $featureTitle: String, $type: String) {
+  getProdUsageList(featureGroupId: $featureGroupId, featureTitle: $featureTitle, type: $type) {
+    status
+    statusCode
+    data {
+      type
+      title
+      link
+    }
+  }
+}

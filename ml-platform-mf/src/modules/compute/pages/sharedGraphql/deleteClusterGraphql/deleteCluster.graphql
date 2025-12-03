@@ -1,0 +1,8 @@
+mutation deleteCluster($input: IClusterId) {
+  deleteCluster(input: $input) {
+    status
+    data {
+      cluster_id
+    }
+  }
+}

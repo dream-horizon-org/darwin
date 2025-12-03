@@ -1,0 +1,47 @@
+#!/usr/bin/env groovy
+@Library('d11-jenkins-lib@master') _
+
+def checker
+def STAGE_RETRY_COUNT = 0
+def STAGE_BACKOFF_SECONDS = 20
+def APPLICATION_NAME = "ml-platform-mf"
+
+pipeline {
+  agent { label 'kube' }
+
+  environment {
+    SERVICE_NAME = "${params.service_name ?: getRepoNameFromGitUrl(env.GIT_URL)}".toLowerCase()
+    GIT_BRANCH = getBranchNameFromEnv()
+  }
+
+  stages {
+    // stage('Check: Setup') {
+    //   steps {
+    //     script {
+    //       intialSetup()
+    //       checker = dockerBuild("${SERVICE_NAME}:${env.GIT_COMMIT}-checker", '--target executor .')
+    //     }
+    //   }
+    // }
+    // stage('Check: Trigger SonarQube analysis') {
+    //   steps {
+    //     script {
+    //       dockerRunInside(checker, {
+    //         mavenTriggerSonarAnalysis("${env.CHANGE_ID}", "${env.CHANGE_BRANCH}", "${env.CHANGE_TARGET}")
+    //       })
+    //     }
+    //   }
+    // }
+    stage('Push: Push to Jfrog') {
+      steps {
+        script {
+        retryWithBackoff(STAGE_RETRY_COUNT, STAGE_BACKOFF_SECONDS) {
+            withConfigTokens("ml-platform-mf", "master", "true", {
+              releasePackage(["${APPLICATION_NAME}"])
+            })
+            }
+        }
+      }
+    }
+  }
+}

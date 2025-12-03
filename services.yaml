@@ -154,6 +154,48 @@ applications:
       - name: LOAD_TEST_DATA
         value: "true"
 
+  - application: ml-platform-graphql
+    base-path: ml-platform-graphql
+    path: .
+    base-image: darwin/nodejs:20.16.0-bookworm-slim
+    enabled: true
+    env:
+      - name: ENV
+        value: "local"
+      - name: SERVICE_NAME
+        value: "ml-platform-graphql"
+      - name: NAMESPACE
+        value: "darwin"
+      - name: DEPLOYMENT_TYPE
+        value: "container"
+      - name: NODE_ENV
+        value: "production"
+      - name: PORT
+        value: "4000"
+
+  - application: ml-platform-mf
+    base-path: ml-platform-mf
+    path: .
+    base-image: darwin/nodejs:20.16.0-bookworm-slim
+    enabled: true
+    env:
+      - name: ENV
+        value: "local"
+      - name: SERVICE_NAME
+        value: "ml-platform-mf"
+      - name: NAMESPACE
+        value: "darwin"
+      - name: DEPLOYMENT_TYPE
+        value: "container"
+      - name: NODE_ENV
+        value: "dev-local"
+      - name: PORT
+        value: "7700"
+      - name: GRAPHQL_URL
+        value: "http://localhost/ml-platform/graphql"
+      - name: ML_PLATFORM_GRAPHQL_SERVICE
+        value: "http://darwin-ml-platform-graphql:4000/graphql"
+
 ray-images:
   - image-name: ray:2.37.0
     dockerfile-path: darwin-compute/runtimes/cpu/New-Lightweight/Ray2.37_Py3.10

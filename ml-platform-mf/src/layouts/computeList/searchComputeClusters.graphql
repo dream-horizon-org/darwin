@@ -1,0 +1,38 @@
+query search(
+  $searchQuery: String
+  $filters: ISearchComputeFilters
+  $pageSize: Int
+  $offset: Int
+  $sortBy: String
+  $sortOrder: String
+  $filterByMe: Boolean
+) {
+  searchComputeClusters(
+    searchQuery: $searchQuery
+    filters: $filters
+    pageSize: $pageSize
+    offset: $offset
+    sortBy: $sortBy
+    sortOrder: $sortOrder
+    filterByMe: $filterByMe
+  ) {
+    status
+    pageSize
+    offset
+    resultSize
+    data {
+      clusterId
+      clusterName
+      tags
+      status
+      runtime
+      activePod
+      totalPod
+      totalMemory
+      jupyterLabLink
+      createBy
+      createdOn
+      lastUsedOn
+    }
+  }
+}

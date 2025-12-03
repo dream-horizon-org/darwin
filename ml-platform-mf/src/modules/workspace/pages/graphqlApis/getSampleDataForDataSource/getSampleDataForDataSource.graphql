@@ -1,0 +1,33 @@
+query GetSampleDataForDataSource(
+  $env: String
+  $source: String
+  $dataSource: String
+  $version: String
+  $offset: Int
+  $pageSize: Int
+) {
+  getSampleDataForDataSource(
+    env: $env
+    source: $source
+    dataSource: $dataSource
+    version: $version
+    offset: $offset
+    page_size: $pageSize
+  ) {
+    status
+    message
+    data {
+      versions
+      result_size
+      copy_code_command {
+        name
+        value
+      }
+      sample_data {
+        column_name
+        type
+        sample_data
+      }
+    }
+  }
+}

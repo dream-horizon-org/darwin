@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="57px" height="63px" viewBox="0 0 57 63" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 62 (91390) - https://sketch.com -->
+    <title>ic_account_balance_green copy</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Artboard" transform="translate(-203.000000, -116.000000)">
+            <g id="ic_account_balance_green-copy" transform="translate(197.000000, 113.000000)">
+                <g id="Icon-24px">
+                    <polygon id="Bounds" points="0 0 72 0 72 72 0 72"></polygon>
+                    <path d="M12,30 L12,51 L21,51 L21,30 L12,30 L12,30 Z M30,30 L30,51 L39,51 L39,30 L30,30 L30,30 Z M6,66 L63,66 L63,57 L6,57 L6,66 L6,66 Z M48,30 L48,51 L57,51 L57,30 L48,30 L48,30 Z M34.5,3 L6,18 L6,24 L63,24 L63,18 L34.5,3 L34.5,3 Z" id="Shape" fill="#CCCCCC"></path>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

@@ -1,0 +1,26 @@
+{
+  "data": {
+    "getAllJobClusters": {
+      "data": [
+        {
+          "job_cluster_definition_id": "id-da9b4c43",
+          "cluster_name": "job_cluster_1",
+          "cores": 6,
+          "memory": 12
+        },
+        {
+          "job_cluster_definition_id": "job-884f890d",
+          "cluster_name": "job_cluster_2",
+          "cores": 8,
+          "memory": 20
+        },
+        {
+          "job_cluster_definition_id": "job-1fb5846b",
+          "cluster_name": "job_cluster_3",
+          "cores": 6,
+          "memory": 6
+        }
+      ]
+    }
+  }
+}

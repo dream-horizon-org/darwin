@@ -1,0 +1,42 @@
+---
+description: A Search component.
+---
+
+import {Search} from './search'
+import {style} from './utils'
+
+Search allows users to quickly find app content.
+
+### Component usage
+
+```js
+import {Search, SearchProps} from '@sporta-technology/d11-web-components.search'
+
+const arr = [
+  {id: 1, label: 'one '},
+  {id: 2, label: 'two'},
+  {id: 3, label: 'three'}
+]
+const [searchByValue, setSearchByValue] = useState('')
+const onSearch = (value) => {
+  console.log(value)
+}
+const serachBy = (value) => {
+  setSearchByValue(value)
+}
+
+;<Search
+  onSearch={onSearch}
+  searchByOptions={arr}
+  onChangeForSearchBy={serachBy}
+  valueForSearchBy={searchByValue}
+/>
+```
+
+### Render search component!
+
+```js live
+<div style={style}>
+  <Search onSearch={() => {}} />
+</div>
+```

@@ -1,0 +1,7 @@
+mutation CreateModelDeployment($input: IModelDeploymentCreationArgsType) {
+  createModelDeployment(input: $input) {
+    data {
+      mlModelDeploymentId
+    }
+  }
+}

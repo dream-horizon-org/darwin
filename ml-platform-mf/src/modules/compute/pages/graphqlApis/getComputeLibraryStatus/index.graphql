@@ -1,0 +1,17 @@
+query GetComputeLibraryStatus (
+    $cluster_id: String
+    $library_id: Int
+) {
+    getComputeLibraryStatus (
+        cluster_id: $cluster_id
+        library_id: $library_id
+    ) {
+        status
+        message
+        data {
+            cluster_id
+            library_id
+            status
+        }
+    }
+}

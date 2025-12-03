@@ -1,0 +1,6 @@
+query GetComputeDiscTypes {
+  getComputeDiscTypes {
+    status
+    data
+  }
+}

@@ -1,0 +1,13 @@
+query CodespaceFolders($codespaceId: String, $folderPath: String) {
+  codespaceFolders(codespaceId: $codespaceId, folderPath: $folderPath) {
+    status
+    data {
+      files {
+        name
+      }
+      sub_folders {
+        name
+      }
+    }
+  }
+}

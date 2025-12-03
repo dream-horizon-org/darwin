@@ -1,0 +1,32 @@
+query GetComputeLibraries(
+  $key: String
+  $pageSize: Int
+  $offset: Int
+  $sortBy: String
+  $sortOrder: String
+  $cluster_id: String
+) {
+  getComputeLibraries(
+    key: $key
+    pageSize: $pageSize
+    offset: $offset
+    sortBy: $sortBy
+    sortOrder: $sortOrder
+    cluster_id: $cluster_id
+  ) {
+    status
+    message
+    data {
+      cluster_id
+      result_size
+      packages {
+        id
+        status
+        name
+        type
+        source
+        version
+      }
+    }
+  }
+}

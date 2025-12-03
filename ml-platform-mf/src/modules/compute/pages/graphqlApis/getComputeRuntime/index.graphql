@@ -1,0 +1,67 @@
+
+query GetComputeRuntime(
+    $search_query: String, 
+    $offset: Int, 
+    $page_size: Int, 
+    $class: String, 
+    $type: String, 
+    $is_deleted: Boolean
+    ) {
+    getComputeRuntime(
+        search_query: $search_query,
+        offset: $offset, 
+        page_size: $page_size,
+        class: $class,
+        type: $type, 
+        is_deleted: $is_deleted
+    ) {
+        status
+        message
+        data {
+            class
+            default_runtime {
+                id
+                class
+                type
+                runtime
+                image
+                reference_link
+                components {
+                    name
+                    version
+                }
+                created_by
+                last_updated_by
+                created_at
+                last_updated_at
+                is_deleted
+                spark_connect
+                spark_auto_init
+            }
+            total_count
+            runtimes {
+                type
+                count
+                runtime_list {
+                    id
+                    class
+                    type
+                    runtime
+                    image
+                    reference_link
+                    components {
+                        name
+                        version
+                    }
+                    created_by
+                    last_updated_by
+                    created_at
+                    last_updated_at
+                    is_deleted
+                    spark_auto_init
+                    spark_connect
+                }
+            }
+        }
+    }
+}

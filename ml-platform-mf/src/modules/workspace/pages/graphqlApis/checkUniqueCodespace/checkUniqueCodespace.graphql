@@ -1,0 +1,8 @@
+query CheckUniqueCodespace($projectId: String, $codespaceName: String) {
+  checkUniqueCodespace(project_id: $projectId, codespace_name: $codespaceName) {
+    status
+    data {
+      is_unique
+    }
+  }
+}

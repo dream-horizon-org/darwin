@@ -1,0 +1,7 @@
+query CheckUniqueJobClusterName($clusterName: String) {
+  checkUniqueJobClusterName(clusterName: $clusterName) {
+    data {
+      is_unique
+    }
+  }
+}

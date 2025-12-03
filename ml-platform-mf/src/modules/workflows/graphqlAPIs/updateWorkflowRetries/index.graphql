@@ -1,0 +1,8 @@
+mutation UpdateWorkflowRetries($workflowId: String, $retries: Int) {
+  updateWorkflowRetries(workflowId: $workflowId, retries: $retries) {
+    data {
+      workflow_id
+      retries
+    }
+  }
+}

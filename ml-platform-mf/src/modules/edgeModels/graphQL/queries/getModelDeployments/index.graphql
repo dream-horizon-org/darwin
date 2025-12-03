@@ -1,0 +1,33 @@
+query GetModelDeployments($filters: IGetModelDeployementQueryFilters, $pageSize: Int, $pageNumber: Int, $sortBy: ModelDeploymentSortBy, $sortOrder: ModelDeploymentSortOrder) {
+  getModelDeployments(filters: $filters, pageSize: $pageSize, pageNumber: $pageNumber, sortBy: $sortBy, sortOrder: $sortOrder) {
+    data {
+      totalDeployments
+      pageNumber
+      hasNextPage
+      mlModelDeployments {
+        id
+        deploymentName
+        modelType
+        description
+        modelName
+        mlFlowModel
+        mlFlowVersion
+        tags
+        status
+        owner
+        lastUpdatedAt
+        createdAt
+        compatibleAppVersions {
+          id
+          semver
+          codepushVersion
+          buildNumber
+          status
+          appName
+          createdAt
+          lastUpdatedAt
+        }
+      }
+    }
+  }
+}

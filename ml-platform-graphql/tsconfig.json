@@ -1,0 +1,18 @@
+{
+  "exclude": ["node_modules", "**/*.test.ts"],
+  "compilerOptions": {
+    "declaration": false,
+    "module": "commonjs",
+    "newLine": "LF",
+    "noImplicitAny": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "sourceMap": true,
+    "strictNullChecks": true,
+    "target": "es6",
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "types": [],
+    "typeRoots": []
+  }
+}

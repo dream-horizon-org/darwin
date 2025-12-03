@@ -1,0 +1,9 @@
+query GetFilterOptions {
+  getFilterOptions {
+    status
+    data {
+      users
+      status
+    }
+  }
+}

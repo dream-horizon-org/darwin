@@ -1,0 +1,22 @@
+{
+  "name": "ml-platform-mf",
+  "version": "1.0.0",
+  "team": "ml-platform",
+  "components": [
+    {
+      "type": "application",
+      "name": "ml-platform-mf",
+      "version": "1.0.0",
+      "config": {
+        "artifact_name": "ml-platform-mf",
+        "artifact_version": "1.0.0-SNAPSHOT",
+        "build_type": "node",
+        "build_version": "14.15.1",
+        "discovery": "both",
+        "liveness_endpoint": "health",
+        "readiness_endpoint": "health",
+        "port": 7700
+      }
+    }
+  ]
+}

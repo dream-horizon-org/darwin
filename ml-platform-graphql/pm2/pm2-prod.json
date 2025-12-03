@@ -1,0 +1,30 @@
+{
+  "apps": [
+    {
+      "name": "ml-platform-graphql-prod",
+      "script": "server.js",
+      "instances": "max",
+      "exec_mode": "cluster",
+      "watch": false,
+      "env": {
+        "NODE_ENV": "production",
+        "PORT": 4000,
+        "LOG_LEVEL": "warn",
+        "ENABLE_PLAYGROUND": false,
+        "ENABLE_INTROSPECTION": false,
+        "ENABLE_TRACING": true,
+        "CURL_LOGGING": false
+      },
+      "log_date_format": "YYYY-MM-DD HH:mm:ss Z",
+      "error_file": "/var/log/ml-platform-graphql/error.log",
+      "out_file": "/var/log/ml-platform-graphql/out.log",
+      "merge_logs": true,
+      "max_memory_restart": "512M",
+      "min_uptime": "10s",
+      "max_restarts": 10,
+      "autorestart": true,
+      "restart_delay": 4000
+    }
+  ]
+}
+

@@ -1,0 +1,9 @@
+query GetComputeNodeTypes {
+  getComputeNodeTypes {
+    status
+    data {
+      id
+      label
+    }
+  }
+}

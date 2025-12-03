@@ -1,0 +1,15 @@
+query GetDataForEnvironmentAndSource($env: String, $source: String, $offset: Int, $pageSize: Int, $query: String, $database: String) {
+  getDataForEnvironmentAndSource(env: $env, source: $source, offset: $offset, page_size: $pageSize, query: $query, database: $database) {
+    status
+    data {
+      result_size
+      tables {
+        table_id
+        dc_name
+        name
+        link
+        latest_version
+      }
+    }
+  }
+}

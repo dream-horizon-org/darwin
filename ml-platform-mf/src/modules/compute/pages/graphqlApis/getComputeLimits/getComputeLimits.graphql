@@ -1,0 +1,33 @@
+query GetComputeLimits {
+  getComputeLimits {
+    status
+    data {
+      head_node_limits {
+        cores {
+          max
+          min
+        }
+        memory {
+          min
+          max
+        }
+      }
+      worker_node_limits {
+        cores {
+          min
+          max
+        }
+        memory {
+          min
+          max
+        }
+        pods {
+          min
+        }
+      }
+      inactive_time_limits {
+        min
+      }
+    }
+  }
+}

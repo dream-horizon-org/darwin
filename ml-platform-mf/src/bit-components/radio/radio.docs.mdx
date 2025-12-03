@@ -1,0 +1,29 @@
+---
+description: A Radio component.
+---
+
+import {Radio} from './radio'
+import {style} from './utils'
+
+Radio component allow users to select one individual item from a list of items, as selected.
+
+### Component usage
+
+```js
+import {Radio,RadioProps} from '@sporta-technology/d11-web-components.radio'
+
+<Radio
+  checked={checked}
+  value='test'
+  text='Radio Button'
+  onChange={handleChange}
+/>
+```
+
+### Render Radio Component!
+
+```js live
+<div style={style}>
+  <Radio value='test' text='Radio Button' />
+</div>
+```

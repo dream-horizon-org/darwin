@@ -1,0 +1,27 @@
+---
+description: A Pagination component.
+---
+
+import {Pagination} from './pagination'
+import {BasicPagination} from './pagination.composition'
+
+The Pagination component enables the user to select a specific page from a range of pages..
+
+### Component usage
+
+````js
+ <Pagination
+      rowsPerPage={rowsPerPage}
+      page={page}
+      pageHandler={pageHandler}
+      rowsPerPageHandler={rowsPerPageHandler}
+      count={5000}
+    />
+    ```
+````
+
+### Render pagination component!
+
+```js live
+<BasicPagination />
+```

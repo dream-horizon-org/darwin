@@ -1,0 +1,34 @@
+query fetchFilteredFeatureGroups(
+  $query: String
+  $pageSize: Int
+  $offset: Int
+  $ownerEmail: [String]
+  $tags: [String]
+  $sortBy: String
+  $order: String
+) {
+  fetchFilteredFeatureGroups(
+    query: $query
+    pageSize: $pageSize
+    offset: $offset
+    ownerEmail: $ownerEmail
+    tags: $tags
+    sortBy: $sortBy
+    order: $order
+  ) {
+    data {
+      offset
+      pageSize
+      totalResults
+      featureGroups {
+        name
+        version
+        ownerEmail
+        createdDate
+        status
+        description
+        tags
+      }
+    }
+  }
+}

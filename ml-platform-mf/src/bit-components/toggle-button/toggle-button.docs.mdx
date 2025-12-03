@@ -1,0 +1,39 @@
+---
+description: A ToggleButton component.
+---
+
+import {ToggleButton} from './toggle-button'
+import {
+  mockListTextButton,
+  mockListIconButton
+} from './utils'
+import {ToggleButtonType, ToggleButtonVariants} from './constants'
+
+Toggle buttons is a grouping of buttons to mark one individual item as selected.
+
+### Component usage
+
+```js
+import {
+  ToggleButton,
+  ToggleButtonProps,
+  ToggleButtonType,
+  ToggleButtonVariants
+} from '@sporta-technology/d11-web-components.toggle-button'
+
+const list = [
+  {value: 'one', text: 'one', disabled: true, testIdentifier: 'button-0'},
+  {value: 'two', text: 'two', testIdentifier: 'button-1'}
+]
+const [currentValue, setCurrentValue] = useState('')
+const handleChange = (e, b) => {
+  setCurrentValue(b)
+}
+;<ToggleButton
+  list={list}
+  handleChange={handleChange}
+  buttonType={ToggleButtonType.STRING}
+  currentValue={currentValue}
+  variant={ToggleButtonVariants.PRIMARY}
+/>
+```

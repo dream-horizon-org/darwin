@@ -1,0 +1,6 @@
+mutation CreateExperimentationUser {
+  createExperimentationUser {
+    status
+    message
+  }
+}

@@ -1,0 +1,56 @@
+query GetModelDeploymentForId($deploymentId: String!) {
+  getModelDeploymentForId(deploymentId: $deploymentId) {
+    data {
+      id
+      deploymentName
+      modelType
+      modelName
+      mlFlowModel
+      mlFlowVersion
+      tags
+      configFilePath
+      testDataPath
+      modelArtifactPath
+      compatibleAppVersions {
+        appName
+        codepushVersion
+        id
+        semver
+        buildNumber
+        createdAt
+        lastUpdatedAt
+        status
+      }
+      eventTables {
+        id
+        tableName
+        expiryInSecs
+        queries
+        eventData {
+          eventName
+          type
+          props {
+            defaultVal
+            propName
+            propNameMapping
+            sqlDataType
+          }
+        }
+        version
+      }
+      featureGroupTables {
+        featureGroupData {
+          featureGroupName
+          features {
+            defaultVal
+            featureName
+            sqlDataType
+          }
+        }
+        id
+        queries
+        tableName
+      }
+    }
+  }
+}

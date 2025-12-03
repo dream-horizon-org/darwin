@@ -1,0 +1,10 @@
+query GetFeatureGroupsCount($searchString: String, $filters: [IFilterSet]) {
+  getFeatureGroupsCount(searchString: $searchString, filters: $filters) {
+    status
+    statusCode
+    data {
+      offlineCount
+      onlineCount
+    }
+  }
+}

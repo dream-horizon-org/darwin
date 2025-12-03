@@ -1,0 +1,5 @@
+mutation EditProject($projectId: String, $projectName: String) {
+  editProject(project_id: $projectId, project_name: $projectName) {
+    status
+  }
+}

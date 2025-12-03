@@ -1,0 +1,9 @@
+mutation DeleteCodespace($projectId: String, $codespaceId: String) {
+  deleteCodespace(project_id: $projectId, codespace_id: $codespaceId) {
+    status
+    data {
+      codespace_id
+      project_id
+    }
+  }
+}

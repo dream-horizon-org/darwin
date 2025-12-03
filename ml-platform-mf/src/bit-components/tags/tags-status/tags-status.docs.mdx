@@ -1,0 +1,28 @@
+---
+description: A TagsStatus component.
+---
+
+import {TagsStatus} from './tags-status'
+import {TagsStatusTypes} from './constants'
+
+Tags-Status comprises of four types of status i.e. Active , Paused , Information and Draft.
+
+### Component usage
+
+```js
+import {TagsStatus , TagsStatusTypes} from '@sporta-technology/d11-web-components.tags.tags-status'
+<TagsStatus status={TagsStatusTypes.Active} />
+```
+
+### Render hello world!
+
+```js live
+<div
+  style={{
+    background: '#121212',
+    padding: '20px'
+  }}
+>
+  <TagsStatus status={TagsStatusTypes.Active} />
+</div>
+```

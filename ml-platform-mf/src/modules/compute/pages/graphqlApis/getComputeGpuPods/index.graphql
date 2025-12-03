@@ -1,0 +1,13 @@
+query GetComputeGpuPods {
+  getComputeGpuPods {
+    status
+    data {
+      name
+      cores
+      memory
+      gpu_count
+      g_ram_memory
+      g_ram_type
+    }
+  }
+}

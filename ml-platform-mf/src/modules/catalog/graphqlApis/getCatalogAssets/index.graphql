@@ -1,0 +1,56 @@
+query GetCatalogAssets(
+    $regex: String
+    $page_size: Int
+    $offset: Int
+) {
+    getCatalogAssets(
+        regex: $regex
+        page_size: $page_size
+        offset: $offset
+    ) {
+        total
+        offset
+        page_size
+        assets {
+            fqdn
+            type
+            detail {
+                org
+                type
+                catalog_name
+                database_name
+                table_name
+            }
+            description
+            source_platform
+            business_roster
+            rules {
+                id
+                schedule
+                left_expression
+                comparator
+                right_expression
+                health_status
+                type
+            }
+            quality_score
+            severity
+            slack_channel
+            immediate_parents {
+                name
+                columnsMap
+            }
+            tags
+            asset_schema {
+                version
+                schema_json
+            }
+            asset_created_at
+            asset_updated_at
+            metadata {
+                path
+                type
+            }
+        }
+    }   
+}

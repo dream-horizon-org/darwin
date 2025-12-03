@@ -1,0 +1,15 @@
+query fetchFeatureGroupVersions($featureGroupName: String) {
+  fetchFeatureGroupVersions(featureGroupName: $featureGroupName) {
+    data {
+      featureGroups {
+        name
+        version
+        ownerEmail
+        createdDate
+        status
+        description
+        tags
+      }
+    }
+  }
+}

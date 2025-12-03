@@ -1,0 +1,29 @@
+query getActionGroups(
+  $clusterId: String
+  $offset: Int
+  $pageSize: Int
+  $sortOrder: String
+) {
+  getActionGroups(
+    clusterId: $clusterId
+    offset: $offset
+    pageSize: $pageSize
+    sortOrder: $sortOrder
+  ) {
+    status
+    data {
+      cluster_runtime_id
+      count_of_events
+      first_event {
+        timestamp
+        event_name
+        event_description
+      }
+      last_event {
+        timestamp
+        event_name
+        event_description
+      }
+    }
+  }
+}

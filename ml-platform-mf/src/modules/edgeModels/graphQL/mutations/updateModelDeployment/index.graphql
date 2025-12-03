@@ -1,0 +1,7 @@
+mutation UpdateModelDeployment($input: UpdateModelDeploymentArgsType) {
+  updateModelDeployment(input: $input) {
+    data {
+      success
+    }
+  }
+}

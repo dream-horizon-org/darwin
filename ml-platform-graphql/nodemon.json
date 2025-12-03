@@ -1,0 +1,24 @@
+{
+  "watch": [
+    "src/**/*.ts",
+    "*.ts",
+    "logger/**/*.ts",
+    "src/**/*.graphql"
+  ],
+  "ext": "ts,graphql,js,json",
+  "ignore": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "node_modules/**",
+    "**/*.js.map"
+  ],
+  "exec": "tsc && node server.js",
+  "env": {
+    "NODE_ENV": "dev-local",
+    "CURL_LOGGING": "true"
+  },
+  "delay": 1000,
+  "colours": true,
+  "verbose": false
+}
+

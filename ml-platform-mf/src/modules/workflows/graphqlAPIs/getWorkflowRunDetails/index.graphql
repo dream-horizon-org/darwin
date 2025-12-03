@@ -1,0 +1,72 @@
+query GetWorkflowRunDetails($workflowId: String, $runId: String) {
+  getWorkflowRunDetails(workflowId: $workflowId, runId: $runId) {
+    data {
+      workflow_id
+      run_id
+      start_time
+      end_time
+      duration
+      run_status
+      trigger
+      trigger_by
+      is_run_duration_exceeded
+      expected_run_duration
+      parameters
+      events {
+        timestamp
+        status
+        message
+      }
+      tasks {
+        task_name
+        source_type
+        source
+        file_path
+        ha_config {
+          enable_ha
+        }
+        notify_on
+        trigger_rule
+        notification_preference {
+          on_fail
+        }
+        attached_cluster {
+          cluster_id
+          runtime
+          cluster_name
+          cluster_status
+          memory
+          cores
+          ray_dashboard
+          logs_dashboard
+          events_dashboard
+	  estimated_cost
+	  created_at
+        }
+        dependent_libraries
+        packages {
+          source
+          body {
+            path
+            name
+            version
+            metadata {
+              repository
+              exclusions
+            }
+          }
+        }
+        input_parameters
+        dynamic_artifact
+        retries
+        timeout
+        depends_on
+        task_validation_status
+        run_status
+      }
+      repair_run {
+        status
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+query fetchScheduleJobRuns($featureJobId: String, $version: Int, $limit: Int, $offset: Int) {
+    fetchScheduleJobRuns(
+        featureJobId: $featureJobId
+        version: $version
+        limit: $limit
+        offset: $offset
+    ) {
+        message
+        comments
+        response {
+            schedulerJobRunDetails {
+                backfillId
+                queryRunType
+                jobStatusRun
+                yarnUrl
+                resourceTier
+                comment
+                createdAt
+                updatedAt
+            }
+        }
+    }
+}

@@ -1,0 +1,44 @@
+query GetWorkflowRuns(
+  $workflowId: String
+  $tags: [String]
+  $startDate: String
+  $endDate: String
+  $pageSize: Int
+  $offset: Int
+  $sortBy: String
+  $sortOrder: String
+  $filters: [String]
+) {
+  getWorkflowRuns(
+    workflowId: $workflowId
+    tags: $tags
+    start_date: $startDate
+    end_date: $endDate
+    page_size: $pageSize
+    offset: $offset
+    sort_by: $sortBy
+    sort_order: $sortOrder
+    filters: $filters
+  ) {
+    offset
+    page_size
+    result_size
+    data {
+      workflow_id
+      runs {
+        duration
+        run_id
+        run_status
+        start_time
+        trigger
+        trigger_by
+        is_run_duration_exceeded
+        expected_run_duration
+      }
+      repair_run {
+        run_id
+        status
+      }
+    }
+  }
+}

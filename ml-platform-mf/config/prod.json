@@ -1,0 +1,14 @@
+{
+  "oldLoginFlow": false,
+  "csrfSecret": "xyz",
+  "cfMsdAssetUrl": "/s3",
+  "experimentUI": "/mlflow-app/experiments",
+  "modelsUI": "/mlflow-app/experiments#/models",
+  "uiConfig": {
+    "googleLoginUrl": "/monogql/mlpgql/auth/google",
+    "gqlUrl": "http://localhost:4000/graphql",
+    "pypiPackageDocsUrl": "https://docs.darwin-platform.example.com/darwin/AsBV8aJtrgybhZsDfvZh/key-concepts/compute/package-management/pypi-package"
+  },
+  "allowedCorsDomains": [],
+  "DATADOG_TRACE_ENV": "prod"
+}

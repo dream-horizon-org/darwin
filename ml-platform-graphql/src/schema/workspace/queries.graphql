@@ -1,0 +1,42 @@
+type IGetCodespacesResponse {
+  status: String!
+  result_size: Int!
+  page_size: Int!
+  offset: Int!
+  data: [IGetCodespacesResponseData!]!
+}
+type IGetCodespacesResponseDataCodespace {
+  id: String!
+  name: String!
+}
+type IGetCodespacesResponseDataProject {
+  id: String!
+  name: String!
+}
+type IGetCodespacesResponseDataCores {
+  consumed: Int!
+  total: Int!
+}
+type IGetCodespacesResponseDataMemory {
+  consumed: Int!
+  total: Int!
+}
+type IGetCodespacesResponseData {
+  codespace: IGetCodespacesResponseDataCodespace!
+  project: IGetCodespacesResponseDataProject!
+  cores: IGetCodespacesResponseDataCores!
+  memory: IGetCodespacesResponseDataMemory!
+  attached_since: String!
+  user: String!
+}
+
+type Query {
+  getAllCodespaces(
+    cluster_id: String!
+    query: String!
+    page_size: Int!
+    offset: Int!
+    sort_by: String!
+    sort_order: String!
+  ): IGetCodespacesResponse!
+}

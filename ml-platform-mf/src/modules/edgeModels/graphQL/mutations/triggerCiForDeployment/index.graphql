@@ -1,0 +1,12 @@
+mutation TriggerCiForDeployment(
+  $modelDeploymentId: String!
+  $appVersion: [String!]!
+) {
+  triggerCiForDeployment(
+    modelDeploymentId: $modelDeploymentId
+    appVersion: $appVersion
+  ) {
+    failureReason
+    success
+  }
+}

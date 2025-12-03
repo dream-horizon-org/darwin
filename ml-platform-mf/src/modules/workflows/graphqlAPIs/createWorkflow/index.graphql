@@ -1,0 +1,77 @@
+mutation CreateWorkflow($input: WorkflowDataInput) {
+  createWorkflow(input: $input) {
+    data {
+      workflow_id
+      workflow_name
+      display_name
+      description
+      tags
+      schedule
+      retries
+      notify_on
+      parameters
+      max_concurrent_runs
+      queue_enabled
+      expected_run_duration
+      notification_preference {
+        on_fail
+        on_skip
+        on_success
+        on_start
+      }
+      created_by
+      last_updated_on
+      created_at
+      workflow_status
+      tasks {
+        task_name
+        source_type
+        source
+        file_path
+        dynamic_artifact
+        cluster_type
+        attached_cluster {
+          cluster_id
+          runtime
+          cluster_name
+          cluster_status
+          memory
+          cores
+          ray_dashboard
+          logs_dashboard
+          events_dashboard
+          estimated_cost
+          created_at
+        }
+        dependent_libraries
+        packages {
+          source
+          body {
+            path
+            name
+            version
+            metadata {
+              repository
+              exclusions
+            }
+          }
+        }
+        input_parameters
+        retries
+        timeout
+        depends_on
+        task_validation_status
+        run_status
+        ha_config {
+          enable_ha
+        }
+        notify_on
+        notification_preference {
+          on_fail
+        }
+        trigger_rule
+      }
+      next_run_time
+    }
+  }
+}

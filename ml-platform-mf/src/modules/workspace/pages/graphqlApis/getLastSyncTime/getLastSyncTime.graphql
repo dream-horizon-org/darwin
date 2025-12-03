@@ -1,0 +1,8 @@
+query GetLastSyncedTimeForCodespace($codespaceId: String) {
+  getLastSyncedTimeForCodespace(codespace_id: $codespaceId) {
+    status
+    data {
+      last_synced_time
+    }
+  }
+}

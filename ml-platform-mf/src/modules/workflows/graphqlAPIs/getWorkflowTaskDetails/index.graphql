@@ -1,0 +1,73 @@
+query GetWorkflowTaskDetails(
+  $workflowId: String
+  $runId: String
+  $taskId: String
+) {
+  getWorkflowTaskDetails(
+    workflowId: $workflowId
+    runId: $runId
+    taskId: $taskId
+  ) {
+    data {
+      workflow_id
+      run_id
+      task_id
+      source
+      source_type
+      file_path
+      dynamic_artifact
+      dependent_libraries
+      depends_on
+      packages {
+        source
+        body {
+          path
+          name
+          version
+          metadata {
+            repository
+            exclusions
+          }
+        }
+      }
+      input_parameters
+      retries
+      timeout
+      task_validation_status
+      run_status
+      output {
+        try_number
+        trigger
+        trigger_by
+        error
+        application_log
+        system_log
+        logs
+        status
+        start_time
+        end_time
+        duration
+        attached_cluster {
+          cluster_id
+          runtime
+          cluster_name
+          cluster_status
+          memory
+          cores
+          ray_dashboard
+          logs_dashboard
+          events_dashboard
+        }
+      }
+      message
+      codespace_id
+      project_id
+      notify_on
+      trigger_rule
+      notification_preference {
+        on_fail
+      }
+      
+    }
+  }
+}

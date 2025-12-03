@@ -1,0 +1,36 @@
+---
+description: A Tags component.
+---
+
+import {Tags} from './tags'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+
+Tags represent a set of interactive keywords that help label , organize and categorize content
+
+### Component usage
+
+```js
+import {Tags} from '@sporta-technology/d11-web-components.tags.tags'
+import {
+  TagsSizes,
+  TagsType
+} from '@sporta-technology/d11-web-components.tags.tags'
+;<Tags label={'Label'} />
+```
+
+### Render Tags Component
+
+```js live
+<div
+  style={{
+    background: '#121212',
+    padding: '20px'
+  }}
+>
+  <Tags
+    label={'Label'}
+    size={'medium'}
+    trailingIcon={Icons.ICON_AIRPLANEMODE_ACTIVE}
+  />
+</div>
+```

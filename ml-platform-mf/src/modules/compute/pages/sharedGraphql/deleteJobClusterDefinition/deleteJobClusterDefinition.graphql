@@ -1,0 +1,8 @@
+mutation DeleteJobClusterDefinition($input: IClusterId) {
+  deleteJobClusterDefinition(input: $input) {
+    data {
+      is_deleted
+      job_cluster_id
+    }
+  }
+}

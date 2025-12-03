@@ -1,0 +1,14 @@
+mutation UpdateWorkflowMaxConcurrentRuns(
+  $workflowId: String
+  $maxConcurrentRuns: Int
+) {
+  updateWorkflowMaxConcurrentRuns(
+    workflowId: $workflowId
+    maxConcurrentRuns: $maxConcurrentRuns
+  ) {
+    data {
+      workflow_id
+      max_concurrent_runs
+    }
+  }
+}

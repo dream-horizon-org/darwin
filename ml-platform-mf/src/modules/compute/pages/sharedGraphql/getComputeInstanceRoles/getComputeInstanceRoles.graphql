@@ -1,0 +1,9 @@
+query GetComputeInstanceRoles {
+  getComputeInstanceRoles {
+    status
+    data {
+      instance_role_id
+      display_name
+    }
+  }
+}

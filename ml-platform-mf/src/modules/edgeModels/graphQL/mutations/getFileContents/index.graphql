@@ -1,0 +1,7 @@
+mutation Mutation($sourcePath: String!) {
+  getFileContents(source_path: $sourcePath) {
+    data
+    message
+    status
+  }
+}

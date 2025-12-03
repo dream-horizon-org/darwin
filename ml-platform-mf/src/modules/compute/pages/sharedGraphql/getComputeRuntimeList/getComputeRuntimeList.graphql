@@ -1,0 +1,23 @@
+query GetComputeRuntimeList {
+  getComputeRuntimeList {
+    status
+    data {
+      gpu {
+        name
+        created_by
+      }
+      custom {
+        name
+        created_by
+      }
+      cpu {
+        name
+        created_by
+      }
+      others {
+        name
+        created_by
+      }
+    }
+  }
+}

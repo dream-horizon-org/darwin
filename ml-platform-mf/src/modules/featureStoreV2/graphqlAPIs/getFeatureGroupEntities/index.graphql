@@ -1,0 +1,16 @@
+query GetFeatureGroupEntities($featureGroupName: String, $version: Int) {
+  getFeatureGroupEntities(
+    featureGroupName: $featureGroupName
+    version: $version
+  ) {
+    status
+    statusCode
+    data {
+      description
+      entityName
+      joinKeys
+      tags
+      type
+    }
+  }
+}

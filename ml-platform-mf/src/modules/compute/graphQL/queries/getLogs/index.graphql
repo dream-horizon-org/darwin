@@ -1,0 +1,28 @@
+query GetLogs(
+  $clusterId: String
+  $pageSize: Int
+  $offset: Int
+  $lastEventId: Int
+  $filters: IGetLogsFiltersInput
+) {
+  getLogs(
+    cluster_id: $clusterId
+    page_size: $pageSize
+    offset: $offset
+    last_event_id: $lastEventId
+    filters: $filters
+  ) {
+    status
+    page_size
+    offset
+    data {
+      raw_event_id
+      processed_event_id
+      timestamp
+      event_type
+      message
+      severity
+      source_id
+    }
+  }
+}

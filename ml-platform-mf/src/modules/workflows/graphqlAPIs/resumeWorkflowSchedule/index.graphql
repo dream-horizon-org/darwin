@@ -1,0 +1,8 @@
+mutation ResumeWorkflowSchedule($workflowId: String) {
+  resumeWorkflowSchedule(workflowId: $workflowId) {
+    data {
+      workflow_id
+      workflow_status
+    }
+  }
+}

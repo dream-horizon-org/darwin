@@ -1,0 +1,34 @@
+---
+description: A TcDataHeading component.
+---
+
+import {TcDataHeading} from './tc-data-heading'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+
+A component that renders the tc-data-heading inside the data cell.
+
+### Component usage
+
+```js
+import {
+  TcDataHeading,
+  TcDataHeadingProps
+} from '@sporta-technology/d11-web-components.table-cells.tc-data-heading'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+;<TcDataHeading
+  primaryText='Heading'
+  primaryTrailingIcon={Icons.ICON_HIGHLIGHT_OFF}
+  avatarLink='s'
+/>
+```
+
+### Render tc-data-heading component
+
+```js live
+<TcDataHeading
+  primaryText='Heading'
+  primaryTrailingIcon={Icons.ICON_HIGHLIGHT_OFF}
+  secondaryTrailingIcon={Icons.ICON_HIGHLIGHT_OFF}
+  avatarLink='s'
+/>
+```

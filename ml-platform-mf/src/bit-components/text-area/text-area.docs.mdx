@@ -1,0 +1,30 @@
+---
+description: A TextArea component.
+---
+
+import {TextArea} from './text-area'
+import {style} from './utils'
+
+A component that does something special and renders text in a div.
+
+### Component usage
+
+```js
+import {TextArea,TextAreaProps,TextAreaSizes} from '@sporta-technology/d11-web-components.text-area'
+
+<TextArea
+    label='Label'
+    name='TextArea'
+    value={value}
+    onChange={handleChange}
+/>
+
+```
+
+### Render TextArea Component!
+
+```js live
+<div style={style}>
+  <TextArea label='Label' name='TextArea' value='value' onChange={() => {}} />
+</div>
+```

@@ -1,0 +1,22 @@
+{
+  "apps": [
+    {
+      "name": "Dream11MLPlatformMF",
+      "script": "server.js",
+      "instances": "1",
+      "watch": false,
+      "merge_logs": true,
+      "exec_mode": "cluster",
+      "log_date_format": "DD-MM-YYYY HH:mm Z",
+      "cwd": "./",
+      "env": {
+        "NEW_RELIC_LOG": "stdout",
+        "DEBUG": "d11-*",
+        "NODE_ENV": "stag",
+        "NODE_CONFIG_DIR": "./config",
+        "TEAM_SUFFIX": "msd-1",
+        "VPC_SUFFIX": "-stag"
+      }
+    }
+  ]
+}

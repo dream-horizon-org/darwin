@@ -1,0 +1,49 @@
+query GetWorkflowTaskDetailsWithoutRun($workflowId: String, $taskId: String) {
+  getWorkflowTaskDetailsWithoutRun(workflowId: $workflowId, taskId: $taskId) {
+    data {
+      workflow_id
+      task_id
+      duration
+      source_type
+      file_path
+      dynamic_artifact
+      source
+      dependent_libraries
+      packages {
+        source
+        body {
+          path
+          name
+          version
+          metadata {
+            repository
+            exclusions
+          }
+        }
+      }
+      depends_on
+      input_parameters
+      retries
+      timeout
+      attached_cluster {
+        cluster_id
+        runtime
+        cluster_name
+        cluster_status
+        memory
+        cores
+        ray_dashboard
+        logs_dashboard
+        events_dashboard
+      }
+      message
+      codespace_id
+      project_id
+      notify_on
+      trigger_rule
+      notification_preference {
+        on_fail
+      }
+    }
+  }
+}

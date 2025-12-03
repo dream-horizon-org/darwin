@@ -1,0 +1,32 @@
+---
+description: A TcTextlink component.
+---
+
+import {TcTextlink} from './tc-textlink'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+
+A component that render textlink inside tc-cell.
+
+### Component usage
+
+```js
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+import {TableCellAlignment} from '@sporta-technology/d11-web-components.table-cells.tc-cell'
+import {TcTextlink} from '@sporta-technology/d11-web-components.table-cells.tc-textlink'
+
+;<TcTextlink
+  href='#'
+  text='TextLink'
+  leadingIcon={Icons.ICON_HIGHLIGHT_OFF}
+></TcTextlink>
+```
+
+### Render hello world!
+
+```js live
+<TcTextlink
+  href='#'
+  text='TextLink'
+  leadingIcon={Icons.ICON_HIGHLIGHT_OFF}
+></TcTextlink>
+```

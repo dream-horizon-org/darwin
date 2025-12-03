@@ -1,0 +1,5 @@
+mutation AddRecentlyVisitedCluster($clusterId: String) {
+  addRecentlyVisitedCluster(cluster_id: $clusterId) {
+    status
+  }
+}

@@ -1,0 +1,7 @@
+query validateEdgeTableName($tableName: String!) {
+  validateEdgeTableName(tableName: $tableName) {
+    data {
+      tableNameExists
+    }
+  }
+}

@@ -1,0 +1,17 @@
+type IDeleteRuntimeResponse {
+  status: String!
+}
+
+type ICreateRuntimeResponse {
+  status: String!
+  message: String!
+  is_unique: Boolean!
+}
+
+type Mutation {
+  deleteRuntime(runtimeName: String!): IDeleteRuntimeResponse!
+  createRuntime(
+    runtimeName: String!
+    dockerFile: String!
+  ): ICreateRuntimeResponse!
+}

@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext", "es2016"],
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": false,
+    "jsx": "react",
+    "preserveWatchOutput": true,
+    "types": ["react", "jest", "node", "@testing-library/jest-dom"],
+    "typeRoots": ["node_modules/@types"],
+    "incremental": true,
+    "declaration": false,
+    "downlevelIteration": true
+  },
+  "awesomeTypescriptLoaderOptions": {
+    "transpileOnly": true,
+    "useWebpackText": true,
+    "useTranspileModule": true,
+    "doTypeCheck": true,
+    "forkChecker": true
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "config.ts",
+    "webpack.config.ts",
+    "webpack.prod.config.ts",
+    "jest.config.ts",
+    "server.ts",
+    "scripts/**/*",
+    "gql-2-ts/**/*"
+  ],
+  "exclude": ["node_modules"]
+}

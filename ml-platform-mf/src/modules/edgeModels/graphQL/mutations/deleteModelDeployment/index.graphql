@@ -1,0 +1,5 @@
+mutation DeleteModelDeploymentForId($deploymentId: Int!) {
+  deleteModelDeploymentForId(deploymentId: $deploymentId) {
+    status
+  }
+}

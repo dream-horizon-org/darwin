@@ -1,0 +1,9 @@
+query fetchAllFilters {
+  fetchAllFilters {
+    message
+    data {
+      tags
+      owners
+    }
+  }
+}

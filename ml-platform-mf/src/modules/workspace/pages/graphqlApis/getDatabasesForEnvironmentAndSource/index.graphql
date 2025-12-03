@@ -1,0 +1,13 @@
+query GetDatabasesForEnvironmentAndSource($env: String, $source: String, $offset: Int, $pageSize: Int, $query: String) {
+  getDatabasesForEnvironmentAndSource(env: $env, source: $source, offset: $offset, page_size: $pageSize, query: $query) {
+    status
+    data {
+      result_size
+      databases {
+        database_id
+        name
+        link
+      }
+    }
+  }
+}

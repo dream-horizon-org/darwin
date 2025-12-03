@@ -1,0 +1,8 @@
+mutation startCluster($input: IClusterId) {
+  startCluster(input: $input) {
+    status
+    data {
+      cluster_id
+    }
+  }
+}

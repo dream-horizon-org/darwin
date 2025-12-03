@@ -1,0 +1,95 @@
+query GetComputeCluster($clusterId: String) {
+  getComputeCluster(clusterId: $clusterId) {
+    status
+    data {
+      clusterId
+      clusterName
+      isJobCluster
+      status
+      tags
+      runtime {
+        id
+        displayName
+      }
+      inactiveTime
+      autoTerminationPolicies {
+        policyName
+        enabled
+        params {
+          headNodeCpuUsageThreshold
+          workerNodeCpuUsageThreshold
+        }
+      }
+      template {
+        id
+        displayName
+        memoryPerCore
+        templateId
+      }
+      user
+      headNodeConfig {
+        cores
+        memory
+        nodeType
+        nodeCapacityType
+        gpuPod {
+          name
+          cores
+          memory
+          gpuCount
+          gRamMemory
+          gRamType
+        }
+      }
+      workerNodeConfigs {
+        coresPerPods
+        memoryPerPods
+        minPods
+        maxPods
+        diskSetting {
+          diskType
+          storageSize
+        }
+        nodeType
+        nodeCapacityType
+        gpuPod {
+          name
+          cores
+          memory
+          gpuCount
+          gRamMemory
+          gRamType
+        }
+      }
+      advanceConfig {
+        environmentVariables
+        spark_config
+        logPath
+        initScript
+        instanceRole {
+          id
+          displayName
+          roleId
+        }
+        availabilityZone {
+          id
+          displayName
+          zoneId
+        }
+        rayParams {
+          objectStoreMemory
+          cpusOnHead
+        }
+      }
+      dashboards {
+        rayDashboardUrl
+        sparkUIUrl
+        grafanaDashboardUrl
+        resourceUtilizationDashboardUrl
+      }
+      createdOn
+      createdAt
+      estimatedCost
+    }
+  }
+}

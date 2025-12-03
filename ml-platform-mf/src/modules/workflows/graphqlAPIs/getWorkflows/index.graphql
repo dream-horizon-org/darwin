@@ -1,0 +1,37 @@
+query GetWorkflows(
+  $query: String
+  $filters: IWorkflowsFilters
+  $pageSize: Int
+  $offset: Int
+  $sortBy: String
+  $sortOrder: String
+) {
+  getWorkflows(
+    query: $query
+    filters: $filters
+    pageSize: $pageSize
+    offset: $offset
+    sortBy: $sortBy
+    sortOrder: $sortOrder
+  ) {
+    result_size
+    page_size
+    offset
+    data {
+      workflow_name
+      display_name
+      description
+      status
+      workflow_id
+      tags
+      schedule
+      last_run_details {
+        run_status
+        is_run_duration_exceeded
+        expected_run_duration
+      }
+      next_run_time
+      owner
+    }
+  }
+}

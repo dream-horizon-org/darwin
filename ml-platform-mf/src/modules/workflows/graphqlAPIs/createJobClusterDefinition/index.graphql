@@ -1,0 +1,7 @@
+mutation CreateJobClusterDefinition($input: ClusterCreate) {
+  createJobClusterDefinition(input: $input) {
+    data {
+      job_cluster_definition_id
+    }
+  }
+}

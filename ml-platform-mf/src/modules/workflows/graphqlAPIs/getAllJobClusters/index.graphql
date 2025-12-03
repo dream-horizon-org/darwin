@@ -1,0 +1,28 @@
+query GetAllJobClustersV2(
+  $query: String
+  $pageSize: Int
+  $offset: Int
+  $sortBy: String
+  $sortOrder: String
+  $filters: IgetAllJobClustersV2Filters
+) {
+  getAllJobClustersV2(
+    query: $query
+    pageSize: $pageSize
+    offset: $offset
+    sort_by: $sortBy
+    sort_order: $sortOrder
+    filters: $filters
+  ) {
+    data {
+      job_cluster_definition_id
+      cluster_name
+      cores
+      memory
+      runtime
+      estimated_cost
+      created_at
+    }
+    total_count
+  }
+}

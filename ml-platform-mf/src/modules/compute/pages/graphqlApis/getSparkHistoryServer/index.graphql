@@ -1,0 +1,16 @@
+query GetSparkHistoryServer($resourceId: String!) {
+  getSparkHistoryServer(resource_id: $resourceId) {
+    status
+    data {
+      server_id
+      resource
+      user
+      ttl
+      started_at
+      status
+      id
+      url
+    }
+    message
+  }
+}

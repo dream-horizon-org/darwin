@@ -1,0 +1,25 @@
+---
+description: A TextLink component.
+---
+
+import {TextLink} from './text-link'
+import {TextLinkSizes} from './constants'
+import {style} from './utils'
+
+Links allow users to navigate to a different location. They can be presented inline inside a paragraph or as standalone text.
+
+### Component usage
+
+```js
+import {TextLink,TextLinkProps,TextLinkSizes,TextLinkVarinats} from '@sporta-technology/d11-web-components.text-link'
+
+<TextLink size={TextLinkSizes.Large} icon={true} text='Text link' href='#' />
+```
+
+### Render hello world!
+
+```js live
+<div style={style}>
+  <TextLink size={TextLinkSizes.Large} icon={true} text='Text link' href='#' />
+</div>
+```

@@ -1,0 +1,5 @@
+mutation DetachCluster($codespaceId: String, $clusterId: String) {
+  detachCluster(codespace_id: $codespaceId, cluster_id: $clusterId) {
+    status
+  }
+}

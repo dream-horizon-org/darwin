@@ -1,0 +1,11 @@
+export enum API_STATUS {
+  SUCCESS,
+  ERROR,
+  INIT,
+  LOADING
+}
+
+export enum GRAPHQL_API_STATUS {
+  SUCCESS = 'SUCCESS',
+  ERROR = 'ERROR'
+}

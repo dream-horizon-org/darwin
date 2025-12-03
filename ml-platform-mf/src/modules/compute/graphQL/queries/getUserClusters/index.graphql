@@ -1,0 +1,24 @@
+query GetUserClusters($query: String!, $sortBy: String!, $sortOrder: String!, $pageSize: Int!, $offset: Int!, $filters: IGetSearchedClustersFiltersInput) {
+  getSearchedClusters(query: $query, sort_by: $sortBy, sort_order: $sortOrder, pageSize: $pageSize, offset: $offset, filters: $filters) {
+    status
+    result_size
+    page_size
+    offset
+    data {
+      cluster_id
+      cluster_name
+      status
+      codespaces
+      runtime
+      cores {
+        total
+        consumed
+      }
+      memory {
+        consumed
+        total
+      }
+      cost
+    }
+  }
+}

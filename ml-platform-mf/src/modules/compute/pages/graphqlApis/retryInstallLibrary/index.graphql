@@ -1,0 +1,15 @@
+mutation RetryInstallLibrary($input: IRetryInstallLibrary) {
+  retryInstallLibrary(input: $input) {
+    status
+    message
+    data {
+      packages {
+        status
+        version
+        name
+        id
+      }
+      cluster_id
+    }
+  }
+}

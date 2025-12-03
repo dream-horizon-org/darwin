@@ -1,0 +1,50 @@
+{
+  "data": {
+    "workspaces": {
+      "status": "SUCCESS",
+      "data": [
+        "workspace_1",
+        "workspace_2",
+        "workspace_3",
+        "workspace_4",
+        "workspace_5"
+      ]
+    }
+  },
+  "extensions": {
+    "tracing": {
+      "version": 1,
+      "startTime": "2024-02-26T09:55:48.193Z",
+      "endTime": "2024-02-26T09:55:48.929Z",
+      "duration": 735986875,
+      "execution": {
+        "resolvers": [
+          {
+            "path": ["workspaces"],
+            "parentType": "Query",
+            "fieldName": "workspaces",
+            "returnType": "IWorkspacesResponse",
+            "startOffset": 1701666,
+            "duration": 733048000
+          },
+          {
+            "path": ["workspaces", "status"],
+            "parentType": "IWorkspacesResponse",
+            "fieldName": "status",
+            "returnType": "String",
+            "startOffset": 735486708,
+            "duration": 16000
+          },
+          {
+            "path": ["workspaces", "data"],
+            "parentType": "IWorkspacesResponse",
+            "fieldName": "data",
+            "returnType": "[String]",
+            "startOffset": 735606208,
+            "duration": 6833
+          }
+        ]
+      }
+    }
+  }
+}

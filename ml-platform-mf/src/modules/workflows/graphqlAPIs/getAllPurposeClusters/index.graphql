@@ -1,0 +1,19 @@
+query GetAllClusters($searchString: String, $pageSize: Int, $offset: Int) {
+  getAllClusters(
+    searchString: $searchString
+    pageSize: $pageSize
+    offset: $offset
+  ) {
+    status
+    data {
+      cores
+      id
+      memory
+      name
+      status
+    }
+    offset
+    pageSize
+    resultSize
+  }
+}

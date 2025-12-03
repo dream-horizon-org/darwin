@@ -1,0 +1,7 @@
+query GetDataSourceSourcesForEnvironment($env: String) {
+  getDataSourceSourcesForEnvironment(env: $env) {
+    data
+    message
+    status
+  }
+}

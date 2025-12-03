@@ -1,0 +1,16 @@
+{
+  "port": 7700,
+  "oldLoginFlow": true,
+  "csrfSecret": "xyz",
+  "gqlUrl": "http://localhost/ml-platform/graphql",
+  "uiConfig": {
+    "contentMaxWidth": "450px",
+    "gqlUrl": "http://localhost/ml-platform/graphql",
+    "googleLoginUrl": "http://localhost:9999/monogql/mlpgql/auth/google",
+    "googleLoginCallback": "http://localhost:9999/monogql/mlpgql/auth/callback",
+    "googleClientId": "xyz.apps.googleusercontent.com",
+    "pypiPackageDocsUrl": "https://docs.darwin-platform.example.com/darwin/AsBV8aJtrgybhZsDfvZh/key-concepts/compute/package-management/pypi-package"
+  },
+  "allowedCorsDomains": [],
+  "DATADOG_TRACE_ENV": "local"
+}

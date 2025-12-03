@@ -1,0 +1,13 @@
+mutation EditCodespace(
+  $projectId: String
+  $codespaceId: String
+  $codespaceName: String
+) {
+  editCodespace(
+    project_id: $projectId
+    codespace_id: $codespaceId
+    codespace_name: $codespaceName
+  ) {
+    status
+  }
+}

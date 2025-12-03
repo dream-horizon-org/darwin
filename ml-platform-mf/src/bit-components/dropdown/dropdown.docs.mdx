@@ -1,0 +1,58 @@
+---
+description: A Dropdown component.
+---
+
+import {Dropdown} from './dropdown'
+
+Dropdowns present a list of options from which a user can select one option, or several. A selected option can represent a value in a form, or can be used as an action to filter or sort existing content
+
+### Component usage
+
+```js
+<div style={{background: '#1A1A1A', height: '100px', padding: '20px'}}>
+  <Dropdown
+    menuLists={[
+      'Oliver Hansen',
+      'Van Henry',
+      'April Tucker',
+      'Ralph Hubbard',
+      'Omar Alexander',
+      'Carlos Abbott',
+      'Miriam Wagner',
+      'Bradley Wilkerson',
+      'Virginia Andrews',
+      'Kelly Snyder'
+    ]}
+    label={'menu'}
+  />
+</div>
+```
+
+### Render Dropdown Component!
+
+```js live
+<div
+  style={{
+    background: '#1A1A1A',
+    height: '100px',
+    width: '300px',
+    padding: '20px'
+  }}
+>
+  <Dropdown
+    menuLists={[
+      'Oliver Hansen',
+      'Van Henry',
+      'April Tucker',
+      'Ralph Hubbard',
+      'Omar Alexander',
+      'Carlos Abbott',
+      'Miriam Wagner',
+      'Bradley Wilkerson',
+      'Virginia Andrews',
+      'Kelly Snyder'
+    ]}
+    label={'menu'}
+  />
+</div>
+```

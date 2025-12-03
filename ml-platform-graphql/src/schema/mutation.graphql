@@ -1,0 +1,649 @@
+input DestinationConfig {
+  featureGroup: String
+}
+
+input Destination {
+  type: String
+  config: DestinationConfig
+}
+
+input DataSourceConfigs {
+  destinations: [Destination]
+}
+
+input DataSinkConfigs {
+  destinations: [Destination]
+}
+
+input ComputeMetadata {
+  computeType: String
+  query: String
+  className: String
+  customJobPyFile: [String]
+}
+
+input GroupKey {
+  groupKeyName: String
+  keyDataType: String
+}
+
+input FeatureGroupMetadata {
+  groupName: String
+  groupKeys: [GroupKey]
+  author: String
+  onlineEnabled: Boolean
+}
+
+input dateParameterConfig {
+  timeType: String
+  timeDelay: String
+  timeFormat: String
+}
+
+input PararmetersConfigList {
+  parameterName: String
+  parameterType: String
+  dateParameterConfig: dateParameterConfig
+}
+
+input ParameterConfig {
+  pararmetersConfigList: [PararmetersConfigList]
+}
+
+input SchedularMetadata {
+  isOneTime: Boolean
+  parameterConfig: ParameterConfig
+  requestType: String
+  skipFullValidation: Boolean
+  resourceTier: String
+  isBackfillRequired: Boolean
+  backfillRequest: String
+}
+
+input FeatureJob {
+  name: String
+  tags: [String]
+  description: String
+  dataSourceConfig: DataSourceConfigs
+  dataSinkConfig: DataSinkConfigs
+  computeType: String
+  computeMetadata: ComputeMetadata
+  featureType: String
+  schedule: String
+  owner: String
+  featureGroupId: Int
+  schedulerId: Int
+  createdAt: String
+  updatedAt: String
+  featureGroupMetadata: FeatureGroupMetadata
+  schedularMetadata: SchedularMetadata
+}
+
+input FeatureJobUpdate {
+  createFeatureJob: FeatureJob
+  featureJobId: String
+  version: Int
+}
+
+type FeatureJobOutputResponse {
+  featureJobId: String
+  name: String
+  version: Int
+  tags: [String]
+  description: String
+  dataSourceConfig: IDataSourceConfigs
+  dataSinkConfig: IDataSinkConfigs
+  computeType: String
+  computeMetadata: String
+  featureType: String
+  schedule: String
+  owner: String
+  featureGroupId: Int
+  schedulerId: Int
+  state: String
+  createdAt: String
+  updatedAt: String
+}
+
+type FeatureJobOutput {
+  message: String
+  comments: [String]
+  response: FeatureJobOutputResponse
+}
+
+input FeatureJobStateUpdate {
+  featureJobId: String
+  requestStatus: String
+  requestedBy: String
+  version: Int
+}
+
+type toggleFeatureJobStateResponse {
+  requestResponse: String
+}
+
+type toggleFeatureJobStateOutput {
+  message: String
+  comments: [String]
+  response: toggleFeatureJobStateResponse
+}
+
+input DiscSetting {
+  diskType: String
+  storageSize: Int
+}
+
+input GpuPod {
+  name: String
+  cores: Int
+  memory: Int
+  gpuCount: Int
+  gRamMemory: Int
+  gRamType: String
+}
+
+input WorkerNode {
+  coresPerPods: Int
+  memoryPerPods: Int
+  minPods: Int
+  maxPods: Int
+  diskSetting: DiscSetting
+  nodeType: String
+  nodeCapacityType: String
+  gpuPod: GpuPod
+}
+
+input WorkerNodeConfigsCost {
+  coresPerPods: Int
+  memoryPerPods: Int
+  minPods: Int
+  maxPods: Int
+  nodeCapacityType: String
+  nodeType: String
+  gpuPod: GpuPod
+}
+
+input DisplayName {
+  id: String
+  displayName: String
+}
+
+input Template {
+  id: String
+  displayName: String
+  memoryPerCore: Int
+}
+
+input HeadNodeConfig {
+  cores: Int
+  memory: Int
+  nodeType: String
+  nodeCapacityType: String
+  gpuPod: GpuPod
+}
+
+input RayParamsConfig {
+  objectStoreMemory: Int
+  cpusOnHead: Int
+}
+
+input AdvanceConfig {
+  environmentVariables: String
+  logPath: String
+  initScript: String
+  instanceRole: DisplayName
+  availabilityZone: DisplayName
+  rayParams: RayParamsConfig
+  spark_config: JSON
+}
+
+input AutoTerminationParams {
+  headNodeCpuUsageThreshold: Int
+  workerNodeCpuUsageThreshold: Int
+}
+
+input AutoTerminationPolicies {
+  policyName: String
+  enabled: Boolean
+  params: AutoTerminationParams
+}
+
+input ClusterCreate {
+  clusterName: String
+  packages_clone_from: String
+  tags: [String]
+  runtime: String
+  inactiveTime: Int
+  autoTerminationPolicies: [AutoTerminationPolicies]
+  template: Template
+  user: String
+  headNodeConfig: HeadNodeConfig
+  workerNodeConfigs: [WorkerNode]
+  advanceConfig: AdvanceConfig
+}
+
+input ClusterCost {
+  clusterName: String
+  tags: [String]
+  runtime: String
+  inactiveTime: Int
+  user: String
+  headNodeConfig: HeadNodeConfig
+  workerNodeConfigs: [WorkerNodeConfigsCost]
+}
+
+input ClusterUpdateData {
+  clusterName: String
+  tags: [String]
+  runtime: String
+  inactiveTime: Int
+  autoTerminationPolicies: [AutoTerminationPolicies]
+  template: Template
+  user: String
+  headNodeConfig: HeadNodeConfig
+  workerNodeConfigs: [WorkerNode]
+  advanceConfig: AdvanceConfig
+}
+
+input ClusterUpdate {
+  clusterId: String
+  data: ClusterUpdateData
+}
+
+input IClusterId {
+  cluster_id: String
+}
+
+input IUninstallLibrary {
+  cluster_id: String
+  id: [Int]
+}
+
+type ICluster {
+  cluster_id: String
+}
+
+type ICreateComputeResponse {
+  status: String
+  data: ICluster
+}
+
+type IUninstallLibraryDataItem {
+  id: Int
+}
+
+type IUninstallLibraryData {
+  cluster_id: String
+  packages: [IUninstallLibraryDataItem]
+}
+
+type IUninstallLibraryResponse {
+  status: ApiStatus
+  message: String
+  data: IUninstallLibraryData
+}
+
+type IClusterCost {
+  min_cost: String
+  max_cost: String
+}
+
+type IPredictClusterCostResponse {
+  data: IClusterCost
+}
+
+type IUpdateComputeData {
+  ClusterName: String
+  DashboardLink: String
+  JupyterLink: String
+}
+
+type IUpdateComputeResponse {
+  status: String
+  data: IUpdateComputeData
+}
+
+input ClusterNameUpdateData {
+  clusterName: String
+}
+
+input ClusterNameUpdate {
+  clusterId: String
+  data: ClusterNameUpdateData
+}
+
+type IClusterNameUpdate {
+  name: String
+}
+
+type IClusterNameUpdateResponse {
+  status: String
+  data: IClusterNameUpdate
+}
+
+input ClusterTagsUpdateData {
+  tags: [String]
+}
+
+input ClusterTagsUpdate {
+  clusterId: String
+  data: ClusterTagsUpdateData
+}
+
+type IClusterTagsUpdateResponse {
+  status: String
+  data: IClusterTagsUpdate
+}
+
+type IClusterTagsUpdate {
+  tags: [String]
+  cluster_id: String
+}
+
+type IDetachClusterResponse {
+  status: String
+}
+
+type IDeleteProjectData {
+  project_id: Int
+}
+
+type IDeleteProjectResponse {
+  status: String
+  data: IDeleteProjectData
+}
+
+type IDeleteCodespaceData {
+  project_id: Int
+  codespace_id: Int
+}
+
+type IDeleteCodespaceResponse {
+  status: String
+  data: IDeleteCodespaceData
+}
+
+type IEditCodespaceResponse {
+  status: String
+}
+
+type IEditProjectResponse {
+  status: String
+}
+
+type IPauseWorkflowScheduleData {
+  workflow_status: String
+  workflow_id: String
+}
+
+type IPauseWorkflowScheduleResponse {
+  data: IPauseWorkflowScheduleData
+}
+
+type IResumeWorkflowScheduleData {
+  workflow_status: String
+  workflow_id: String
+}
+
+type IResumeWorkflowScheduleResponse {
+  data: IResumeWorkflowScheduleData
+}
+
+type IStopWorkflowRunData {
+  workflow_id: String
+  run_id: String
+  run_status: String
+}
+
+type IStopWorkflowRunResponse {
+  data: IStopWorkflowRunData
+}
+
+type IRunWorkflowRunData {
+  workflow_id: String
+  last_runs_status: [String]
+  last_run: IWorkflowRunsDetails
+}
+
+type IRunWorkflowRunResponse {
+  data: IRunWorkflowRunData
+}
+
+type IDeleteWorkflowData {
+  is_deleted: Boolean
+  workflow_id: String
+}
+
+type IDeleteWorkflowResponse {
+  data: IDeleteWorkflowData
+}
+
+input IWorkflowTaskHAConfigInput {
+  enable_ha: Boolean
+}
+
+input ITaskNotificationPreferenceInput {
+  on_fail: Boolean
+}
+input IWorkflowTaskLibrariesInput {
+  source: String
+  cluster_id: String
+  body: IInstallLibraryBody
+}
+
+enum IWorkflowTaskClusterType {
+  job
+  basic
+}
+
+input WorkflowTaskInput {
+  taskName: String
+  sourceType: String
+  source: String
+  filePath: String
+  dynamicArtifact: Boolean
+  clusterId: String
+  clusterType: IWorkflowTaskClusterType
+  dependentLibraries: String
+  packages: [IInstallLibraryBody]
+  inputParameters: JSON
+  retries: Int
+  timeout: Int
+  dependsOn: [String]
+  ha_config: IWorkflowTaskHAConfigInput
+  notify_on: String
+  notification_preference: ITaskNotificationPreferenceInput
+  trigger_rule: TriggerRules
+}
+
+input INotificationPreferenceInput {
+  on_start: Boolean
+  on_fail: Boolean
+  on_success: Boolean
+  on_skip: Boolean
+}
+
+input WorkflowDataInput {
+  workflowName: String
+  description: String
+  displayName: String
+  tags: [String]
+  maxConcurrentRuns: Int
+  expected_run_duration: Int
+  queue_enabled: Boolean
+  notification_preference: INotificationPreferenceInput
+  schedule: String
+  retries: Int
+  notifyOn: String
+  parameters: JSON
+  tasks: [WorkflowTaskInput]
+  createdBy: String
+}
+
+type IJobClusterDefnitionData {
+  job_cluster_definition_id: String
+}
+
+type IJobClusterDefnitionResponse {
+  data: IJobClusterDefnitionData
+}
+
+type IWorkflowRetriesData {
+  workflow_id: String
+  retries: Int
+}
+
+type IWorkflowRetriesResponse {
+  data: IWorkflowRetriesData
+}
+
+type IWorkflowMaxConcurrentRunsData {
+  workflow_id: String
+  max_concurrent_runs: Int
+}
+
+type IWorkflowMaxConcurrentRunsResponse {
+  data: IWorkflowMaxConcurrentRunsData
+}
+
+type IWorkflowScheduleData {
+  workflow_id: String
+  schedule: String
+}
+
+type IWorkflowScheduleResponse {
+  data: IWorkflowScheduleData
+}
+
+type IWorkflowTagsData {
+  workflow_id: String
+  tags: [String]
+}
+
+type IWorkflowTagsResponse {
+  data: IWorkflowTagsData
+}
+
+type IWorkflowYamlData {
+  yaml: String
+  workflow_id: String
+}
+
+type IWorkflowYamlResponse {
+  data: IWorkflowYamlData
+}
+
+type ICreateExperimentationUserResponse {
+  status: String
+  message: String
+}
+
+type IRepairWorkflowRunData {
+  message: String
+}
+
+type IRepairWorkflowRunResponse {
+  data: IRepairWorkflowRunData
+}
+
+type IDeleteJobClusterDefinitionResponseData {
+  is_deleted: Boolean
+  job_cluster_id: String
+}
+
+type IDeleteJobClusterDefinitionResponse {
+  data: IDeleteJobClusterDefinitionResponseData
+}
+
+input IRetryInstallLibrary {
+  cluster_id: String
+  library_id: Int
+}
+
+type Mutation {
+  createFeatureGroup(input: FeatureJob): FeatureJobOutput
+  updateFeatureJob(input: FeatureJobUpdate): FeatureJobOutput
+  toggleFeatureJobState(
+    input: FeatureJobStateUpdate
+  ): toggleFeatureJobStateOutput
+  createComputeCluster(input: ClusterCreate): ICreateComputeResponse
+  predictClusterCost(input: ClusterCost): IPredictClusterCostResponse
+  updateComputeCluster(input: ClusterUpdate): IUpdateComputeResponse
+  updateComputeClusterName(input: ClusterNameUpdate): IClusterNameUpdateResponse
+  updateComputeClusterTags(input: ClusterTagsUpdate): IClusterTagsUpdateResponse
+  stopCluster(input: IClusterId): ICreateComputeResponse
+  deleteCluster(input: IClusterId): ICreateComputeResponse
+  deleteJobClusterDefinition(
+    input: IClusterId
+  ): IDeleteJobClusterDefinitionResponse
+  startCluster(input: IClusterId): ICreateComputeResponse
+  reStartCluster(input: IClusterId): ICreateComputeResponse
+  uninstallLibrary(input: IUninstallLibrary): IUninstallLibraryResponse
+  retryInstallLibrary(input: IRetryInstallLibrary): IInstallLibraryResponse
+  createProject(
+    project_name: String
+    codespace_name: String
+    cluster_id: String
+  ): ICodespaceDetails
+  createCodespace(
+    project_id: String
+    codespace_name: String
+    clone_from_codespace_name: String
+    cluster_id: String
+  ): ICodespaceDetails
+  attachCluster(
+    codespace_id: String
+    cluster_id: String
+    project_id: String
+  ): ICodespaceDetails
+  detachCluster(
+    codespace_id: String
+    cluster_id: String
+  ): IDetachClusterResponse
+  deleteProject(project_id: String): IDeleteProjectResponse
+  deleteCodespace(
+    project_id: String
+    codespace_id: String
+  ): IDeleteCodespaceResponse
+  editCodespace(
+    project_id: String
+    codespace_id: String
+    codespace_name: String
+  ): IEditCodespaceResponse
+  editProject(project_id: String, project_name: String): IEditProjectResponse
+  pauseWorkflowSchedule(workflowId: String): IPauseWorkflowScheduleResponse
+  resumeWorkflowSchedule(workflowId: String): IResumeWorkflowScheduleResponse
+  stopWorkflowRun(workflowId: String, runId: String): IStopWorkflowRunResponse
+  runWorkflowRun(workflowId: String, parameters: JSON): IRunWorkflowRunResponse
+  deleteWorkflow(workflowId: String): IDeleteWorkflowResponse
+  createWorkflow(input: WorkflowDataInput): IWorkflowDetailsResponse
+  updateWorkflow(
+    workflowId: String
+    input: WorkflowDataInput
+  ): IWorkflowDetailsResponse
+  createJobClusterDefinition(input: ClusterCreate): IJobClusterDefnitionResponse
+  updateJobClusterDefinition(
+    clusterId: String
+    input: ClusterCreate
+  ): IJobClusterDefnitionResponse
+  updateWorkflowRetries(
+    workflowId: String
+    retries: Int
+  ): IWorkflowRetriesResponse
+  updateWorkflowMaxConcurrentRuns(
+    workflowId: String
+    maxConcurrentRuns: Int
+  ): IWorkflowMaxConcurrentRunsResponse
+  updateWorkflowSchedule(
+    workflowId: String
+    schedule: String
+  ): IWorkflowScheduleResponse
+  updateWorkflowTags(workflowId: String, tags: [String]): IWorkflowTagsResponse
+  getWorkflowYaml(workflowId: String): IWorkflowYamlResponse
+  createExperimentationUser: ICreateExperimentationUserResponse
+  repairWorkflowRun(
+    workflowId: String
+    runId: String
+    selectedTasks: [String]
+  ): IRepairWorkflowRunResponse
+}

@@ -1,0 +1,8 @@
+mutation PredictClusterCost($input: ClusterCost) {
+  predictClusterCost(input: $input) {
+    data {
+      min_cost
+      max_cost
+    }
+  }
+}

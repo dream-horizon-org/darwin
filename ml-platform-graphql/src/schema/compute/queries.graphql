@@ -1,0 +1,170 @@
+type IGetRecentlyVisitedClustersResponse {
+  status: String
+  data: [IGetRecentlyVisitedClustersData!]!
+}
+
+type IGetRecentlyVisitedClustersData {
+  cluster_id: String
+  cluster_name: String
+  status: String
+  total_cores: Int
+  total_memory: Int
+  last_visited: String
+}
+
+type IGetFilterOptionsResponse {
+  status: String
+  data: IGetFilterOptionsData
+}
+
+type IGetFilterOptionsData {
+  status: [String!]!
+  users: [String!]!
+}
+
+input IGetSearchedClustersFiltersInput {
+  status: [String!]!
+  user: [String!]!
+}
+
+type IGetSearchedClustersResponse {
+  status: String
+  result_size: Int
+  page_size: Int
+  offset: Int
+  data: [IGetSearchedClustersData!]!
+}
+
+type IGetSearchedClustersData {
+  cluster_id: String
+  cluster_name: String
+  status: String
+  codespaces: Int
+  runtime: String
+  cores: ISearchedClusterCores
+  memory: ISearchedClusterMemory
+  cost: Int
+  tags: [String!]!
+  last_used_on: String
+  created_by: String
+  created_on: String
+}
+
+type ISearchedClusterCores {
+  consumed: Int
+  total: Int
+}
+
+type ISearchedClusterMemory {
+  consumed: Int
+  total: Int
+}
+
+type IGetLogGroupsData {
+  session_id: String
+  start_timestamp: String
+  end_timestamp: String
+}
+
+type IGetLogGroupsResponse {
+  data: [IGetLogGroupsData]
+}
+
+type IGetLogLevelsResponse {
+  data: [String]
+}
+
+type IGetLogComponentsData {
+  id: Int
+  label: String
+}
+
+type IGetLogComponentsResponse {
+  data: [IGetLogComponentsData]
+}
+
+type IGetLogsData {
+  raw_event_id: Int
+  processed_event_id: Int
+  timestamp: String
+  event_type: String
+  message: String
+  severity: String
+  source_id: Int
+}
+
+type IGetLogsResponse {
+  status: String
+  page_size: Int
+  offset: Int
+  data: [IGetLogsData]
+}
+
+type IGetLogLineDetailsData {
+  processed_event_id: Int
+  event_data: JSON
+  timestamp: String
+}
+
+type IGetLogLineDetailsResponse {
+  data: IGetLogLineDetailsData
+}
+
+type IEventType {
+  event: String!
+  default: Boolean!
+}
+
+type IGetEventTypesResponse {
+  data: [IEventType!]!
+}
+
+input IGetLogsFiltersInput {
+  severities: [String]
+  start_timestamp: String
+  end_timestamp: String
+  components: [Int]
+  event_types: [String]
+}
+
+type IStartSparkHistoryServerData {
+  resource: String
+  user: String
+  ttl: Int
+  started_at: String
+  status: String
+  id: String
+  url: String
+}
+
+type IStartSparkHistoryServerResponse {
+  status: String
+  data: IStartSparkHistoryServerData
+  message: String
+}
+
+type Query {
+  getRecentlyVisitedClusters: IGetRecentlyVisitedClustersResponse
+  getFilterOptions: IGetFilterOptionsResponse
+  getSearchedClusters(
+    query: String!
+    sort_by: String!
+    sort_order: String!
+    pageSize: Int!
+    offset: Int!
+    filters: IGetSearchedClustersFiltersInput
+  ): IGetSearchedClustersResponse
+  getLogGroups(cluster_id: String!): IGetLogGroupsResponse
+  getLogLevels: IGetLogLevelsResponse
+  getLogComponents: IGetLogComponentsResponse
+  getEventTypes: IGetEventTypesResponse
+  getLogs(
+    cluster_id: String
+    page_size: Int
+    offset: Int
+    last_event_id: Int
+    filters: IGetLogsFiltersInput
+  ): IGetLogsResponse
+  getLogLineDetails(processed_event_id: Int): IGetLogLineDetailsResponse
+  getSparkHistoryServer(resource_id: String!): IStartSparkHistoryServerResponse
+}

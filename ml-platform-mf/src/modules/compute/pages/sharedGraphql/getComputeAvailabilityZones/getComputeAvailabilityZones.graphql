@@ -1,0 +1,9 @@
+query GetComputeAvailabilityZones {
+  getComputeAvailabilityZones {
+    status
+    data {
+      az_id
+      display_name
+    }
+  }
+}

@@ -1,0 +1,28 @@
+query GetAllCodespaces($clusterId: String!, $query: String!, $pageSize: Int!, $offset: Int!, $sortBy: String!, $sortOrder: String!) {
+  getAllCodespaces(cluster_id: $clusterId, query: $query, page_size: $pageSize, offset: $offset, sort_by: $sortBy, sort_order: $sortOrder) {
+    status
+    result_size
+    page_size
+    offset
+    data {
+      codespace {
+        id
+        name
+      }
+      project {
+        id
+        name
+      }
+      cores {
+        consumed
+        total
+      }
+      memory {
+        consumed
+        total
+      }
+      attached_since
+      user
+    }
+  }
+}

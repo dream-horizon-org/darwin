@@ -1,0 +1,7 @@
+query validateModelDeploymentName($deploymentName: String!) {
+  validateModelDeploymentName(deploymentName: $deploymentName){
+    data {
+        unique
+    }
+  }
+}

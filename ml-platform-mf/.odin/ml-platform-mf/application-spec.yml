@@ -1,0 +1,58 @@
+version: 1.0.77-SNAPSHOT
+name: ml-platform-mf
+description: ML Platform Microfrontend UI
+service_type: nodejs
+port: 7700
+
+# Service metadata
+metadata:
+  team: ml-platform
+  component: frontend
+  language: typescript
+  runtime: node-20.16.0
+
+# Health check configuration
+health_check:
+  path: /status
+  port: 7700
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+# Resource requirements
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 500m
+  limits:
+    memory: 1Gi
+    cpu: 1000m
+
+# Scaling configuration
+scaling:
+  min_replicas: 1
+  max_replicas: 5
+  target_cpu_utilization: 70
+
+# Environment-specific configuration
+environments:
+  dev:
+    replicas: 1
+    log_level: debug
+  
+  stag:
+    replicas: 1
+    log_level: info
+  
+  uat:
+    replicas: 1
+    log_level: info
+  
+  prod:
+    replicas: 2
+    log_level: warn
+
+# Dependencies
+dependencies:
+  - ml-platform-graphql
+

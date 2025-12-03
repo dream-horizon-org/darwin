@@ -1,0 +1,15 @@
+mutation RepairWorkflowRun(
+  $workflowId: String
+  $runId: String
+  $selectedTasks: [String]
+) {
+  repairWorkflowRun(
+    workflowId: $workflowId
+    runId: $runId
+    selectedTasks: $selectedTasks
+  ) {
+    data {
+      message
+    }
+  }
+}

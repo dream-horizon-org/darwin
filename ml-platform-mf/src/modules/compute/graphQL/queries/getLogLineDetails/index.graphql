@@ -1,0 +1,9 @@
+query GetLogLineDetails($processedEventId: Int) {
+  getLogLineDetails(processed_event_id: $processedEventId) {
+    data {
+      processed_event_id
+      event_data
+      timestamp
+    }
+  }
+}

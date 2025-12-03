@@ -1,0 +1,101 @@
+{
+  "data": {
+    "getProjects": {
+      "status": "SUCCESS",
+      "data": [
+        {
+          "project_id": "1",
+          "project_name": "project_1",
+          "number_of_codespaces": 1,
+          "last_updated": "2024-02-15T11:30:58Z",
+          "created_on": "2024-02-15T11:30:58Z",
+          "created_by": "all@all.com"
+        }
+      ]
+    }
+  },
+  "extensions": {
+    "tracing": {
+      "version": 1,
+      "startTime": "2024-02-26T10:08:23.400Z",
+      "endTime": "2024-02-26T10:08:24.213Z",
+      "duration": 813279708,
+      "execution": {
+        "resolvers": [
+          {
+            "path": ["getProjects"],
+            "parentType": "Query",
+            "fieldName": "getProjects",
+            "returnType": "IProjectsResponse",
+            "startOffset": 3797250,
+            "duration": 807873833
+          },
+          {
+            "path": ["getProjects", "status"],
+            "parentType": "IProjectsResponse",
+            "fieldName": "status",
+            "returnType": "String",
+            "startOffset": 812357000,
+            "duration": 17958
+          },
+          {
+            "path": ["getProjects", "data"],
+            "parentType": "IProjectsResponse",
+            "fieldName": "data",
+            "returnType": "[IProjectsList]",
+            "startOffset": 812600542,
+            "duration": 11041
+          },
+          {
+            "path": ["getProjects", "data", 0, "project_id"],
+            "parentType": "IProjectsList",
+            "fieldName": "project_id",
+            "returnType": "String",
+            "startOffset": 812733292,
+            "duration": 11291
+          },
+          {
+            "path": ["getProjects", "data", 0, "project_name"],
+            "parentType": "IProjectsList",
+            "fieldName": "project_name",
+            "returnType": "String",
+            "startOffset": 812824875,
+            "duration": 2542
+          },
+          {
+            "path": ["getProjects", "data", 0, "number_of_codespaces"],
+            "parentType": "IProjectsList",
+            "fieldName": "number_of_codespaces",
+            "returnType": "Int",
+            "startOffset": 812884125,
+            "duration": 4167
+          },
+          {
+            "path": ["getProjects", "data", 0, "last_updated"],
+            "parentType": "IProjectsList",
+            "fieldName": "last_updated",
+            "returnType": "String",
+            "startOffset": 812953542,
+            "duration": 2583
+          },
+          {
+            "path": ["getProjects", "data", 0, "created_on"],
+            "parentType": "IProjectsList",
+            "fieldName": "created_on",
+            "returnType": "String",
+            "startOffset": 813009208,
+            "duration": 2375
+          },
+          {
+            "path": ["getProjects", "data", 0, "created_by"],
+            "parentType": "IProjectsList",
+            "fieldName": "created_by",
+            "returnType": "String",
+            "startOffset": 813066417,
+            "duration": 2916
+          }
+        ]
+      }
+    }
+  }
+}

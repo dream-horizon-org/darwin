@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="60px" height="48px" viewBox="0 0 60 48" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 62 (91390) - https://sketch.com -->
+    <title>ic_mail_green</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Artboard" transform="translate(-111.000000, -35.000000)">
+            <g id="ic_mail_green" transform="translate(105.000000, 23.000000)">
+                <g id="Icon-24px">
+                    <path d="M60,12 L12,12 C8.7,12 6.03,14.7 6.03,18 L6,54 C6,57.3 8.7,60 12,60 L60,60 C63.3,60 66,57.3 66,54 L66,18 C66,14.7 63.3,12 60,12 L60,12 Z M60,24 L36,39 L12,24 L12,18 L36,33 L60,18 L60,24 L60,24 Z" id="Shape" fill="#43A047"></path>
+                    <polygon id="Shape" points="0 0 72 0 72 72 0 72"></polygon>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

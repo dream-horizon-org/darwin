@@ -1,0 +1,38 @@
+enum RuntimeStatus {
+  ACTIVE
+  CREATING
+  FAILED
+}
+
+## Get Runtimes Information
+type IRuntimeInformation {
+  name: String!
+  date_added: String!
+  added_by: String!
+  status: RuntimeStatus!
+}
+
+type IGetRuntimesInformationResponse {
+  total_records: Int!
+  page_size: Int!
+  offset: Int!
+  data: [IRuntimeInformation!]!
+}
+
+## Get Runtime Details
+
+type IGetRuntimeDetailsResponse {
+  status: RuntimeStatus!
+  logs: String!
+}
+
+type Query {
+  getRuntimesInformation(
+    query: String!
+    pageSize: Int!
+    offset: Int!
+    sortBy: String
+    sortOrder: String
+  ): IGetRuntimesInformationResponse
+  getRuntimeDetails(runtimeName: String!): IGetRuntimeDetailsResponse
+}

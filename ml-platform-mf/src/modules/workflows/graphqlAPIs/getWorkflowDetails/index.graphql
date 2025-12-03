@@ -1,0 +1,76 @@
+query GetWorkflowDetails($workflowId: String) {
+  getWorkflowDetails(workflowId: $workflowId) {
+    data {
+      created_at
+      created_by
+      description
+      last_updated_on
+      max_concurrent_runs
+      queue_enabled
+      expected_run_duration
+      notification_preference{
+        on_start
+        on_fail
+        on_success
+        on_skip
+      }
+      notify_on
+      parameters
+      retries
+      schedule
+      tags
+      workflow_id
+      workflow_name
+      display_name
+      workflow_status
+      next_run_time
+      tasks {
+        dependent_libraries
+        depends_on
+        input_parameters
+        dynamic_artifact
+        file_path
+        retries
+        run_status
+        source
+        task_name
+        source_type
+        task_validation_status
+        timeout
+        ha_config {
+          enable_ha
+        }
+        notify_on
+        trigger_rule
+        notification_preference {
+          on_fail
+        }
+        attached_cluster {
+          cluster_id
+          cluster_name
+          cluster_status
+          cores
+          events_dashboard
+          logs_dashboard
+          memory
+          ray_dashboard
+          runtime
+	  estimated_cost
+	  created_at
+        }
+        packages {
+          source
+          body {
+            path
+            name
+            version
+            metadata {
+              repository
+              exclusions
+            }
+          }
+        }
+      }
+    }
+  }
+}

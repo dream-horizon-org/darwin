@@ -1,0 +1,12 @@
+mutation UninstallLibrary($input: IUninstallLibrary) {
+    uninstallLibrary(input: $input) {
+       status
+       message
+       data {
+        cluster_id
+        packages {
+            id
+        }
+       }
+    }
+}

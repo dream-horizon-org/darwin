@@ -1,0 +1,293 @@
+enum ModelDeploymentModelType {
+  SERVER_SIDE
+  EDGE
+}
+
+enum ModelDeploymentModelStatus {
+  READY
+  FAILED
+  DEPLOYING
+  TESTING
+  DEPLOYED
+  READY_TO_TEST
+}
+
+enum ModelDeploymentSortBy {
+  created_at
+  last_updated_at
+}
+
+enum ModelDeploymentSortOrder {
+  asc
+  desc
+}
+
+enum CompatibleAppVersionStatus {
+  VALIDATING_EVENTS
+  EVENTS_VALIDATION_FAILED
+  EVENTS_VALIDATION_SUCCESS
+  VALIDATING_FEATURE_COMPUTE
+  FEATURE_COMPUTE_VALIDATION_FAILED
+  FEATURE_COMPUTE_VALIDATION_SUCCESS
+  CREATING_ARTIFACT
+  ARTIFACT_CREATION_FAILED
+  READY_FOR_CI
+  RUNNING_CI
+  CI_FAILED
+  CI_SUCCESS
+  READY_TO_PUBLISH
+  LIVE
+}
+
+type CompatibleAppVersion {
+  id: String
+  semver: String
+  codepushVersion: String
+  buildNumber: Int
+  status: CompatibleAppVersionStatus
+  appName: String
+  createdAt: String
+  lastUpdatedAt: String
+}
+
+type IMlModelDeployment {
+  id: String
+  deploymentName: String
+  modelType: ModelDeploymentModelType
+  description: String
+  modelName: String
+  mlFlowModel: String
+  mlFlowVersion: Int
+  tags: [String!]!
+  status: String
+  owner: String
+  lastUpdatedAt: String
+  createdAt: String
+  compatibleAppVersions: [CompatibleAppVersion!]!
+}
+
+type IGetModelDeployements {
+  totalDeployments: Int
+  pageNumber: Int
+  pageSize: Int
+  hasNextPage: Boolean
+  mlModelDeployments: [IMlModelDeployment!]!
+}
+
+type IGetMLFlowRegisteredModels {
+  name: String
+  creation_timestamp: String
+  last_updated_timestamp: String
+}
+
+type IGetMLFlowModelVersions {
+  name: String
+  version: String
+  creation_timestamp: String
+  last_updated_timestamp: String
+  status: String
+  run_id: String
+}
+
+type IGetModelDeployementsApiResponse {
+  data: IGetModelDeployements!
+}
+
+type IGetModelDeploymentResponse {
+  data: IMlModelDeploymentDetails!
+}
+
+type IValidateModelDeploymentNameUnique {
+  unique: Boolean
+}
+
+type IValidateModelDeploymentNameResponse {
+  data: IValidateModelDeploymentNameUnique!
+}
+
+type IValidateEdgeTableNameUnique {
+  tableNameExists: Boolean
+}
+
+type IValidateEdgeTableNameResponse {
+  data: IValidateEdgeTableNameUnique
+}
+
+type IGetMLFlowRegisteredModelsResponse {
+  registered_models: [IGetMLFlowRegisteredModels!]!
+}
+
+type IGetMLFlowModelVersionsResponse {
+  model_versions: [IGetMLFlowModelVersions!]!
+}
+
+type IGetMLFlowModelArtifactUrlFiles {
+  path: String!
+  is_dir: Boolean!
+  file_size: Int!
+}
+
+type IGetMLFlowModelArtifactUrlResponse {
+  root_uri: String!
+  files: [IGetMLFlowModelArtifactUrlFiles!]!
+}
+
+input IGetModelDeployementQueryFilters {
+  name: String
+  status: ModelDeploymentModelStatus
+  owners: [String!]
+}
+
+type IGetEventSchemaResponse {
+  data: GetEventSchema!
+}
+
+type GetEventSchema {
+  globalProperties: GlobalPropertiesDetails
+  events: [EventDetails!]!
+}
+
+type GlobalPropertiesDetails {
+  androidfull: [GlobalPropertyMetaData]
+  ios: [GlobalPropertyMetaData]
+}
+type GlobalPropertyMetaData {
+  name: String!
+  description: String
+  expectedValue: String!
+  rawDataType: String!
+  schemaDataType: String
+  propertyRequired: Int
+}
+
+type EventDetails {
+  metadata: EventDetailsMetadata
+}
+
+type EventDetailsMetadata {
+  ios: EventIos
+  androidfull: EventAndroidfull
+}
+
+type EventIos {
+  eventName: String
+  platform: String
+  propertyMetadata: [EventPropertyMetadata]
+}
+
+type EventAndroidfull {
+  eventName: String
+  platform: String
+  propertyMetadata: [EventPropertyMetadata]
+}
+
+type EventPropertyMetadata {
+  name: String
+  description: String
+  expectedValue: String
+  rawDataType: String
+  schemaDataType: String
+  propertyRequired: Int
+}
+
+type IGetAppVersionsResponse {
+  data: GetAppVersions
+}
+
+type GetAppVersions {
+  versions: [Version!]!
+}
+
+type Version {
+  appName: String
+  appVersions: [AppVersion!]!
+}
+
+type AppVersion {
+  id: String!
+  semver: String!
+  codepushVersion: String
+  buildNumber: Int
+  appName: String!
+}
+
+enum EventDataType {
+  EVENT_TYPE
+  CUSTOM_TYPE
+}
+
+type EventDataPropsOutput {
+  propName: String!
+  propNameMapping: String!
+  defaultVal: String!
+  sqlDataType: String!
+}
+
+type EventDataOutput {
+  eventName: String!
+  type: EventDataType!
+  props: [EventDataPropsOutput!]!
+}
+
+type EventTableOutput {
+  id: String
+  tableName: String!
+  expiryInSecs: Int
+  version: String
+  queries: [String!]!
+  eventData: EventDataOutput!
+}
+
+type FeatureGroupDataFeaturesOutput {
+  featureName: String!
+  defaultVal: String!
+  sqlDataType: String!
+}
+
+type FeatureGroupDataOutput {
+  featureGroupName: String!
+  features: [FeatureGroupDataFeaturesOutput!]!
+}
+
+type FeatureGroupTableOutput {
+  id: String
+  tableName: String!
+  queries: [String!]!
+  featureGroupData: FeatureGroupDataOutput!
+}
+
+type IMlModelDeploymentDetails {
+  id: String
+  deploymentName: String
+  modelType: ModelDeploymentModelType
+  modelName: String
+  mlFlowModel: String
+  mlFlowVersion: Int
+  tags: [String!]!
+  configFilePath: String
+  testDataPath: String
+  modelArtifactPath: String
+  compatibleAppVersions: [CompatibleAppVersion!]!
+  eventTables: [EventTableOutput!]!
+  featureGroupTables: [FeatureGroupTableOutput]
+}
+
+type Query {
+  getModelDeployments(
+    filters: IGetModelDeployementQueryFilters
+    pageSize: Int
+    pageNumber: Int
+    sortBy: ModelDeploymentSortBy
+    sortOrder: ModelDeploymentSortOrder
+  ): IGetModelDeployementsApiResponse
+  getModelDeploymentForId(deploymentId: String): IGetModelDeploymentResponse
+  validateModelDeploymentName(
+    deploymentName: String
+  ): IValidateModelDeploymentNameResponse
+  validateEdgeTableName(tableName: String): IValidateEdgeTableNameResponse
+  getMLFlowRegisteredModels: IGetMLFlowRegisteredModelsResponse
+  getMLFlowModelVersions(modelName: String): IGetMLFlowModelVersionsResponse
+  getMLFlowModelArtifactUrl(runId: String): IGetMLFlowModelArtifactUrlResponse
+  getEventSchema(appVersionId: String): IGetEventSchemaResponse
+  getAppVersions: IGetAppVersionsResponse
+}

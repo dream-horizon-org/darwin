@@ -1,0 +1,10 @@
+query GetLineageAsset($assetName: String!) {
+  getLineageAsset(assetName: $assetName) {
+    graph {
+      from
+      to
+      fields_map
+    }
+    assetsInfo
+  }
+}

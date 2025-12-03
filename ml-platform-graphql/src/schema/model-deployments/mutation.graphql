@@ -1,0 +1,147 @@
+scalar JSON
+
+enum ModelDeploymentModelType {
+  SERVER_SIDE
+  EDGE
+}
+
+input EventDataProps {
+  propName: String!
+  propNameMapping: String!
+  defaultVal: String!
+  sqlDataType: String!
+}
+
+input EventData {
+  eventName: String!
+  type: String!
+  props: [EventDataProps!]!
+}
+
+input EventTable {
+  tableName: String!
+  expiryInSec: Int!
+  version: String
+  queries: [String!]!
+  eventData: EventData!
+}
+
+input EventTableUpdate { # repetative code
+  id: String
+  tableName: String
+  expiryInSec: Int
+  version: String
+  queries: [String!]
+  eventData: EventData
+}
+
+input FeatureGroupDataFeatures {
+  featureName: String!
+  defaultVal: String!
+  sqlDataType: String!
+}
+
+input FeatureGroupData {
+  featureGroupName: String!
+  features: [FeatureGroupDataFeatures!]!
+}
+
+input FeatureGroupTable {
+  tableName: String
+  queries: [String!]
+  featureGroupData: FeatureGroupData
+}
+
+input FeatureGroupTableUpdate { # repetative code
+  id: String
+  tableName: String
+  queries: [String!]
+  featureGroupData: FeatureGroupData
+}
+
+input UpdateModelDeploymentArgsType { # repetative code
+  id: String
+  deploymentName: String
+  modelType: ModelDeploymentModelType
+  mlFlowModel: String
+  owner: String
+  mlFlowVersion: Int
+  tags: [String!]!
+  configFilePath: String
+  testDataPath: String
+  modelArtifactPath: String
+  compatibleAppVersions: [String!]!
+  eventTables: [EventTableUpdate!]!
+  featureGroupTables: [FeatureGroupTableUpdate]
+}
+
+input IModelDeploymentCreationArgsType {
+  deploymentName: String
+  modelType: ModelDeploymentModelType
+  mlFlowModel: String
+  owner: String
+  mlFlowVersion: Int
+  tags: [String!]!
+  configFilePath: String
+  testDataPath: String
+  modelArtifactPath: String
+  compatibleAppVersions: [String!]!
+  eventTables: [EventTable!]!
+  featureGroupTables: [FeatureGroupTable]
+}
+
+type IModelDeploymentCreation {
+  mlModelDeploymentId: String
+}
+
+type IModelDeploymentCreationResponseType {
+  data: IModelDeploymentCreation
+}
+
+type UpdateModelDeploymentResponseType {
+  data: ModelDeploymentUpdation
+}
+
+type IModelDeploymentDeletionResponseType {
+  status: String
+}
+
+type IModelDeploymentCiResponse {
+  success: Boolean
+  failureReason: String
+}
+type IModelDeploymentPublishResponse {
+  success: Boolean
+  failureReason: String
+}
+
+type ModelDeploymentUpdation {
+  success: Boolean
+}
+
+type IGetFileContents {
+  status: String
+  data: JSON
+  message: String
+}
+
+type Mutation {
+  createModelDeployment(
+    input: IModelDeploymentCreationArgsType
+  ): IModelDeploymentCreationResponseType!
+  updateModelDeployment(
+    input: UpdateModelDeploymentArgsType
+  ): UpdateModelDeploymentResponseType!
+  deleteModelDeploymentForId(
+    deploymentId: Int!
+  ): IModelDeploymentDeletionResponseType
+  triggerCiForDeployment(
+    modelDeploymentId: String!
+    appVersion: [String!]!
+  ): IModelDeploymentCiResponse
+  publishDeployment(
+    modelDeploymentId: String!
+    appVersion: [String!]!
+  ): IModelDeploymentPublishResponse
+  getFileContents(source_path: String!): IGetFileContents
+}

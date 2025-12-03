@@ -1,0 +1,14 @@
+query GetWorkflowsMetaData($names: [String]) {
+  getWorkflowsMetaData(names: $names) {
+    status
+    message
+    data {
+      trigger_rules {
+        id
+        label
+        value
+        description
+      }
+    }
+  }
+}

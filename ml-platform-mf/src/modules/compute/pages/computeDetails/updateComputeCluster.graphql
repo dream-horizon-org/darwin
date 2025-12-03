@@ -1,0 +1,10 @@
+mutation UpdateComputeCluster($input: ClusterUpdate) {
+  updateComputeCluster(input: $input) {
+    status
+    data {
+      ClusterName
+      DashboardLink
+      JupyterLink
+    }
+  }
+}

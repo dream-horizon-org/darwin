@@ -1,0 +1,20 @@
+{
+  "apps": [
+    {
+      "name": "Dream11MLPlatformMF",
+      "script": "server.js",
+      "instances": "MAX",
+      "watch": false,
+      "merge_logs": true,
+      "exec_mode": "cluster",
+      "log_date_format": "DD-MM-YYYY HH:mm Z",
+      "cwd": "./",
+      "env": {
+        "NODE_ENV": "stag",
+        "NODE_CONFIG_DIR": "config",
+        "VPC_SUFFIX": "-stag",
+        "TEAM_SUFFIX": ""
+      }
+    }
+  ]
+}

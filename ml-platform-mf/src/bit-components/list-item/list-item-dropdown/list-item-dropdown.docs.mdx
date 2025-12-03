@@ -1,0 +1,36 @@
+---
+description: A ListItemDropdown component.
+---
+
+import {ListItemDropdown} from './list-item-dropdown'
+import {Icons} from '@sporta-technology/d11-web-components.icon'
+import {style} from './utils'
+
+A component that does something special and renders text in a div.
+
+### Component usage
+
+```js
+import {
+  ListItemDropdown,
+  ListItemDropdownProps
+} from '@sporta-technology/d11-web-components.list-item.list-item-dropdown'
+;<ListItemDropdown
+  text='Dropdown Item'
+  onClick={() => {}}
+  testIdentifier='testIdentifier'
+/>
+```
+
+### Render hello world!
+
+```js live
+<div style={style}>
+  <ListItemDropdown
+    text='Dropdown Item'
+    onClick={() => {}}
+    testIdentifier='testIdentifier'
+    icon={Icons.ICON_ACCESS_ALARM}
+  />
+</div>
+```

@@ -1,0 +1,9 @@
+mutation UpdateComputeClusterTags($input: ClusterTagsUpdate) {
+  updateComputeClusterTags(input: $input) {
+    status
+    data {
+      tags
+      cluster_id
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "apps": [
+    {
+      "name": "ml-platform-graphql-uat",
+      "script": "server.js",
+      "instances": 2,
+      "exec_mode": "cluster",
+      "watch": false,
+      "env": {
+        "NODE_ENV": "uat",
+        "PORT": 4000,
+        "LOG_LEVEL": "info",
+        "ENABLE_PLAYGROUND": true,
+        "ENABLE_INTROSPECTION": true,
+        "ENABLE_TRACING": false,
+        "CURL_LOGGING": false
+      },
+      "log_date_format": "YYYY-MM-DD HH:mm:ss Z",
+      "error_file": "/var/log/ml-platform-graphql/error.log",
+      "out_file": "/var/log/ml-platform-graphql/out.log",
+      "merge_logs": true,
+      "max_memory_restart": "512M",
+      "min_uptime": "10s",
+      "max_restarts": 10,
+      "autorestart": true,
+      "restart_delay": 4000
+    }
+  ]
+}
+

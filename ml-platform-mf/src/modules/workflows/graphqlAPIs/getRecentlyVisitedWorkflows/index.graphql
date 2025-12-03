@@ -1,0 +1,11 @@
+query GetRecentlyVisitedWorkflows {
+  getRecentlyVisitedWorkflows {
+    data {
+      last_run_time
+      status
+      workflow_id
+      workflow_name
+      display_name
+    }
+  }
+}

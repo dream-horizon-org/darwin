@@ -1,0 +1,25 @@
+query GetRuntimesInformation(
+  $query: String!
+  $pageSize: Int!
+  $offset: Int!
+  $sortBy: String
+  $sortOrder: String
+) {
+  getRuntimesInformation(
+    query: $query
+    pageSize: $pageSize
+    offset: $offset
+    sortBy: $sortBy
+    sortOrder: $sortOrder
+  ) {
+    total_records
+    page_size
+    offset
+    data {
+      name
+      date_added
+      added_by
+      status
+    }
+  }
+}

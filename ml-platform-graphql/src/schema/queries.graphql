@@ -1,0 +1,2084 @@
+scalar JSON
+scalar Date
+
+type IDestinationConfig {
+  featureGroup: String
+}
+
+type IDestination {
+  type: String
+  config: IDestinationConfig
+}
+
+type IDataSourceConfigs {
+  destinations: [IDestination]
+}
+
+type IDataSinkConfigs {
+  destinations: [IDestination]
+}
+
+type IComputeMetadata {
+  computeType: String
+  query: String
+  customJobPyFile: [String]
+  className: String
+}
+
+type IGroupKeys {
+  groupKeyId: Int
+  groupKeyName: String
+  keyDataType: String
+  createdAt: String
+  updatedAt: String
+}
+
+type IFeatureGroupKeys {
+  groupName: String
+  groupKeys: [IGroupKeys]
+}
+
+type ISchedularMetadata {
+  backfillId: Int
+  queryRunType: String
+  jobStatusRun: String
+  yarnUrl: String
+  resourceTier: String
+  comment: String
+  createdAt: String
+  updatedAt: String
+}
+
+type IScheduleJobRuns {
+  schedulerJobRunDetails: [ISchedularMetadata]
+}
+
+type ScheduleJobRunsResponse {
+  message: String
+  comments: [String]
+  response: IScheduleJobRuns
+}
+
+type ResourceTier {
+  resourceTier: String
+}
+
+type IFeatureGroup {
+  featureJobId: String
+  version: String
+  name: String
+  tags: [String]
+  descriptions: String
+  dataSourceConfigs: IDataSourceConfigs
+  dataSinkConfigs: IDataSinkConfigs
+  computeType: String
+  computeMetadata: IComputeMetadata
+  featureType: String
+  schedule: String
+  owner: String
+  featureGroupId: Int
+  schedulerId: Int
+  createdAt: String
+  updatedAt: String
+  state: String
+  featureGroup: IFeatureGroupKeys
+  schedularMetadata: ResourceTier
+}
+
+type IFeatureGroupKeys {
+  groupKeyId: Int
+  groupKeyName: String
+  keyDataType: String
+  createdAt: String
+  updatedAt: String
+}
+
+type IFeatureDetails {
+  featureId: Int
+  groupId: Int
+  featureName: String
+  dataType: String
+}
+
+type IFeatureGroupDetails {
+  groupName: String
+  groupKeys: [IFeatureGroupKeys]
+  onlineTableName: String
+  offlineTableName: String
+  onlineTableSchema: String
+  storeId: Int
+  createdAt: String
+  updatedAt: String
+  version: Int
+  onlineEnabled: Boolean
+  offlineEnabled: Boolean
+  features: [IFeatureDetails]!
+}
+
+type IDateParameterConfig {
+  timeType: String
+  timeDelay: Int
+  timeFormat: String
+}
+
+type IParameterConfig {
+  parameterName: String
+  parameterType: String
+  dateParameterConfig: IDateParameterConfig
+  roundId: String
+}
+
+type IRequestParamConfig {
+  pararmetersConfigList: [IParameterConfig]
+}
+
+type INotificationConfigData {
+  type: String
+  channelName: String
+  url: String
+  topic: String
+  broker: String
+}
+
+type INotificationConfig {
+  notificationConfigs: [INotificationConfigData]
+}
+
+type ISchedularMetadata {
+  name: String
+  isOneTimeLoad: Boolean
+  requestStatus: String
+  requestParamConfig: IRequestParamConfig
+  notificationConfig: INotificationConfig
+  resourceTier: String
+  jobRunrId: String
+  createdAt: String
+  updatedAt: String
+  requestType: String
+  customJobConfig: String
+}
+
+type IFeatureJobsResponse {
+  featureJobList: [IFeatureGroup]
+  totalCount: Int
+}
+
+type IFeatureFilteredJobs {
+  featureJobs: [IFeatureGroup]
+  totalCount: Int
+}
+
+type IFiltersData {
+  tags: [String]
+  owners: [String]
+}
+
+type IFilters {
+  message: String
+  data: IFiltersData
+}
+
+type IFeatureJobsById {
+  message: String
+  comments: String
+  response: [IFeatureGroup]
+}
+
+type IS3SourceDetails {
+  location: String
+  referenceName: String
+  metadata: String
+}
+
+type IRedShiftDetails {
+  location: String
+  referenceName: String
+  query: String
+}
+
+type IDataFeastFeatureDetails {
+  title: String
+  type: String
+}
+
+type IDataFeastDetails {
+  featureGroup: String
+  referenceName: String
+  featureList: [IDataFeastFeatureDetails]
+}
+
+type IAthenaDetails {
+  tableName: String
+  datasetReferenceName: String
+  query: String
+}
+
+type IFeatureGroupSources {
+  s3: [IS3SourceDetails]
+  redShift: [IRedShiftDetails]
+  dataFeast: [IDataFeastDetails]
+  athena: [IAthenaDetails]
+}
+
+type IFeatureGroupSink {
+  datasource: String
+  location: String
+}
+
+type IFeatureGroupCustomCode {
+  s3ClassName: String
+  s3Path: String
+  requirementFilePath: String
+}
+
+type IFeatureGroupComputeMetadata {
+  computeType: String
+  sqlQuery: String
+  databricksLink: String
+  customCode: IFeatureGroupCustomCode
+}
+
+type IFeatureGroupFeatureDetails {
+  name: String
+  type: String
+  tags: [String]
+  description: String
+  primaryKey: Boolean
+  partitionKey: Boolean
+}
+
+type IFeatureGroupScheduleJobScheduleData {
+  timeStamp: String
+  status: String
+  link: String
+  sampleData: String
+  errorStackTrack: String
+  retryNumber: String
+}
+
+type IFeatureGroupScheduleJob {
+  resourceTier: String
+  schedule: String
+  scheduleData: IFeatureGroupScheduleJobScheduleData
+}
+
+type IFeatureGroupJobDetails {
+  featureGroupId: String
+  version: String
+  name: String
+  status: String
+  tags: [String]
+  description: String
+  slackNotificationChannel: String
+  sources: IFeatureGroupSources
+  sinks: IFeatureGroupSources
+  computeMetadata: IFeatureGroupComputeMetadata
+  features: [IFeatureGroupFeatureDetails]
+  scheduleJob: IFeatureGroupScheduleJob
+}
+
+type IFeatureGroupJobDetailsData {
+  featureGroup: IFeatureGroupJobDetails
+}
+
+type IFetchFeatureGroupResponse {
+  status: String
+  message: String
+  data: IFeatureGroupJobDetailsData
+}
+
+type IFeatureGroupVersion {
+  name: String
+  version: Int
+  ownerEmail: String
+  createdDate: String
+  status: String
+  description: String
+  tags: [String]
+}
+
+type IFeatureGroupVersionsData {
+  featureGroups: [IFeatureGroupVersion]
+}
+
+type IFetchFeatureGroupVersionsResponse {
+  status: String
+  message: String
+  data: IFeatureGroupVersionsData
+}
+
+type IFilteredFeatureGroupsData {
+  offset: Int
+  pageSize: Int
+  totalResults: Int
+  featureGroups: [IFeatureGroupVersion]
+}
+
+type IFetchFilteredFeatureGroups {
+  status: String
+  message: String
+  data: IFilteredFeatureGroupsData
+}
+
+type IComputeTags {
+  status: String
+  data: [String]
+}
+
+type IComputeClusterDetails {
+  clusterId: String
+  clusterName: String
+  tags: [String]
+  status: String
+  runtime: String
+  activePod: Int
+  totalPod: Int
+  totalMemory: Int
+  jupyterLabLink: String
+  createBy: String
+  createdOn: String
+  lastUsedOn: String
+}
+
+type ISearchCompute {
+  status: String
+  resultSize: Int
+  pageSize: Int
+  offset: Int
+  data: [IComputeClusterDetails]
+}
+
+type IDiscSetting {
+  diskType: String
+  storageSize: Int
+}
+
+type IWorkerNode {
+  coresPerPods: Int
+  memoryPerPods: Int
+  minPods: Int
+  maxPods: Int
+  diskSetting: IDiscSetting
+  nodeType: String
+  nodeCapacityType: String
+  gpuPod: IGpuPod
+}
+
+type IDisplayName {
+  id: String
+  displayName: String
+}
+
+type IInstanceRoleAdvance {
+  id: Int
+  displayName: String
+  roleId: String
+}
+
+type IAvailabilityZoneAdvance {
+  id: Int
+  displayName: String
+  zoneId: String
+}
+
+type ITemplate {
+  id: String
+  displayName: String
+  memoryPerCore: String
+  templateId: String
+}
+
+type IGpuPod {
+  name: String
+  cores: Int
+  memory: Int
+  gpuCount: Int
+  gRamMemory: Int
+  gRamType: String
+}
+
+type IHeadNodeConfig {
+  cores: Int
+  memory: Int
+  nodeType: String
+  nodeCapacityType: String
+  gpuPod: IGpuPod
+}
+
+type IRayParamsConfig {
+  objectStoreMemory: Int
+  cpusOnHead: Int
+}
+
+type IAdvanceConfig {
+  environmentVariables: String
+  logPath: String
+  initScript: String
+  instanceRole: IInstanceRoleAdvance
+  availabilityZone: IAvailabilityZoneAdvance
+  rayParams: IRayParamsConfig
+  spark_config: JSON
+}
+
+type IAutoTerminationParams {
+  headNodeCpuUsageThreshold: Int
+  workerNodeCpuUsageThreshold: Int
+}
+
+type IAutoTerminationPolicies {
+  policyName: String
+  enabled: Boolean
+  params: IAutoTerminationParams
+}
+
+type IClusterDashboards {
+  rayDashboardUrl: String
+  sparkUIUrl: String
+  grafanaDashboardUrl: String
+  resourceUtilizationDashboardUrl: String
+}
+
+type IClusterDetails {
+  clusterId: String
+  clusterName: String
+  isJobCluster: Boolean
+  status: String
+  tags: [String]
+  runtime: IDisplayName
+  inactiveTime: Int
+  autoTerminationPolicies: [IAutoTerminationPolicies]
+  template: ITemplate
+  user: String
+  headNodeConfig: IHeadNodeConfig
+  workerNodeConfigs: [IWorkerNode]
+  advanceConfig: IAdvanceConfig
+  dashboards: IClusterDashboards
+  createdOn: String
+  createdAt: String
+  estimatedCost: String
+}
+
+type IClusterDetailsResponse {
+  status: String
+  data: IClusterDetails
+}
+
+type IIRuntimeDataItem {
+  name: String
+  created_by: String
+}
+
+type IIRuntimeData {
+  cpu: [IIRuntimeDataItem]
+  gpu: [IIRuntimeDataItem]
+  custom: [IIRuntimeDataItem]
+  others: [IIRuntimeDataItem]
+}
+
+type IRuntimeList {
+  status: String
+  data: IIRuntimeData
+}
+
+type IComputeRuntimeComponent {
+  name: String
+  version: String
+}
+
+type IComputeDefaultRuntime {
+  id: Int
+  class: String
+  type: String
+  runtime: String
+  image: String
+  reference_link: String
+  components: [IComputeRuntimeComponent]
+  created_by: String
+  last_updated_by: String
+  created_at: String
+  last_updated_at: String
+  is_deleted: Boolean
+  spark_connect: Boolean
+  spark_auto_init: Boolean
+}
+
+type IComputeRuntimes {
+  type: String
+  count: Int
+  runtime_list: [IComputeDefaultRuntime]
+}
+
+type IComputeRuntimeData {
+  class: String
+  default_runtime: IComputeDefaultRuntime
+  total_count: Int
+  runtimes: [IComputeRuntimes]
+}
+
+type IComputeRuntimeResponse {
+  status: ApiStatus
+  message: String
+  data: [IComputeRuntimeData]
+}
+
+type IComputeRuntimeDetailsResponse {
+  status: ApiStatus
+  message: String
+  data: IComputeDefaultRuntime
+}
+
+type IIntanceRole {
+  instance_role_id: String
+  display_name: String
+}
+
+type InstanceRoles {
+  status: String
+  data: [IIntanceRole]
+}
+
+type IDiscTypes {
+  status: String
+  data: [String]
+}
+
+type ITemplateModal {
+  template_id: String
+  display_name: String
+  memory_per_core: String
+}
+
+type ITemplates {
+  status: String
+  data: [ITemplateModal]
+}
+
+type IAvailabilityZone {
+  az_id: String
+  display_name: String
+}
+
+type IAvailabilityZones {
+  status: String
+  data: [IAvailabilityZone]
+}
+
+type IDetailsCompute {
+  status: String
+  data: IClusterDetails
+}
+
+type IActionGroupDetails {
+  timestamp: String
+  event_name: String
+  event_description: String
+}
+
+type IActionGroup {
+  cluster_runtime_id: String
+  count_of_events: Int
+  first_event: IActionGroupDetails
+  last_event: IActionGroupDetails
+}
+
+type IActionGroups {
+  status: String
+  data: [IActionGroup]
+}
+
+type IActionGroupDetailsResponse {
+  status: String
+  data: [IActionGroupDetails]
+}
+
+type IAttachedClusterUsageDetails {
+  memory_used: Int
+  cores_used: Int
+}
+
+type IAttachedClusterDetails {
+  cluster_id: String
+  cluster_name: String
+  cluster_status: String
+  memory: Int
+  cores: Int
+  cluster_usage: IAttachedClusterUsageDetails
+  attached_codespaces_count: Int
+  ray_dashboard: String
+  prometheus_dashboard: String
+  spark_ui_dashboard: String
+}
+
+type ICodespaceDetails {
+  project_id: String
+  project_name: String
+  codespace_id: String
+  codespace_name: String
+  github_link: String
+  last_sync_time: String
+  jupyter_lab_link: String
+  attached_cluster: IAttachedClusterDetails
+  code_server_link: String
+}
+
+type ILaunchCodespaceResponse {
+  status: String
+  data: ICodespaceDetails
+}
+
+type IProjectsList {
+  project_id: String
+  project_name: String
+  number_of_codespaces: Int
+  last_updated: String
+  created_on: String
+  created_by: String
+}
+
+type IProjectsResponse {
+  status: String
+  data: [IProjectsList]
+}
+
+type ICodespacesList {
+  codespace_id: String
+  codespace_name: String
+  created_by: String
+}
+
+type IIsUnique {
+  is_unique: Boolean
+}
+
+type IUniqueResponse {
+  status: String
+  data: IIsUnique
+}
+
+type ICodespacesResponse {
+  status: String
+  data: [ICodespacesList]
+}
+
+type LastSyncedTimestamp {
+  last_synced_time: String
+}
+
+type ILastSyncedTimeForCodespaceResponse {
+  status: String
+  data: LastSyncedTimestamp
+}
+
+type IAllClustersData {
+  id: String
+  name: String
+  cores: String
+  memory: String
+  status: String
+  runtime: String
+  estimated_cost: Int
+  created_at: String
+  created_by: String
+}
+
+type IAllClustersResponse {
+  status: String
+  resultSize: Int
+  pageSize: Int
+  offset: Int
+  data: [IAllClustersData]
+}
+
+type ICoresLimits {
+  min: Int
+  max: Int
+}
+
+type IMemoryLimits {
+  min: Int
+  max: Int
+}
+
+type IHeadNodeLimits {
+  cores: ICoresLimits
+  memory: IMemoryLimits
+}
+
+type IPodLimits {
+  min: Int
+}
+
+type IWorkerNodeLimits {
+  cores: ICoresLimits
+  memory: IMemoryLimits
+  pods: IPodLimits
+}
+
+type IInactiveTimeLimits {
+  min: Int
+}
+
+type IComputeLimits {
+  head_node_limits: IHeadNodeLimits
+  worker_node_limits: IWorkerNodeLimits
+  inactive_time_limits: IInactiveTimeLimits
+}
+
+type IComputeLimitsResponse {
+  status: String
+  data: IComputeLimits
+}
+
+input IFilterSet {
+  name: String
+  value: [String]
+}
+
+enum RepositoryType {
+  maven
+  CENTRAL
+  SPARK
+}
+
+input IInstallLibraryData {
+  repository: String
+  exclusions: String
+}
+
+input IInstallLibraryBodyInput {
+  path: String
+  name: String
+  version: String
+  metadata: IInstallLibraryData
+}
+
+input IInstallLibraryBody {
+  source: String
+  body: IInstallLibraryBodyInput
+}
+
+type IInstallLibraryPackagesResponse {
+  id: String
+  name: String
+  version: String
+  status: LibraryStatus
+}
+
+type IInstallLibraryResponseData {
+  cluster_id: String
+  packages: [IInstallLibraryPackagesResponse]
+}
+
+type IInstallLibraryResponse {
+  status: ApiStatus
+  message: String
+  data: IInstallLibraryResponseData
+}
+
+type IMavenPackagesData {
+  group_id: String
+  artifact_id: String
+  version: String
+}
+
+type IMavenPackagesBody {
+  result_size: Int
+  packages: [IMavenPackagesData]
+}
+
+type IMavenPackagesResponse {
+  status: ApiStatus
+  message: String
+  data: IMavenPackagesBody
+}
+
+type IMavenPackageVersionsData {
+  group_id: String
+  artifact_id: String
+  versions: [String]
+}
+
+type IMavenPackageVersionsResponse {
+  status: ApiStatus
+  message: String
+  data: IMavenPackageVersionsData
+}
+
+type ICopyCode {
+  name: String
+  value: String
+}
+
+enum RunStatus {
+  SUCCESS
+  FAILED
+}
+
+enum ApiStatus {
+  SUCCESS
+  ERROR
+}
+
+enum TriggerRules {
+  all_success
+  all_failed
+  all_done
+  all_skipped
+  one_failed
+  one_success
+  one_done
+  none_failed
+  none_failed_min_one_success
+  none_skipped
+  always
+}
+
+type IIFeatureGroupsData {
+  id: String
+  title: String
+  description: String
+  version: Int
+  allVersions: [Int]
+  featuresCount: Int
+  devUsage: Int
+  prodUsage: Int
+  lastValueUpdated: String
+  createdBy: String
+  tags: [String]
+  lastFiveRuns: [RunStatus]
+  type: String
+  typesAvailable: [String]
+  copyCode: [ICopyCode]
+}
+
+type IFeatureGroups {
+  status: ApiStatus
+  statusCode: Int
+  resultSize: Int
+  pageSize: Int
+  offset: Int
+  totalRecordsCount: Int
+  data: [IIFeatureGroupsData]
+}
+
+type IIFeatureGroupFiltersData {
+  name: String
+  value: [String]
+}
+
+type IFeatureGroupFilters {
+  status: ApiStatus
+  statusCode: Int
+  data: [IIFeatureGroupFiltersData]
+}
+
+type IFeatureGroupSinks {
+  location: String
+  type: String
+}
+
+type IFeatureGroupDetailsData {
+  id: String
+  title: String
+  description: String
+  version: Int
+  allVersions: [Int]
+  lastValueUpdated: String
+  createdBy: String
+  tags: [String]
+  type: String
+  typesAvailable: [String]
+  copyCode: [ICopyCode]
+  sinks: [IFeatureGroupSinks]
+}
+
+type IFeatureGroupDetailsResponse {
+  status: ApiStatus
+  statusCode: Int
+  data: IFeatureGroupDetailsData
+}
+
+type IUsage {
+  prodCount: Int
+  devCount: Int
+}
+
+type IFeaturesData {
+  title: String
+  description: String
+  tags: [String]
+  type: String
+  copyCode: [ICopyCode]
+  isPrimaryKey: Boolean
+  usage: IUsage
+}
+
+type IFeaturesResponse {
+  status: ApiStatus
+  statusCode: Int
+  resultSize: Int
+  pageSize: Int
+  offset: Int
+  totalRecordsCount: Int
+  data: [IFeaturesData]
+}
+
+type IRunFactors {
+  name: String
+  value: String
+}
+
+type IFeatureGroupRunsData {
+  title: String
+  otherFactors: [IRunFactors]
+  sampleData: [String]
+}
+
+type IFeatureGroupRunsResponse {
+  status: ApiStatus
+  message: String
+  statusCode: Int
+  executionTime: String
+  duration: Float
+  link: String
+  totalRecordsCount: Int
+  features: [IFeatureGroupRunsData]
+}
+
+type IFeatureGroupRunsReturnResponse {
+  status: ApiStatus
+  statusCode: Int
+  data: [IFeatureGroupRunsResponse]
+  error: String
+}
+
+type IFeatureCopyCodesResponse {
+  status: ApiStatus
+  statusCode: Int
+  data: String
+}
+
+type IFeatureUsageGraphInput {
+  title: String
+  dataSourceType: String
+  id: String
+  next: Boolean
+}
+
+type IFeatureUsageGraphUsage {
+  prodCount: Int
+  devCount: Int
+}
+
+type IFeatureUsageGraphData {
+  input: [IFeatureUsageGraphInput]
+  usage: IFeatureUsageGraphUsage
+}
+
+type IFeatureUsageGraphResponse {
+  status: ApiStatus
+  statusCode: Int
+  data: IFeatureUsageGraphData
+}
+
+type IProdUsageListData {
+  type: String
+  title: String
+  link: String
+}
+
+type IProdUsageListResponse {
+  status: ApiStatus
+  statusCode: Int
+  data: [IProdUsageListData]
+}
+
+type IExpandDataSourceData {
+  title: String
+  dataSourceType: String
+  id: String
+  next: Boolean
+}
+
+type IExpandDataSourceResponse {
+  status: ApiStatus
+  statusCode: Int
+  data: [IExpandDataSourceData]
+}
+
+type IColumnsUsed {
+  column: String
+  type: String
+}
+
+type ISourceTableDetailsData {
+  tableId: String
+  title: String
+  dbName: String
+  awsAccount: String
+  awsRegion: String
+  dataSourceLink: String
+  copyCode: [ICopyCode]
+  columnsUsed: [IColumnsUsed]
+}
+
+type ISourceTableDetailsResponse {
+  status: ApiStatus
+  statusCode: Int
+  data: ISourceTableDetailsData
+}
+
+type IDataSourceEnvironmentsResponse {
+  status: String
+  message: String
+  data: [String]
+}
+
+type IDataSourceSourcesForEnvironmentResponse {
+  status: String
+  message: String
+  data: [String]
+}
+
+type IDataSource {
+  table_id: String
+  dc_name: String
+  name: String
+  link: String
+  latest_version: String
+}
+
+type IDataForSourceAndEnvironment {
+  result_size: Int
+  tables: [IDataSource]
+}
+
+type IDataForSourceAndEnvironmentResponse {
+  status: String
+  data: IDataForSourceAndEnvironment
+}
+
+type IDatabases {
+  database_id: String
+  name: String
+  link: String
+}
+
+type IDatabasesForSourceAndEnvironment {
+  result_size: Int
+  databases: [IDatabases]
+}
+
+type IDatabasesForSourceAndEnvironmentResponse {
+  status: String
+  data: IDatabasesForSourceAndEnvironment
+}
+
+type ISampleData {
+  column_name: String
+  type: String
+  sample_data: String
+}
+
+type ISampleDataForDataSource {
+  versions: [String]
+  result_size: Int
+  copy_code_command: [ICopyCode]
+  sample_data: [ISampleData]
+}
+
+type ISampleDataForDataSourceResponse {
+  status: String
+  message: String
+  data: ISampleDataForDataSource
+}
+
+type IClusterResource {
+  cores_used: Int
+  memory_used: Int
+}
+
+type IClusterResourceResponse {
+  status: String
+  data: IClusterResource
+  message: String
+}
+
+type ICountOfProjectsData {
+  my_projects: Int
+  other_projects: Int
+}
+
+type ICountOfProjectsResponse {
+  status: String
+  data: ICountOfProjectsData
+}
+
+type IFeatureGroupEntitiesData {
+  entityName: String
+  joinKeys: [String]
+  type: [String]
+  description: String
+  tags: [String]
+}
+
+type IFeatureGroupEntitiesResponse {
+  status: String
+  statusCode: Int
+  data: [IFeatureGroupEntitiesData]
+}
+
+type IFeatureGroupsCountData {
+  onlineCount: Int
+  offlineCount: Int
+}
+
+type IFeatureGroupsCountResponse {
+  status: String
+  statusCode: Int
+  data: IFeatureGroupsCountData
+}
+
+type IComputeNodeTypesData {
+  id: String
+  label: String
+}
+
+type IComputeNodeTypesResponse {
+  status: String
+  data: [IComputeNodeTypesData]
+}
+
+input ISearchComputeFilters {
+  status: [String]
+}
+
+type IComputeGpuPodsData {
+  name: String
+  cores: Int
+  memory: Int
+  gpu_count: Int
+  g_ram_memory: Int
+  g_ram_type: String
+}
+
+type IComputeGpuPodsResponse {
+  status: String
+  data: [IComputeGpuPodsData]
+}
+
+enum LibraryStatus {
+  running
+  failed
+  success
+  uninstall_pending
+  created
+}
+
+enum LibraryFileType {
+  jar
+  whl
+  zip
+  tar
+  gz
+  txt
+  pypi
+  maven_jar
+}
+
+enum LibrarySource {
+  s3
+  pypi
+  maven
+  darwin_artifactory
+  workspace
+}
+
+type IComputeLibrariesDataItem {
+  id: Int
+  status: LibraryStatus
+  name: String
+  type: LibraryFileType
+  source: String
+  version: String
+}
+
+type IComputeLibrariesData {
+  cluster_id: String
+  result_size: Int
+  packages: [IComputeLibrariesDataItem]
+}
+
+type IComputeLibrariesResponse {
+  status: ApiStatus
+  message: String
+  data: IComputeLibrariesData
+}
+
+type IComputeLibraryStatusData {
+  library_id: Int
+  cluster_id: String
+  status: LibraryStatus
+}
+
+type IComputeLibraryStatusResponse {
+  status: ApiStatus
+  message: String
+  data: IComputeLibraryStatusData
+}
+
+type IComputeLibraryStatusesData {
+  library_id: Int
+  status: LibraryStatus
+}
+
+type IComputeLibraryStatusesResponse {
+  data: [IComputeLibraryStatusesData]
+}
+
+type IComputeLibraryDetailError {
+  error_code: String
+  error_message: String
+}
+
+type IComputeLibraryDetailsData {
+  cluster_id: String
+  id: Int
+  name: String
+  version: String
+  status: LibraryStatus
+  type: LibraryFileType
+  source: LibrarySource
+  path: String
+  content: String
+  error: IComputeLibraryDetailError
+}
+
+type IComputeLibraryDetailsResponse {
+  status: ApiStatus
+  message: String
+  data: IComputeLibraryDetailsData
+}
+
+type IRecentlyVisitedWorkflowsData {
+  workflow_name: String
+  display_name: String
+  status: String
+  workflow_id: String
+  last_run_time: String
+}
+
+type IRecentlyVisitedWorkflowsResponse {
+  data: [IRecentlyVisitedWorkflowsData]
+}
+
+input IWorkflowsFilters {
+  user: [String]
+  status: [String]
+}
+
+type ILastRunsDetails {
+  run_status: String
+  is_run_duration_exceeded: Boolean
+  expected_run_duration: Int
+}
+
+type IWorkflowsData {
+  workflow_name: String
+  display_name: String
+  description: String
+  status: String
+  workflow_id: String
+  tags: [String]
+  schedule: String
+  last_run_details: [ILastRunsDetails]
+  next_run_time: String
+  owner: String
+}
+
+type IWorkflowsResponse {
+  result_size: Int
+  page_size: Int
+  offset: Int
+  data: [IWorkflowsData]
+}
+
+type IWorkflowFiltersData {
+  users: [String]
+  status: [String]
+}
+
+type IWorkflowFiltersResponse {
+  data: IWorkflowFiltersData
+}
+
+type IWorkflowTaskAttachedCluster {
+  cluster_id: String
+  runtime: String
+  cluster_name: String
+  cluster_status: String
+  memory: Int
+  cores: Int
+  ray_dashboard: String
+  logs_dashboard: String
+  events_dashboard: String
+  estimated_cost: String
+  created_at: String
+}
+
+type IWorkflowTaskHAConfig {
+  enable_ha: Boolean
+}
+
+type ITaskNotificationPreference {
+  on_fail: Boolean
+}
+
+type IWorkflowTaskPackagesBodyMetadata {
+  repository: RepositoryType
+  exclusions: String
+}
+
+type IWorkflowTaskPackagesBody {
+  path: String
+  name: String
+  version: String
+  metadata: IWorkflowTaskPackagesBodyMetadata
+}
+
+type IWorkflowTaskPackages {
+  source: String
+  body: IWorkflowTaskPackagesBody
+}
+
+type IWorkflowTask {
+  task_name: String
+  source_type: String
+  source: String
+  file_path: String
+  dynamic_artifact: Boolean
+  cluster_type: String
+  attached_cluster: IWorkflowTaskAttachedCluster
+  dependent_libraries: String
+  packages: [IWorkflowTaskPackages]
+  input_parameters: JSON
+  retries: Int
+  timeout: Int
+  depends_on: [String]
+  task_validation_status: String
+  run_status: String
+  ha_config: IWorkflowTaskHAConfig
+  notify_on: String
+  notification_preference: ITaskNotificationPreference
+  trigger_rule: TriggerRules
+}
+
+type INotificationPreference {
+  on_fail: Boolean
+  on_skip: Boolean
+  on_success: Boolean
+  on_start: Boolean
+}
+
+type IWorkflowDetailsData {
+  workflow_id: String
+  workflow_name: String
+  display_name: String
+  description: String
+  tags: [String]
+  schedule: String
+  retries: Int
+  notify_on: String
+  parameters: JSON
+  max_concurrent_runs: Int
+  queue_enabled: Boolean
+  expected_run_duration: Int
+  notification_preference: INotificationPreference
+  created_by: String
+  last_updated_on: String
+  created_at: String
+  workflow_status: String
+  tasks: [IWorkflowTask]
+  next_run_time: String
+}
+
+type IWorkflowDetailsResponse {
+  data: IWorkflowDetailsData
+}
+
+type IWorkflowsTriggerRulesResponse {
+  id: Int
+  label: String
+  value: TriggerRules
+  description: String
+}
+type IWorkflowsMetaDataResponseData {
+  trigger_rules: [IWorkflowsTriggerRulesResponse]
+}
+type IWorkflowsMetaDataResponse {
+  status: String
+  message: String
+  data: IWorkflowsMetaDataResponseData
+}
+
+type IWorkflowRunsDetails {
+  run_id: String
+  start_time: String
+  duration: Float
+  run_status: String
+  trigger: String
+  trigger_by: String
+  is_run_duration_exceeded: Boolean
+  expected_run_duration: Int
+}
+
+type IWorkflowRepairDetails {
+  run_id: String
+  status: String
+}
+
+type IWorkflowRunsData {
+  workflow_id: String
+  runs: [IWorkflowRunsDetails]
+  repair_run: IWorkflowRepairDetails
+}
+
+type IWorkflowRunsResponse {
+  result_size: Int
+  page_size: Int
+  offset: Int
+  data: IWorkflowRunsData
+}
+
+type IWorkflowRunDetailsEvent {
+  timestamp: String
+  status: String
+  message: String
+}
+
+type IWorkflowRepairRunDetails {
+  status: String
+}
+
+type IWorkflowRunDetailsData {
+  workflow_id: String
+  run_id: String
+  start_time: String
+  end_time: String
+  duration: Float
+  run_status: String
+  trigger: String
+  trigger_by: String
+  parameters: JSON
+  events: [IWorkflowRunDetailsEvent]
+  tasks: [IWorkflowTask]
+  repair_run: IWorkflowRepairRunDetails
+  is_run_duration_exceeded: Boolean
+  expected_run_duration: Int
+}
+
+type IWorkflowRunDetailsResponse {
+  data: IWorkflowRunDetailsData
+}
+
+type IWorkflowRunCodeData {
+  workflow_id: String
+  run_id: String
+  code: String
+}
+
+type IWorkflowRunCodeResponse {
+  data: IWorkflowRunCodeData
+}
+
+type ILastTryOutput {
+  try_number: Int
+  error: String
+  application_log: String
+  system_log: String
+  logs: String
+}
+
+type IWorkflowTaskData {
+  workflow_id: String
+  run_id: String
+  task_id: String
+  start_time: String
+  end_time: String
+  duration: Float
+  source_type: String
+  file_path: String
+  dynamic_artifact: Boolean
+  source: String
+  dependent_libraries: String
+  packages: [IWorkflowTaskPackages]
+  depends_on: [String]
+  input_parameters: JSON
+  retries: Int
+  timeout: Int
+  attached_cluster: IWorkflowTaskAttachedCluster
+  task_validation_status: String
+  run_status: String
+  trigger: String
+  trigger_by: String
+  latest_try_output: ILastTryOutput
+  task_events: [IWorkflowRunDetailsEvent]
+  message: String
+  project_id: Int
+  codespace_id: Int
+  notify_on: String
+  notification_preference: ITaskNotificationPreference
+  trigger_rule: TriggerRules
+}
+
+type IWorkflowTaskRunOutput {
+  try_number: Int
+  trigger: String
+  trigger_by: String
+  error: String
+  application_log: String
+  system_log: String
+  logs: String
+  status: String
+  start_time: String
+  end_time: String
+  duration: Float
+  attached_cluster: IWorkflowTaskAttachedCluster
+}
+
+type IWorkflowTaskForRunData {
+  workflow_id: String
+  run_id: String
+  task_id: String
+  source: String
+  source_type: String
+  file_path: String
+  dynamic_artifact: Boolean
+  dependent_libraries: String
+  packages: [IWorkflowTaskPackages]
+  input_parameters: JSON
+  retries: Int
+  timeout: Int
+  task_validation_status: String
+  run_status: String
+  depends_on: [String]
+  output: [IWorkflowTaskRunOutput]
+  message: String
+  codespace_id: Int
+  project_id: Int
+  notify_on: String
+  notification_preference: ITaskNotificationPreference
+  trigger_rule: TriggerRules
+}
+
+type IImmediateParent {
+  name: String
+  columnsMap: JSON
+}
+
+type IRule {
+  id: Int
+  schedule: String
+  left_expression: String
+  comparator: String
+  right_expression: String
+  health_status: Boolean
+  type: String
+}
+
+type ICatalogAssetDetail {
+  org: String
+  type: String
+  catalog_name: String
+  database_name: String
+  table_name: String
+}
+
+type ICatalogAssetMetadata {
+  path: String
+  type: String
+}
+
+type ICatalogAssetSchema {
+  version: Int
+  schema_json: JSON
+}
+
+type ICatalogAsset {
+  fqdn: String
+  type: String
+  detail: ICatalogAssetDetail
+  description: String
+  source_platform: String
+  business_roster: String
+  rules: [IRule]
+  quality_score: String
+  severity: String
+  slack_channel: String
+  immediate_parents: [IImmediateParent]
+  tags: [String]
+  asset_created_at: Float
+  asset_updated_at: Float
+  asset_schema: ICatalogAssetSchema
+  metadata: ICatalogAssetMetadata
+}
+
+type ICatalogAssetsResponse {
+  total: Int
+  offset: Int
+  page_size: Int
+  assets: [ICatalogAsset]
+}
+
+type ISearchAssetsData {
+  asset_name: String
+  depth: Int
+  is_terminal: Boolean
+  asset_prefix: String
+}
+
+type ISearchAssetsResponse {
+  total: Int
+  offset: Int
+  page_size: Int
+  data: [ISearchAssetsData]
+}
+
+type IWorkflowTaskDetailsResponse {
+  data: IWorkflowTaskData
+}
+
+type IWorkflowTaskDetailsForRunResponse {
+  data: IWorkflowTaskForRunData
+}
+
+type IWorkflowPathDetailsData {
+  project_id: Int
+  codespace_id: Int
+}
+
+type IWorkflowPathDetailsResponse {
+  data: IWorkflowPathDetailsData
+}
+
+type IAllJobClustersData {
+  job_cluster_definition_id: String
+  cluster_name: String
+  cores: Int
+  memory: Int
+  runtime: String
+  estimated_cost: String
+  created_at: String
+}
+
+type IAllJobClustersResponse {
+  data: [IAllJobClustersData]
+  total_count: Int
+}
+
+type IWorkflowNameUnique {
+  unique: Boolean
+}
+
+type IUniqueWorkflowResponse {
+  data: IWorkflowNameUnique
+}
+
+type IWorkspacesResponse {
+  status: String
+  data: [String]
+}
+
+type IFilesData {
+  name: String
+}
+
+type IFolderData {
+  files: [IFilesData]
+  sub_folders: [IFilesData]
+}
+
+type ICodespaceFoldersResponse {
+  status: String
+  data: IFolderData
+}
+
+type IJobClusterDetailsResponse {
+  data: IClusterDetails
+}
+
+type IJobClusterNameUnique {
+  is_unique: Boolean
+}
+
+type IUniqueJobClusterResponse {
+  data: IJobClusterNameUnique
+}
+
+input GetAllPurposeClustersFilters {
+  user: [String]
+}
+
+type GetAllPurposeClustersData {
+  cluster_id: String
+  name: String
+  status: String
+  total_cores: Int
+  total_memory: Int
+  runtime: String
+  created_on: String
+  last_used_on: String
+  create_by: String
+  estimated_cost: String
+}
+
+type GetAllPurposeClustersResponse {
+  status: String
+  result_size: Int
+  page_size: Int
+  offset: Int
+  data: [GetAllPurposeClustersData]
+}
+
+type GetWorkflowsAttachedToClusterData {
+  workflow_name: String
+  display_name: String
+  description: String
+  status: String
+  workflow_id: String
+  tags: [String]
+  schedule: String
+  ## last_run_details: String
+  next_run_time: String
+  owner: String
+}
+
+type ILineageGraphNode {
+  from: String
+  to: String
+  fields_map: JSON
+}
+
+type ILineageAssetResponse {
+  graph: [ILineageGraphNode]
+  assetsInfo: JSON
+}
+
+input IgetAllJobClustersV2Filters {
+  user: [String]
+  exclude_users: [String]
+  status: [String]
+  exclude_clusters: [String]
+}
+
+type Query {
+  fetchFeatureJobsById(
+    featureJobId: String!
+    limit: Int
+    offset: Int
+  ): IFeatureJobsById
+  fetchAllFilters: IFilters
+  fetchCountOfJobs: Int
+  fetchScheduleJobRuns(
+    featureJobId: String
+    version: Int
+    limit: Int
+    offset: Int
+  ): ScheduleJobRunsResponse
+  fetchFeatureGroup(
+    featureGroupName: String
+    version: Int
+  ): IFetchFeatureGroupResponse
+  fetchFeatureGroupVersions(
+    featureGroupName: String
+  ): IFetchFeatureGroupVersionsResponse
+  fetchFilteredFeatureGroups(
+    pageSize: Int
+    offset: Int
+    query: String
+    ownerEmail: [String]
+    tags: [String]
+    sortBy: String
+    order: String
+  ): IFetchFilteredFeatureGroups
+  fetchComputeTags: IComputeTags
+  searchComputeClusters(
+    searchQuery: String
+    filters: ISearchComputeFilters
+    pageSize: Int
+    offset: Int
+    sortBy: String
+    sortOrder: String
+    filterByMe: Boolean
+  ): ISearchCompute
+  getComputeCluster(clusterId: String): IClusterDetailsResponse
+  getComputeRuntimeList: IRuntimeList
+  getComputeRuntime(
+    search_query: String
+    offset: Int
+    page_size: Int
+    class: String
+    type: String
+    is_deleted: Boolean
+  ): IComputeRuntimeResponse
+  getComputeRuntimeDetails(runtime: String): IComputeRuntimeDetailsResponse
+  getComputeInstanceRoles: InstanceRoles
+  getComputeDiscTypes: IDiscTypes
+  getComputeTemplates: ITemplates
+  getComputeAvailabilityZones: IAvailabilityZones
+  getComputeNodeTypes: IComputeNodeTypesResponse
+  getActionGroups(
+    clusterId: String
+    offset: Int
+    pageSize: Int
+    sortOrder: String
+  ): IActionGroups
+  getActionGroupDetails(
+    clusterRuntimeId: String
+    sortOrder: String
+  ): IActionGroupDetailsResponse
+  getLastSelectedCodespace: ILaunchCodespaceResponse!
+  getProjects(
+    user: String
+    query: String
+    myProjects: Boolean
+    sortBy: String
+  ): IProjectsResponse
+  getCodespaces(project_id: String): ICodespacesResponse
+  launchCodespace(project_id: String, codespace_id: String): ICodespaceDetails
+  checkUniqueProject(project_name: String): IUniqueResponse
+  checkUniqueLink(github_link: String): IUniqueResponse
+  importProject(
+    github_url: String
+    codespace_name: String
+    cluster_id: String
+  ): ICodespaceDetails
+  checkUniqueCodespace(
+    project_id: String
+    codespace_name: String
+  ): IUniqueResponse
+  getLastSyncedTimeForCodespace(
+    codespace_id: String
+  ): ILastSyncedTimeForCodespaceResponse
+  getAllClusters(
+    searchString: String
+    pageSize: Int
+    offset: Int
+  ): IAllClustersResponse
+  launchImportedProject(
+    codespace_id: String
+    github_url: String
+  ): ICodespaceDetails
+  getComputeLimits: IComputeLimitsResponse
+  getFeatureGroups(
+    searchString: String
+    pageSize: Int
+    offset: Int
+    sortBy: String
+    sortOrder: String
+    filters: [IFilterSet]
+    type: String
+    user: String
+  ): IFeatureGroups
+  getFeatureGroupFilters(user: String): IFeatureGroupFilters
+  getFeatureGroupDetails(
+    id: String
+    version: Int
+    type: String
+  ): IFeatureGroupDetailsResponse
+  getFeatures(
+    searchString: String
+    featureGroupId: String
+    version: Int
+    pageSize: Int
+    offset: Int
+    sortBy: String
+    sortOrder: String
+    type: String
+  ): IFeaturesResponse
+  getFeatureGroupRuns(fg_name: String, version: Int): IFeatureGroupRunsReturnResponse
+  getFeatureCopyCodes(
+    featureTitles: [String]
+    featureDataSourceId: String
+    featureGroupName: String
+  ): IFeatureCopyCodesResponse
+  getFeatureUsageGraph(
+    featureGroupId: String
+    type: String
+  ): IFeatureUsageGraphResponse
+  getProdUsageList(
+    featureGroupId: String
+    featureTitle: String
+    type: String
+  ): IProdUsageListResponse
+  expandDataSource(
+    featureGroupId: String
+    sourceId: String
+    dataSourceType: String
+  ): IExpandDataSourceResponse
+  getSourceTableDetails(
+    featureGroupId: String
+    tableId: String
+  ): ISourceTableDetailsResponse
+  getDataSourceEnvironments: IDataSourceEnvironmentsResponse
+  getDataSourceSourcesForEnvironment(
+    env: String
+  ): IDataSourceSourcesForEnvironmentResponse
+  getDataForEnvironmentAndSource(
+    env: String
+    source: String
+    offset: Int
+    page_size: Int
+    query: String
+    database: String
+  ): IDataForSourceAndEnvironmentResponse
+  getDatabasesForEnvironmentAndSource(
+    env: String
+    source: String
+    offset: Int
+    page_size: Int
+    query: String
+  ): IDatabasesForSourceAndEnvironmentResponse
+  getSampleDataForDataSource(
+    env: String
+    source: String
+    dataSource: String
+    version: String
+    offset: Int
+    page_size: Int
+  ): ISampleDataForDataSourceResponse
+  getClusterResources(cluster_id: String): IClusterResourceResponse
+  getCountOfProjects: ICountOfProjectsResponse
+  getFeatureGroupEntities(
+    featureGroupName: String
+    version: Int
+  ): IFeatureGroupEntitiesResponse
+  getFeatureGroupsCount(
+    searchString: String
+    filters: [IFilterSet]
+  ): IFeatureGroupsCountResponse
+  getComputeGpuPods: IComputeGpuPodsResponse
+  getComputeLibraries(
+    key: String
+    pageSize: Int
+    offset: Int
+    sortBy: String
+    sortOrder: String
+    cluster_id: String
+  ): IComputeLibrariesResponse
+  getComputeLibraryStatus(
+    cluster_id: String
+    library_id: Int
+  ): IComputeLibraryStatusResponse
+  getComputeLibraryStatuses(
+    cluster_id: String
+    library_ids: [Int]
+  ): IComputeLibraryStatusesResponse
+  getComputeLibraryDetails(
+    cluster_id: String
+    library_id: Int
+  ): IComputeLibraryDetailsResponse
+  installLibrary(
+    cluster_id: String
+    packages: [IInstallLibraryBody]
+  ): IInstallLibraryResponse
+  getMavenPackages(
+    repository: RepositoryType
+    search: String
+    page_size: Int
+    offset: Int
+  ): IMavenPackagesResponse
+  getMavenPackageVersions(
+    group_id: String
+    artifact_id: String
+  ): IMavenPackageVersionsResponse
+  getRecentlyVisitedWorkflows: IRecentlyVisitedWorkflowsResponse
+  getWorkflows(
+    query: String
+    filters: IWorkflowsFilters
+    pageSize: Int
+    offset: Int
+    sortBy: String
+    sortOrder: String
+  ): IWorkflowsResponse
+  getWorkflowFilters: IWorkflowFiltersResponse
+  getWorkflowDetails(workflowId: String): IWorkflowDetailsResponse
+  getWorkflowsMetaData(names: [String]): IWorkflowsMetaDataResponse
+  getWorkflowRuns(
+    workflowId: String
+    tags: [String]
+    start_date: String
+    end_date: String
+    page_size: Int
+    offset: Int
+    sort_by: String
+    sort_order: String
+    filters: [String]
+  ): IWorkflowRunsResponse
+  getWorkflowRunDetails(
+    workflowId: String
+    runId: String
+  ): IWorkflowRunDetailsResponse
+  getWorkflowRunCode(
+    workflowId: String
+    runId: String
+  ): IWorkflowRunCodeResponse
+  getWorkflowTaskDetails(
+    workflowId: String
+    runId: String
+    taskId: String
+  ): IWorkflowTaskDetailsForRunResponse
+  getWorkflowPathDetails(workspacePath: String): IWorkflowPathDetailsResponse
+  getWorkflowTaskDetailsWithoutRun(
+    workflowId: String
+    taskId: String
+  ): IWorkflowTaskDetailsResponse
+  getAllJobClusters(
+    query: String
+    pageSize: Int
+    offset: Int
+  ): IAllJobClustersResponse
+  getAllJobClustersV2(
+    query: String
+    pageSize: Int
+    offset: Int
+    sort_by: String
+    sort_order: String
+    filters: IgetAllJobClustersV2Filters
+  ): IAllJobClustersResponse
+  checkUniqueWorkflow(name: String): IUniqueWorkflowResponse
+  workspaces: IWorkspacesResponse
+  codespaceFolders(
+    codespaceId: String
+    folderPath: String
+  ): ICodespaceFoldersResponse
+  jobClusterDefinition(
+    jobClusterDefinitionId: String
+  ): IJobClusterDetailsResponse
+  checkUniqueJobClusterName(clusterName: String): IUniqueJobClusterResponse
+  getCatalogAssets(
+    regex: String
+    page_size: Int
+    offset: Int
+  ): ICatalogAssetsResponse
+  searchAssets(
+    asset_name_regex: String
+    asset_prefix_regex: String
+    offset: Int
+    page_size: Int
+    depth: Int
+  ): ISearchAssetsResponse
+  getAllPurposeClusters(
+    query: String
+    page_size: Int
+    offset: Int
+    sort_by: String
+    sort_order: String
+    filters: GetAllPurposeClustersFilters
+    exclude_filters: GetAllPurposeClustersFilters
+  ): GetAllPurposeClustersResponse
+  getWorkflowsAttachedToCluster(
+    cluster_id: String!
+  ): [GetWorkflowsAttachedToClusterData]
+  getLineageAsset(assetName: String!): ILineageAssetResponse
+}

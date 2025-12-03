@@ -1,0 +1,17 @@
+query GetMavenPackageVersions(
+    $group_id: String
+    $artifact_id: String
+) {
+  getMavenPackageVersions(
+    group_id: $group_id
+    artifact_id: $artifact_id
+  ) {
+    status
+    message
+    data {
+        artifact_id
+        group_id
+        versions
+    }
+  }
+}

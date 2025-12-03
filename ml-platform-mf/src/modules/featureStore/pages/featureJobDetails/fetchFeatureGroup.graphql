@@ -1,0 +1,94 @@
+query fetchFeatureGroup($featureGroupName: String, $version: Int) {
+  fetchFeatureGroup(featureGroupName: $featureGroupName, version: $version) {
+    data {
+      featureGroup {
+        version
+        name
+        status
+        tags
+        description
+        slackNotificationChannel
+        sources {
+          s3 {
+            location
+            referenceName
+            metadata
+          }
+          redShift {
+            location
+            referenceName
+            query
+          }
+          dataFeast {
+            featureGroup
+            referenceName
+            featureList {
+              title
+              type
+            }
+          }
+          athena {
+            tableName
+            datasetReferenceName
+            query
+          }
+        }
+        sinks {
+          s3 {
+            location
+            referenceName
+            metadata
+          }
+          redShift {
+            location
+            referenceName
+            query
+          }
+          dataFeast {
+            featureGroup
+            referenceName
+            featureList {
+              title
+              type
+            }
+          }
+          athena {
+            tableName
+            datasetReferenceName
+            query
+          }
+        }
+        computeMetadata {
+          computeType
+          sqlQuery
+          databricksLink
+          customCode {
+            s3ClassName
+            s3Path
+            requirementFilePath
+          }
+        }
+        features {
+          name
+          type
+          tags
+          description
+          primaryKey
+          partitionKey
+        }
+        scheduleJob {
+          resourceTier
+          schedule
+          scheduleData {
+            timeStamp
+            status
+            link
+            sampleData
+            errorStackTrack
+            retryNumber
+          }
+        }
+      }
+    }
+  }
+}

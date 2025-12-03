@@ -1,0 +1,6 @@
+[
+  {
+    "component_name": "ml-platform-mf",
+    "deployment_type": "aws_ec2"
+  }
+]

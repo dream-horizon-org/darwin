@@ -1,0 +1,8 @@
+mutation CreateComputeCluster($input: ClusterCreate) {
+  createComputeCluster(input: $input) {
+    status
+    data {
+      cluster_id
+    }
+  }
+}

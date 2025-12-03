@@ -1,0 +1,13 @@
+query GetWorkflowsAttachedToCluster($clusterId: String!) {
+  getWorkflowsAttachedToCluster(cluster_id: $clusterId) {
+    workflow_name
+    display_name
+    description
+    status
+    workflow_id
+    tags
+    schedule
+    next_run_time
+    owner
+  }
+}

@@ -1,0 +1,34 @@
+---
+description: A Input component.
+---
+
+import {Input} from './input'
+import {InputSizes} from './constants'
+import {style} from './utils'
+
+Input fields are text boxes that allow users to input custom text entries with a keyboard. Various options can be shown with the field to communicate the input requirements.
+
+### Component usage
+
+```js
+import {
+  Input,
+  InputProps,
+  InputSizes
+} from '@sporta-technology/d11-web-components.input'
+;<Input
+  label='Label'
+  name='Input'
+  value={value}
+  onChange={handleChange}
+  size={InputSizes.SMALL}
+/>
+```
+
+### Render Input component!
+
+```js live
+<div style={style}>
+  <Input label='Label' name='Input' />
+</div>
+```

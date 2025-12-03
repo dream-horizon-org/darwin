@@ -1,0 +1,26 @@
+query GetFeatureGroupDetails($getFeatureGroupDetailsId: String, $version: Int, $type: String) {
+  getFeatureGroupDetails(id: $getFeatureGroupDetailsId, version: $version, type: $type) {
+    status
+    statusCode
+    data {
+      id
+      title
+      description
+      version
+      allVersions
+      lastValueUpdated
+      createdBy
+      tags
+      type
+      typesAvailable
+      copyCode {
+        name
+        value
+      }
+      sinks {
+        location
+        type
+      }
+    }
+  }
+}

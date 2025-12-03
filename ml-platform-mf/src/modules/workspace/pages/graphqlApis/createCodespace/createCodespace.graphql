@@ -1,0 +1,37 @@
+mutation CreateCodespace(
+  $projectId: String
+  $codespaceName: String
+  $cloneFromCodespaceName: String
+  $clusterId: String
+) {
+  createCodespace(
+    project_id: $projectId
+    codespace_name: $codespaceName
+    clone_from_codespace_name: $cloneFromCodespaceName
+    cluster_id: $clusterId
+  ) {
+    project_id
+    project_name
+    codespace_id
+    codespace_name
+    github_link
+    last_sync_time
+    jupyter_lab_link
+    attached_cluster {
+      cluster_id
+      cluster_name
+      cluster_status
+      memory
+      cores
+      cluster_usage {
+        memory_used
+        cores_used
+      }
+      attached_codespaces_count
+      ray_dashboard
+      prometheus_dashboard
+      spark_ui_dashboard
+    }
+    code_server_link
+  }
+}

@@ -1,0 +1,9 @@
+query getMLFlowRegisteredModels {
+  getMLFlowRegisteredModels {
+    registered_models {
+        name
+        creation_timestamp
+        last_updated_timestamp
+    }
+  }
+}

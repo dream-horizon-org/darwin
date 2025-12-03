@@ -1,0 +1,8 @@
+query CheckUniqueProject($projectName: String) {
+  checkUniqueProject(project_name: $projectName) {
+    status
+    data {
+      is_unique
+    }
+  }
+}

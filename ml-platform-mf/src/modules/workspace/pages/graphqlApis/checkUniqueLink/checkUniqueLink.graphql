@@ -1,0 +1,8 @@
+query CheckUniqueLink($githubLink: String) {
+  checkUniqueLink(github_link: $githubLink) {
+    status
+    data {
+      is_unique
+    }
+  }
+}

@@ -1,0 +1,30 @@
+query GetLastSelectedCodespace {
+  getLastSelectedCodespace {
+    status
+    data {
+      project_id
+      project_name
+      codespace_id
+      codespace_name
+      github_link
+      jupyter_lab_link
+      last_sync_time
+      attached_cluster {
+        cluster_id
+        cluster_name
+        cluster_status
+        memory
+        cores
+        cluster_usage {
+          memory_used
+          cores_used
+        }
+        attached_codespaces_count
+        ray_dashboard
+        prometheus_dashboard
+        spark_ui_dashboard
+      }
+      code_server_link 
+    }
+  }
+}

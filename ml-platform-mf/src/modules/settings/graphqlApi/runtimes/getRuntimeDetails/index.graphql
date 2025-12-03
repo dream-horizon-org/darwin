@@ -1,0 +1,6 @@
+query GetRuntimeDetails($runtimeName: String!) {
+  getRuntimeDetails(runtimeName: $runtimeName) {
+      status
+      logs
+    }
+  }

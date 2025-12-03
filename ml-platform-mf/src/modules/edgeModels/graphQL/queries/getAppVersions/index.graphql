@@ -1,0 +1,16 @@
+query GetAppVersions {
+  getAppVersions {
+    data {
+      versions {
+        appName
+        appVersions {
+          appName
+          buildNumber
+          codepushVersion
+          id
+          semver
+        }
+      }
+    }
+  }
+}

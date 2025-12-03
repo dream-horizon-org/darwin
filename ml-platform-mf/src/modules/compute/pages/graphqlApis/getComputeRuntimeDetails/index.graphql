@@ -1,0 +1,30 @@
+
+query GetComputeRuntimeDetails(
+    $runtime: String, 
+    ) {
+    getComputeRuntimeDetails(
+        runtime: $runtime
+    ) {
+        status
+        message
+        data {
+            id
+            class
+            type
+            runtime
+            image
+            reference_link
+            components {
+                name
+                version
+            }
+            created_by
+            last_updated_by
+            created_at
+            last_updated_at
+            is_deleted
+            spark_connect
+            spark_auto_init
+        }
+    }
+}

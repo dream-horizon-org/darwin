@@ -1,0 +1,9 @@
+mutation StopWorkflowRun($workflowId: String, $runId: String) {
+  stopWorkflowRun(workflowId: $workflowId, runId: $runId) {
+    data {
+      workflow_id
+      run_id
+      run_status
+    }
+  }
+}

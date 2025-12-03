@@ -1,0 +1,10 @@
+query GetComputeCluster($clusterId: String) {
+  getComputeCluster(clusterId: $clusterId) {
+    status
+    data {
+      clusterId
+      clusterName
+      status
+    }
+  }
+}

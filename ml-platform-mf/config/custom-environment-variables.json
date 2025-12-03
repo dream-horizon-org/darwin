@@ -1,0 +1,7 @@
+{
+  "gqlUrl": "GRAPHQL_URL",
+  "uiConfig": {
+    "gqlUrl": "GRAPHQL_URL"
+  }
+}
+

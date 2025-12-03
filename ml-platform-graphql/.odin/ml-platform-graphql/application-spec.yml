@@ -1,0 +1,68 @@
+version: 1.0.58-SNAPSHOT
+name: ml-platform-graphql
+description: ML Platform GraphQL API Gateway
+service_type: nodejs
+port: 4000
+
+# Service metadata
+metadata:
+  team: ml-platform
+  component: api-gateway
+  language: typescript
+  runtime: node-20.16.0
+
+# Health check configuration
+health_check:
+  path: /health
+  port: 4000
+  interval: 30s
+  timeout: 5s
+  retries: 3
+
+# Resource requirements
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 200m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+# Scaling configuration
+scaling:
+  min_replicas: 2
+  max_replicas: 10
+  target_cpu_utilization: 70
+
+# Environment-specific configuration
+environments:
+  dev:
+    replicas: 1
+    enable_playground: true
+    enable_introspection: true
+    log_level: debug
+  
+  stag:
+    replicas: 2
+    enable_playground: true
+    enable_introspection: true
+    log_level: info
+  
+  uat:
+    replicas: 2
+    enable_playground: true
+    enable_introspection: true
+    log_level: info
+  
+  prod:
+    replicas: 3
+    enable_playground: false
+    enable_introspection: false
+    log_level: warn
+
+# Dependencies
+dependencies:
+  - darwin-workspace
+  - darwin-compute
+  - darwin-workflow
+  - darwin-feature-store

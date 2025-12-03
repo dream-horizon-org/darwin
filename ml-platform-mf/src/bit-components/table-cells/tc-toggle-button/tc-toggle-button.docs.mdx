@@ -1,0 +1,37 @@
+---
+description: A TcToggleButton component.
+---
+
+import {TcToggleButton} from './tc-toggle-button'
+import {style} from './utils'
+
+A component that renders the toggle-button inside the tc-cell.
+
+### Component usage
+
+```js
+import {
+  ToggleButtonType,
+  ToggleButtonVariants
+} from '@sporta-technology/d11-web-components.toggle-button'
+import {TabelCellSize} from '@sporta-technology/d11-web-components.table-cells.tc-cell'
+import {TcToggleButton} from '@sporta-technology/d11-web-components.table-cells.tc-toggle-button'
+
+const list = [
+  {value: 'one', text: 'one', disabled: true},
+  {value: 'two', text: 'two', testIdentifier: 'button-1'}
+]
+const [currentValue, setCurrentValue] = useState('')
+const handleChange = (e, b) => {
+  setCurrentValue(b)
+}
+
+;<TcToggleButton
+  size={TabelCellSize.Medium}
+  list={list}
+  handleChange={handleChange}
+  buttonType={ToggleButtonType.STRING}
+  currentValue={currentValue}
+  variant={ToggleButtonVariants.PRIMARY}
+/>
+```

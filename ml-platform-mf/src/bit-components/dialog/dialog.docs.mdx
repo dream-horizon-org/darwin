@@ -1,0 +1,36 @@
+---
+description: A Dialog component.
+---
+
+import {Dialog} from './dialog'
+import {style, iconMock} from './utils'
+
+A component that does something special and renders text in a div.
+
+### Component usage
+
+```js
+import {Dialog,DialogProps,ActionButtonProps,DialogFooterProps} from '@sporta-technology/d11-web-components.dialog
+
+<Dialog
+  handleClose={handleClose}
+  title='Title'
+  open={open}
+  dialogContent={
+    <div>
+      Are you sure that the experiment has been running long enough to receive
+      sufficient data? Please confirm.
+    </div>
+  }
+  dialogFooter={{
+    primaryButton: {
+      text: 'Button',
+      onClick: () => {}
+    },
+    secondaryButton: {
+      text: 'Button',
+      onClick: () => {}
+    }
+  }}
+/>
+```

@@ -1,0 +1,10 @@
+query GetFeatureGroupFilters($user: String) {
+  getFeatureGroupFilters(user: $user) {
+    status
+    statusCode
+    data {
+      name
+      value
+    }
+  }
+}

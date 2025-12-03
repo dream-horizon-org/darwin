@@ -1,0 +1,10 @@
+query GetMLFlowModelArtifactUrl($runId: String) {
+  getMLFlowModelArtifactUrl(runId: $runId) {
+    root_uri
+    files {
+      path
+      is_dir
+      file_size
+    }
+  }
+}

@@ -442,8 +442,8 @@ services:
     # Consider using privileged: true or mounting Docker socket if needed
     # For now, disabled by default to not disturb existing deployments
     securityContext:
-      privileged: true  # Required for Docker-in-Docker or accessing Docker socket with permissions
-      runAsUser: 0      # Root access needed for Docker operations
+      privileged: true # Required for Docker-in-Docker or accessing Docker socket with permissions
+      runAsUser: 0 # Root access needed for Docker operations
 
     volumeMounts:
       - mountPath: /var/run/docker.sock
@@ -453,7 +453,7 @@ services:
         hostPath:
           path: /var/run/docker.sock
           type: Socket
-    
+
     # Persistence for logs
     persistence:
       enabled: true
@@ -610,6 +610,119 @@ services:
       - name: AWS_DEFAULT_REGION
         value: "us-east-1"
 
+  # ML Platform GraphQL Service
+  ml-platform-graphql:
+    enabled: true
+    replicaCount: 1
+    serviceName: ml-platform-graphql
+    image:
+      registry: localhost:5000
+      name: ml-platform-graphql
+      tag: latest
+      pullPolicy: Always
+    service:
+      type: ClusterIP
+      port: 4000
+    ingress:
+      enabled: false
+    autoscaling:
+      enabled: false
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+    extraEnvVars:
+      - name: NODE_ENV
+        value: "production"
+      - name: PORT
+        value: "4000"
+      # Compute Service
+      - name: DARWIN_COMPUTE_SERVICE_HOST
+        value: "http://darwin-compute.darwin.svc.cluster.local:8000"
+      # Workspace Service
+      - name: DARWIN_WORKSPACE_SERVICE_HOST
+        value: "http://darwin-workspace.darwin.svc.cluster.local:8000"
+      # Workflows Service
+      - name: DARWIN_WORKFLOWS_SERVICE_HOST
+        value: "http://darwin-workflows.darwin.svc.cluster.local:8000"
+      # Data Catalog Service
+      - name: DARWIN_DATA_CATALOG_SERVICE_HOST
+        value: "http://darwin-data-catalog.darwin.svc.cluster.local:8000"
+      # Feature Store Service
+      - name: FEATURE_STORE_SERVICE_HOST
+        value: "http://de-feast-registry-api.darwin.svc.cluster.local:8000"
+      - name: FEATURE_STORE_V2
+        value: "http://mlp-fct.darwin.svc.cluster.local:8000"
+      - name: MLP_FEATURE_STORE_SERVICE_HOST
+        value: "http://mlp-fct-app-layer.darwin.svc.cluster.local:8000"
+      # MLFlow / Experimentation
+      - name: MLP_EXPERIMENTATION_SERVICE_HOST
+        value: "http://darwin-mlflow-app.darwin.svc.cluster.local:8000"
+      # BYOR (Bring Your Own Runtime)
+      - name: MLP_BYOR_SERVICE_HOST
+        value: "http://darwin-ml-serve.darwin.svc.cluster.local:8000"
+      # ML On Edge
+      - name: MLP_ON_EDGE_SERVICE_HOST
+        value: "http://ml-on-edge.darwin.svc.cluster.local:8000"
+      # Chronos
+      - name: MLP_CHRONOS_SERVICE_HOST
+        value: "http://chronos.darwin.svc.cluster.local:8000"
+      # Default Service Host
+      - name: DEFAULT_SERVICE_HOST
+        value: "http://localhost:8000"
+
+  # ML Platform MF Service
+  ml-platform-mf:
+    enabled: true
+    replicaCount: 1
+    serviceName: ml-platform-mf
+    image:
+      registry: localhost:5000
+      name: ml-platform-mf
+      tag: latest
+      pullPolicy: Always
+    service:
+      type: ClusterIP
+      port: 7700
+    ingress:
+      enabled: true
+      className: nginx
+      annotations: {}
+      hosts:
+        - host: localhost
+          paths:
+            - path: /mlplatform
+              pathType: Prefix
+            - path: /s3
+              pathType: Prefix
+            - path: /bitBucket
+              pathType: Prefix
+            - path: /assets
+              pathType: Prefix
+            - path: /
+              pathType: Prefix
+    autoscaling:
+      enabled: false
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+    extraEnvVars:
+      - name: NODE_ENV
+        value: "dev-local"
+      - name: PORT
+        value: "7700"
+      - name: GRAPHQL_URL
+        value: "http://localhost/ml-platform/graphql"
+      - name: ML_PLATFORM_GRAPHQL_SERVICE
+        value: "http://ml-platform-graphql.darwin.svc.cluster.local:4000/graphql"
+
 # Ingress Configuration
 ingress:
   enabled: true
@@ -653,6 +766,9 @@ ingress:
     - path: "/darwin-catalog(/|$)(.*)"
       service: "catalog"
       port: 8081
+    - path: "/ml-platform(/|$)(.*)"
+      service: "ml-platform-graphql"
+      port: 4000
 
 # Shared Storage Configuration for Services
 # This creates a shared PersistentVolume that can be used by multiple services
