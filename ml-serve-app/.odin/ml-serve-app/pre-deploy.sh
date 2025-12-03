@@ -67,13 +67,11 @@ fi
 echo ""
 echo "📋 Setting up database tables..."
 
-# Check if we're in a container with the virtual environment
-if [ -f "/app/bin/activate" ] && [ -d "/app/model" ]; then
+# Check if we're in a container with the application installed
+if [ -d "/app/model" ] && [ -d "/app/core" ]; then
   echo "  Using application's Python environment to generate schemas..."
 
-  # Activate virtual environment and generate schemas
   cd /app || exit 1
-  source bin/activate 2>/dev/null || true
 
   # Use Python to generate tables via Tortoise ORM
   python3 << 'PYTHON_SCRIPT'

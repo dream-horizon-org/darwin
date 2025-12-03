@@ -16,27 +16,20 @@ apt-get install --assume-yes \
   build-essential \
   && rm -rf /var/lib/apt/lists/*
 
-echo "🐍 Setting up Python virtual environment..."
 cd "$BASE_DIR" || exit 1
 
-# Create virtual environment in BASE_DIR
-python3 -m venv .
-source bin/activate
-
 echo "⬆️  Upgrading pip..."
-bin/python3 -m pip install --upgrade pip
-
-export PATH=$PATH:"$BASE_DIR"/bin
+pip3 install --upgrade pip
 
 echo "📚 Installing Python packages..."
 echo "  Installing model..."
-bin/pip3 install -e model/.
+pip3 install --no-cache-dir -e model/.
 
 echo "  Installing core..."
-bin/pip3 install -e core/.
+pip3 install --no-cache-dir -e core/.
 
 echo "  Installing app_layer..."
-bin/pip3 install -e app_layer/.
+pip3 install --no-cache-dir -e app_layer/.
 
 echo "🧹 Cleaning up build dependencies to reduce image size..."
 # Remove build dependencies after installation to reduce final image size

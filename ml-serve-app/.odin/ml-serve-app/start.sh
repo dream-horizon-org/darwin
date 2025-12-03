@@ -25,10 +25,8 @@ export LOG_DIR=/app/log/ml-serve-app
 echo "Cding into app dir.."
 cd "$APP_DIR" || exit
 
-echo "Starting app layer.."
-source bin/activate
-echo "Starting app layer ..."
-# Note: Files are in /app/, not /app/ml-serve-app/, so use /app/bin/python3
+echo "Starting app layer..."
 # Use APPLICATION_PORT from environment, default to 8080 (matches service port)
 APP_PORT=${APPLICATION_PORT:-8080}
-LOG_FILE=$LOG_DIR/ml-serve-app.log /app/bin/python3 -m uvicorn app_layer.src.ml_serve_app_layer.main:app --host 0.0.0.0 --port $APP_PORT --workers 2
+echo "Starting uvicorn on port $APP_PORT..."
+LOG_FILE=$LOG_DIR/ml-serve-app.log python3 -m uvicorn app_layer.src.ml_serve_app_layer.main:app --host 0.0.0.0 --port $APP_PORT --workers 2

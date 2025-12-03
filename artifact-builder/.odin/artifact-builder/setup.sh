@@ -24,12 +24,11 @@ echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
   $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 apt-get update
-apt-get install --assume-yes \
+apt-get install --assume-yes --no-install-recommends \
   docker-ce \
   docker-ce-cli \
   containerd.io \
   docker-buildx-plugin \
-  docker-compose-plugin \
   && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -37,28 +36,9 @@ echo "📚 Installing Python dependencies..."
 cd "$BASE_DIR" || exit 1
 # Install in dependency order: model -> core -> app_layer
 echo "  Installing model..."
-pip3 install -e model/. --force-reinstall 2>&1
+pip3 install --no-cache-dir -e model/.
 echo "  Installing core..."
-pip3 install -e core/. --force-reinstall 2>&1
+pip3 install --no-cache-dir -e core/.
 echo "  Installing app_layer..."
-pip3 install -e app_layer/. --force-reinstall 2>&1
+pip3 install --no-cache-dir -e app_layer/.
 echo "✅ Python requirements installed"
-
-#
-#PIP_CONF_DIR="$HOME/.pip"
-#PIP_CONF_PATH="$PIP_CONF_DIR/pip.conf"
-#
-## Create the ~/.pip directory if it doesn't exist
-#mkdir -p "$PIP_CONF_DIR"
-#
-## Create or overwrite the pip.conf file
-#cat > "$PIP_CONF_PATH" <<EOF
-#[global]
-#index-url = http://pypi-server.darwin.dream11-k8s.local/
-#extra-index-url= http://pypi-server.darwin-d11-stag.local/
-#trusted-host = pypi-server.darwin.dream11-k8s.local
-#               pypi-server.darwin-d11-stag.local
-#               pypi.org
-#EOF
-#
-#echo "Created $PIP_CONF_PATH with the specified content"
