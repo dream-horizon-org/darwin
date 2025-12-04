@@ -187,6 +187,10 @@ pushd deployer/images/golang-1.18
 sh build.sh
 popd
 
+pushd deployer/images/nodejs-20.16.0
+sh build.sh
+popd
+
 # Path to your YAML files
 YAML_FILE="services.yaml"
 ENABLED_FILE=".setup/enabled-services.yaml"
