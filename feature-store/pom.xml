@@ -25,15 +25,23 @@
 
   <repositories>
     <repository>
+      <id>maven-central</id>
+      <url>https://repo.maven.apache.org/maven2</url>
+    </repository>
+    <repository>
       <id>local-repo</id>
-      <url>file://${project.basedir}/local-repo</url>
+      <url>file://${session.executionRootDirectory}/local-repo</url>
     </repository>
   </repositories>
   
   <pluginRepositories>
     <pluginRepository>
+      <id>maven-central</id>
+      <url>https://repo.maven.apache.org/maven2</url>
+    </pluginRepository>
+    <pluginRepository>
       <id>local-repo</id>
-      <url>file://${project.basedir}/local-repo</url>
+      <url>file://${session.executionRootDirectory}/local-repo</url>
     </pluginRepository>
   </pluginRepositories>
 
