@@ -133,13 +133,14 @@ CREATE TABLE IF NOT EXISTS `library`
 INSERT IGNORE INTO `cluster_runtimes` (`runtime`, `image`, `namespace`, `created_by`, `type`)
 VALUES ('0.0', 'localhost:5000/ray:2.37.0', 'ray', 'Darwin', 'cpu');
 
-INSERT IGNORE INTO `cluster_configs` (`config_key`, `value`)
+INSERT INTO `cluster_configs` (`config_key`, `value`)
 VALUES ('cloud_env', 'kind-0'),
        ('cloud_env_job', 'kind-0'),
        ('cloud_env_remotekernel', 'kind-0'),
        ('cloud_env_shs', 'kind-0'),
        ('RSS_TOTAL_FSX_NUM', '1'),
-       ('RSS_PER_FSX_CLAIM_NUM', '1');
+       ('RSS_PER_FSX_CLAIM_NUM', '1')
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
 
 CREATE TABLE IF NOT EXISTS `runtimes_v2`
 (
