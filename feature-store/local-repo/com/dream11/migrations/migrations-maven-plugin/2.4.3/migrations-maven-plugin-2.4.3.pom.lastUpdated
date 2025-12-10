@@ -1,0 +1,9 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sat Jun 24 01:34:03 IST 2023
+https\://repo.jenkins-ci.org/public/.lastUpdated=1687550642560
+https\://repo.maven.apache.org/maven2/.lastUpdated=1687550643478
+https\://repo.jenkins-ci.org/public/.error=
+https\://dreamsports.jfrog.io/artifactory/d11-groups/.error=Could not transfer artifact com.dream11.migrations\:migrations-maven-plugin\:pom\:2.4.3 from/to snapshots (https\://dreamsports.jfrog.io/artifactory/d11-groups)\: authorization failed for https\://dreamsports.jfrog.io/artifactory/d11-groups/com/dream11/migrations/migrations-maven-plugin/2.4.3/migrations-maven-plugin-2.4.3.pom, status\: 403 Forbidden
+https\://repo.maven.apache.org/maven2/.error=
+a52dcb0f1ba66d1e9a39a6b1b7694c03d54f74f0@default-central-https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1687550642808
+a52dcb0f1ba66d1e9a39a6b1b7694c03d54f74f0@default-snapshots-https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1687550643043

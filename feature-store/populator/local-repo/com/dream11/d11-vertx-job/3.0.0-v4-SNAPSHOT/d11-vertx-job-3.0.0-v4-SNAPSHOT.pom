@@ -1,0 +1,115 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.dream11</groupId>
+    <artifactId>d11-vertx-library-parent</artifactId>
+    <version>2.0.3-v4-SNAPSHOT</version>
+  </parent>
+  <artifactId>d11-vertx-job</artifactId>
+  <version>3.0.0-v4-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <scm>
+    <developerConnection>scm:git:https://github.com/dream11/d11-vertx-job.git</developerConnection>
+    <tag>HEAD</tag>
+  </scm>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <d11-common.version>5.0.0-v4-SNAPSHOT</d11-common.version>
+    <d11-rest.version>8.0.0-v4-SNAPSHOT</d11-rest.version>
+    <ignite.version>2.17.0</ignite.version>
+    <ignite-aws-core.version>2.11.1</ignite-aws-core.version>
+    <ignite-visor-console.version>2.14.0</ignite-visor-console.version>
+    <quartz-schedule.version>2.5.0</quartz-schedule.version>
+    <aws-java-sdk.version>2.31.78</aws-java-sdk.version>
+  </properties>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-ignite</artifactId>
+      <!-- Add exclusions to use latest ignite version     -->
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.ignite</groupId>
+          <artifactId>ignite-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.ignite</groupId>
+          <artifactId>ignite-indexing</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.ignite</groupId>
+          <artifactId>ignite-spring</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.ignite</groupId>
+      <artifactId>ignite-core</artifactId>
+      <version>${ignite.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.ignite</groupId>
+      <artifactId>ignite-indexing</artifactId>
+      <version>${ignite.version}</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.apache.ignite/ignite-visor-console -->
+    <dependency>
+      <groupId>org.apache.ignite</groupId>
+      <artifactId>ignite-visor-console_2.10</artifactId>
+      <version>${ignite-visor-console.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.ignite</groupId>
+      <artifactId>ignite-rest-http</artifactId>
+      <version>${ignite.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.ignite</groupId>
+      <artifactId>ignite-aws</artifactId>
+      <version>${ignite-aws-core.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.quartz-scheduler</groupId>
+      <artifactId>quartz</artifactId>
+      <version>${quartz-schedule.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.ignite</groupId>
+      <artifactId>ignite-slf4j</artifactId>
+      <version>${ignite.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>aws-core</artifactId>
+      <version>${aws-java-sdk.version}</version>
+    </dependency>
+
+    <!-- Dream11 -->
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>common</artifactId>
+      <version>${d11-common.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>rest</artifactId>
+      <version>${d11-rest.version}</version>
+    </dependency>
+
+  </dependencies>
+</project>
+

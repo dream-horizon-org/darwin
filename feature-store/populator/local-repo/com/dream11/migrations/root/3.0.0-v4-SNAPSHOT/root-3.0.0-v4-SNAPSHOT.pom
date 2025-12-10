@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.dream11</groupId>
+    <artifactId>d11-vertx-library-parent</artifactId>
+    <version>2.0.3-v4-SNAPSHOT</version>
+  </parent>
+  <groupId>com.dream11.migrations</groupId>
+  <artifactId>root</artifactId>
+  <packaging>pom</packaging>
+  <version>3.0.0-v4-SNAPSHOT</version>
+
+  <scm>
+    <developerConnection>scm:git:https://github.com/dream11/d11-vertx-migrations.git</developerConnection>
+    <tag>HEAD</tag>
+  </scm>
+
+  <modules>
+    <module>core</module>
+    <module>migrations-maven-plugin</module>
+  </modules>
+
+  <properties>
+    <junit.jupiter.version>5.13.3</junit.jupiter.version>
+    <d11-common.version>5.0.0-v4-SNAPSHOT</d11-common.version>
+  </properties>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>common</artifactId>
+      <version>${d11-common.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-collections4</artifactId>
+      <version>4.5.0</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>2.19.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>33.4.8-jre</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.18.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-text</artifactId>
+      <version>1.13.1</version>
+    </dependency>
+  </dependencies>
+
+</project>

@@ -1,0 +1,12 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sat Jul 23 20:04:34 IST 2022
+https\://jcenter.bintray.com/.error=
+http\://projectlombok.org/mavenrepo/.lastUpdated=1658586842954
+https\://jcenter.bintray.com/.lastUpdated=1658586843512
+https\://repo.jenkins-ci.org/public/.lastUpdated=1658586872730
+http\://projectlombok.org/mavenrepo/.error=
+https\://repo.maven.apache.org/maven2/.lastUpdated=1658586844587
+https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1658586874801
+https\://repo.jenkins-ci.org/public/.error=
+https\://repo.maven.apache.org/maven2/.error=
+a52dcb0f1ba66d1e9a39a6b1b7694c03d54f74f0@default-snapshots-https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1658586842199

@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.dream11</groupId>
+  <artifactId>d11-vertx-config</artifactId>
+  <version>1.1.11</version>
+  <modules>
+    <module>config-core</module>
+    <module>config-maven-plugin</module>
+  </modules>
+  <packaging>pom</packaging>
+
+  <name>d11-vertx-config</name>
+  <description>Load config from consul/vault</description>
+
+  <scm>
+    <developerConnection>scm:git:https://github.com/dream11/d11-vertx-config.git</developerConnection>
+    <tag>1.1.11</tag>
+  </scm>
+
+  <properties>
+    <vertx.version>3.9.1</vertx.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <ci.config.dir>${basedir}/src/main/resources/ci</ci.config.dir>
+    <checkstyle.version>8.32</checkstyle.version>
+    <lombok.version>1.18.12</lombok.version>
+
+    <d11-common.version>4.1.5</d11-common.version>
+
+    <maven.checkstyle.plugin.version>3.1.1</maven.checkstyle.plugin.version>
+    <lombok.plugin.version>1.18.6.0</lombok.plugin.version>
+  </properties>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>${lombok.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>common</artifactId>
+      <version>${d11-common.version}</version>
+    </dependency>
+
+  </dependencies>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.vertx</groupId>
+        <artifactId>vertx-stack-depchain</artifactId>
+        <version>${vertx.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <configuration>
+          <compilerVersion>1.8</compilerVersion>
+          <source>1.8</source>
+          <target>1.8</target>
+          <encoding>${project.build.sourceEncoding}</encoding>
+          <useIncrementalCompilation>false</useIncrementalCompilation>
+
+          <annotationProcessors combine.children="append">
+            <annotationProcessor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor</annotationProcessor>
+            <annotationProcessor>io.vertx.codegen.CodeGenProcessor</annotationProcessor>
+          </annotationProcessors>
+          <generatedSourcesDirectory>${project.basedir}/src/main/generated</generatedSourcesDirectory>
+          <compilerArgs>
+            <arg>-Acodegen.output=${project.basedir}/src/main</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-clean-plugin</artifactId>
+        <version>3.1.0</version>
+        <configuration>
+          <filesets>
+            <fileset>
+              <directory>${project.basedir}/src/main/generated</directory>
+            </fileset>
+          </filesets>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok-maven-plugin</artifactId>
+        <version>${lombok.plugin.version}</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.2.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.2.0</version>
+        <configuration>
+          <detectJavaApiLink>false</detectJavaApiLink>
+          <doclint>none</doclint>
+        </configuration>
+        <executions>
+          <execution>
+            <configuration>
+              <reportOutputDirectory>target</reportOutputDirectory>
+            </configuration>
+            <id>aggregate</id>
+            <goals>
+              <goal>aggregate</goal>
+            </goals>
+            <phase>verify</phase>
+          </execution>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+            <phase>package</phase>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-release-plugin</artifactId>
+        <version>3.0.0-M1</version>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.0.0-M5</version>
+        <configuration>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <version>3.0.0-M5</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+            <configuration>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.6</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>${maven.checkstyle.plugin.version}</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>${checkstyle.version}</version>
+          </dependency>
+        </dependencies>
+        <configuration>
+          <consoleOutput>true</consoleOutput>
+          <encoding>UTF-8</encoding>
+          <violationSeverity>warning</violationSeverity>
+          <configLocation>${ci.config.dir}/checkstyle.xml</configLocation>
+          <propertyExpansion>checkstyle.config.dir=${ci.config.dir}</propertyExpansion>
+        </configuration>
+      </plugin>
+
+    </plugins>
+  </build>
+
+  <distributionManagement>
+    <repository>
+      <id>central</id>
+      <name>d11-repo-release</name>
+      <url>https://artifacts.dream11.com/artifactory/d11-groups</url>
+    </repository>
+    <snapshotRepository>
+      <id>snapshots</id>
+      <name>d11-repo-snapshots</name>
+      <url>https://artifacts.dream11.com/artifactory/d11-groups</url>
+    </snapshotRepository>
+  </distributionManagement>
+</project>

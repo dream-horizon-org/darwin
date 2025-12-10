@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.dream11</groupId>
+  <artifactId>d11-vertx-job</artifactId>
+  <versioning>
+    <versions>
+      <version>3.0.0-v4-SNAPSHOT</version>
+    </versions>
+    <lastUpdated>20250715201952</lastUpdated>
+  </versioning>
+</metadata>

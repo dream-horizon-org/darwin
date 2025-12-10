@@ -1,0 +1,51 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.dream11</groupId>
+    <artifactId>d11-vertx-library-parent</artifactId>
+    <version>1.0.5</version>
+  </parent>
+  <artifactId>d11-vertx-caffeine</artifactId>
+  <version>1.0.6</version>
+  <packaging>jar</packaging>
+
+  <scm>
+    <developerConnection>scm:git:https://github.com/dream11/d11-vertx-caffeine.git</developerConnection>
+    <tag>1.0.6</tag>
+  </scm>
+
+  <properties>
+    <d11-common.version>4.1.16</d11-common.version>
+    <caffeine.version>2.8.8</caffeine.version>
+  </properties>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+      <version>${caffeine.version}</version>
+    </dependency>
+
+    <!-- Dream11 -->
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>common</artifactId>
+      <version>${d11-common.version}</version>
+    </dependency>
+  </dependencies>
+
+  <distributionManagement>
+    <repository>
+      <id>central</id>
+      <name>d11-repo-release</name>
+      <url>https://artifacts.dream11.com/artifactory/d11-repo</url>
+    </repository>
+    <snapshotRepository>
+      <id>snapshots</id>
+      <name>d11-repo-snapshots</name>
+      <url>https://artifacts.dream11.com/artifactory/d11-repo</url>
+    </snapshotRepository>
+  </distributionManagement>
+</project>
+

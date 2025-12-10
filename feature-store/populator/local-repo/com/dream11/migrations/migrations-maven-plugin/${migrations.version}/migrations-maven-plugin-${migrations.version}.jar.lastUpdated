@@ -1,0 +1,8 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Tue Dec 27 07:49:25 IST 2022
+https\://repo.jenkins-ci.org/public/.lastUpdated=1672107563171
+https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1672107564995
+https\://repo.maven.apache.org/maven2/.lastUpdated=1672107565245
+https\://repo.jenkins-ci.org/public/.error=
+https\://dreamsports.jfrog.io/artifactory/d11-groups/.error=
+https\://repo.maven.apache.org/maven2/.error=

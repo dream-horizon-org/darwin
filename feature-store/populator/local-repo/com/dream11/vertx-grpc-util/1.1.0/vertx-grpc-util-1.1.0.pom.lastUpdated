@@ -1,0 +1,13 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sun Nov 16 23:45:41 IST 2025
+https\://repo.jenkins-ci.org/public/.lastUpdated=1763316937902
+https\://repo.maven.apache.org/maven2/.lastUpdated=1763316941908
+https\://repo.jenkins-ci.org/public/.error=
+http\://0.0.0.0/.error=Could not transfer artifact com.dream11\:vertx-grpc-util\:pom\:1.1.0 from/to maven-default-http-blocker (http\://0.0.0.0/)\: Blocked mirror for repositories\: [projectlombok.org (http\://projectlombok.org/mavenrepo, default, releases+snapshots)]
+https\://jcenter.bintray.com/.error=
+@default-maven-default-http-blocker-http\://0.0.0.0/.lastUpdated=1763316939616
+https\://dreamsports.jfrog.io/artifactory/d11-groups/.error=Could not transfer artifact com.dream11\:vertx-grpc-util\:pom\:1.1.0 from/to snapshots (https\://dreamsports.jfrog.io/artifactory/d11-groups)\: status code\: 403, reason phrase\: Forbidden (403)
+https\://jcenter.bintray.com/.lastUpdated=1763316941519
+https\://repo.maven.apache.org/maven2/.error=
+a52dcb0f1ba66d1e9a39a6b1b7694c03d54f74f0@default-central-https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1763316939346
+a52dcb0f1ba66d1e9a39a6b1b7694c03d54f74f0@default-snapshots-https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1763316939609

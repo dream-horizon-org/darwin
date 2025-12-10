@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.dream11</groupId>
+    <artifactId>d11-vertx-library-parent</artifactId>
+    <version>1.0.10</version>
+  </parent>
+  <artifactId>rest</artifactId>
+  <version>7.3.5</version>
+  <packaging>jar</packaging>
+
+  <scm>
+    <developerConnection>scm:git:https://github.com/dream11/d11-rest.git</developerConnection>
+    <tag>7.3.5</tag>
+  </scm>
+
+  <properties>
+
+    <d11-common.version>4.1.22</d11-common.version>
+    <d11-vertx-redis.version>3.0.14</d11-vertx-redis.version>
+
+    <commons-validator.version>1.6</commons-validator.version>
+    <!-- TODO upgrade to latest versions after resteasy start supporting jakarta validations   -->
+    <resteasy.version>4.5.8.Final</resteasy.version>
+    <hibernate-validator.version>6.1.6.Final</hibernate-validator.version>
+    <jakarta.el.version>3.0.3</jakarta.el.version>
+    <swagger-jaxrs2.version>2.1.7</swagger-jaxrs2.version>
+
+    <junit-jupiter.version>5.7.0</junit-jupiter.version>
+    <junit.version>4.13.2</junit.version>
+    <assertj.version>3.24.2</assertj.version>
+    <refections.version>0.10.2</refections.version>
+    <maven.properties.plugin.version>1.0.0</maven.properties.plugin.version>
+  </properties>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-service-proxy</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>common</artifactId>
+      <version>${d11-common.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>d11-vertx-redis</artifactId>
+      <version>${d11-vertx-redis.version}</version>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>commons-validator</groupId>
+      <artifactId>commons-validator</artifactId>
+      <version>${commons-validator.version}</version>
+    </dependency>
+
+    <!--    RestEasy  -->
+    <dependency>
+      <groupId>org.jboss.resteasy</groupId>
+      <artifactId>resteasy-vertx</artifactId>
+      <version>${resteasy.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jboss.resteasy</groupId>
+      <artifactId>resteasy-validator-provider</artifactId>
+      <version>${resteasy.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jboss.resteasy</groupId>
+      <artifactId>resteasy-jackson2-provider</artifactId>
+      <version>${resteasy.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.hibernate</groupId>
+      <artifactId>hibernate-validator</artifactId>
+      <version>${hibernate-validator.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.glassfish</groupId>
+      <artifactId>jakarta.el</artifactId>
+      <version>${jakarta.el.version}</version>
+    </dependency>
+
+    <!--    Swagger   -->
+    <dependency>
+      <groupId>io.swagger.core.v3</groupId>
+      <artifactId>swagger-jaxrs2</artifactId>
+      <version>${swagger-jaxrs2.version}</version>
+    </dependency>
+
+    <!--   Tests   -->
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit-jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>${junit-jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>${assertj.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.reflections</groupId>
+      <artifactId>reflections</artifactId>
+      <version>${refections.version}</version>
+    </dependency>
+  </dependencies>
+
+</project>

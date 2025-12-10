@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <parent>
+    <artifactId>d11-vertx-parent</artifactId>
+    <groupId>com.dream11</groupId>
+    <version>1.0.12</version>
+  </parent>
+  <modelVersion>4.0.0</modelVersion>
+
+  <artifactId>d11-vertx-library-parent</artifactId>
+  <packaging>pom</packaging>
+
+  <properties>
+    <maven.javadoc.plugin.version>3.2.0</maven.javadoc.plugin.version>
+    <!-- Override java version to 8 for libraries           -->
+    <!-- Remove once all microservices migrate to java 11   -->
+    <maven.compile.version>1.8</maven.compile.version>
+    <maven.compile.source>1.8</maven.compile.source>
+    <maven.compile.target>1.8</maven.compile.target>
+  </properties>
+
+  <build>
+    <plugins>
+
+      <plugin>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>${maven.javadoc.plugin.version}</version>
+        <configuration>
+          <detectJavaApiLink>false</detectJavaApiLink>
+          <doclint>none</doclint>
+        </configuration>
+        <executions>
+          <execution>
+            <configuration>
+              <reportOutputDirectory>target</reportOutputDirectory>
+            </configuration>
+            <id>aggregate</id>
+            <goals>
+              <goal>aggregate</goal>
+            </goals>
+            <phase>verify</phase>
+          </execution>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+            <phase>package</phase>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

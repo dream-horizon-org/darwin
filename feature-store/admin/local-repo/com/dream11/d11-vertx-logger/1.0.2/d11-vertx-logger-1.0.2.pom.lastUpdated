@@ -1,0 +1,15 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Thu Nov 20 09:06:21 IST 2025
+https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1763609781986
+a52dcb0f1ba66d1e9a39a6b1b7694c03d54f74f0@default-snapshots-https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1763524932937
+https\://repo.jenkins-ci.org/public/.error=
+file\:////Users/rahul.pal/Documents/repos/darwin-ofs-v2/local-repo/.lastUpdated=1763524987680
+file\://${session.executionRootDirectory}/local-repo/.error=Could not transfer artifact com.dream11\:d11-vertx-logger\:pom\:1.0.2 from/to local-repo (file\://${session.executionRootDirectory}/local-repo)\: Repository path /local-repo does not exist, and cannot be created.
+https\://jcenter.bintray.com/.lastUpdated=1763524911714
+https\://repo.jenkins-ci.org/public/.lastUpdated=1763609781502
+http\://projectlombok.org/mavenrepo/.error=
+https\://repo.maven.apache.org/maven2/.lastUpdated=1763524912108
+https\://jcenter.bintray.com/.error=
+https\://repo.maven.apache.org/maven2/.error=
+http\://projectlombok.org/mavenrepo/.lastUpdated=1763524911110
+@default-local-repo-file\://${session.executionRootDirectory}/local-repo/.lastUpdated=1763524932962

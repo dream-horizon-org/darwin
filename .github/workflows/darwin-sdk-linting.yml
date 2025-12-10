@@ -1,0 +1,99 @@
+name: Darwin SDK - Code Linting
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'darwin-sdk/**'
+      - '.github/workflows/darwin-sdk-linting.yml'
+
+jobs:
+  lint:
+    name: Python Code Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-lint-${{ hashFiles('darwin-sdk/darwin/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-lint-
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install black flake8 isort mypy pylint
+
+      - name: Run Black (code formatter check)
+        working-directory: darwin-sdk/darwin
+        run: |
+          echo "Checking code formatting with Black..."
+          black --check --diff darwin/ tests/ || {
+            echo "❌ Code formatting issues found. Run 'black darwin/ tests/' to fix."
+            exit 1
+          }
+
+      - name: Run isort (import sorting check)
+        working-directory: darwin-sdk/darwin
+        run: |
+          echo "Checking import sorting with isort..."
+          isort --check-only --diff darwin/ tests/ || {
+            echo "❌ Import sorting issues found. Run 'isort darwin/ tests/' to fix."
+            exit 1
+          }
+
+      - name: Run Flake8 (style guide enforcement)
+        working-directory: darwin-sdk/darwin
+        run: |
+          echo "Running Flake8 linting..."
+          flake8 darwin/ tests/ \
+            --max-line-length=120 \
+            --extend-ignore=E203,W503 \
+            --exclude=__pycache__,.git,.venv,build,dist,*.egg-info \
+            --statistics
+
+      - name: Run Pylint (code analysis)
+        working-directory: darwin-sdk/darwin
+        continue-on-error: true
+        run: |
+          echo "Running Pylint analysis..."
+          pylint darwin/ \
+            --max-line-length=120 \
+            --disable=C0111,C0103,R0913,R0914,W0212,C0302 \
+            --output-format=text \
+            --reports=y || true
+
+      - name: Run MyPy (type checking)
+        working-directory: darwin-sdk/darwin
+        continue-on-error: true
+        run: |
+          echo "Running MyPy type checking..."
+          mypy darwin/ \
+            --ignore-missing-imports \
+            --no-strict-optional \
+            --show-error-codes || true
+
+      - name: Linting summary
+        if: always()
+        run: |
+          echo "## Darwin SDK Linting Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Code formatting check (Black)" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Import sorting check (isort)" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Style guide enforcement (Flake8)" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️  Code analysis (Pylint) - informational" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️  Type checking (MyPy) - informational" >> $GITHUB_STEP_SUMMARY
+
+

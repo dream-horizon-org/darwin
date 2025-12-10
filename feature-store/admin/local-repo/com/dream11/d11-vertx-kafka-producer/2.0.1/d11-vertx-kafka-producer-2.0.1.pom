@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.dream11</groupId>
+    <artifactId>d11-vertx-library-parent</artifactId>
+    <version>1.0.5</version>
+  </parent>
+
+  <artifactId>d11-vertx-kafka-producer</artifactId>
+  <version>2.0.1</version>
+
+  <scm>
+    <developerConnection>scm:git:https://github.com/dream11/d11-vertx-kafka-producer.git</developerConnection>
+    <tag>2.0.1</tag>
+  </scm>
+
+  <properties>
+    <debezium.version>0.8.3.Final</debezium.version>
+    <kafka.version>2.4.0</kafka.version>
+    <d11-common.version>4.1.16</d11-common.version>
+  </properties>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-kafka-client</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.12</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-unit</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.kafka</groupId>
+      <artifactId>kafka_2.12</artifactId>
+      <version>${kafka.version}</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>io.debezium</groupId>
+      <artifactId>debezium-core</artifactId>
+      <version>${debezium.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.debezium</groupId>
+      <artifactId>debezium-core</artifactId>
+      <version>${debezium.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>common</artifactId>
+      <version>${d11-common.version}</version>
+    </dependency>
+
+  </dependencies>
+
+  <distributionManagement>
+    <repository>
+      <id>central</id>
+      <name>d11-repo-release</name>
+      <url>https://artifacts.dream11.com/artifactory/d11-repo</url>
+    </repository>
+    <snapshotRepository>
+      <id>snapshots</id>
+      <name>d11-repo-snapshots</name>
+      <url>https://artifacts.dream11.com/artifactory/d11-repo</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+</project>

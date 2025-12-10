@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.dream11</groupId>
+  <artifactId>d11-vertx-aerospike</artifactId>
+  <versioning>
+    <versions>
+      <version>operate-test-vertx4-SNAPSHOT</version>
+    </versions>
+    <lastUpdated>20250724091907</lastUpdated>
+  </versioning>
+</metadata>

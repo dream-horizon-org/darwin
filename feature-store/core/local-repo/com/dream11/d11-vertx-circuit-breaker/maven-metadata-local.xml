@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.dream11</groupId>
+  <artifactId>d11-vertx-circuit-breaker</artifactId>
+  <versioning>
+    <versions>
+      <version>2.0.0-v4-SNAPSHOT</version>
+    </versions>
+    <lastUpdated>20250719111534</lastUpdated>
+  </versioning>
+</metadata>

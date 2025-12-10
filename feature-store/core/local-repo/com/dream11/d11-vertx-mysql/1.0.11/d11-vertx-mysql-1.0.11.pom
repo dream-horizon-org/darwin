@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.dream11</groupId>
+    <artifactId>d11-vertx-library-parent</artifactId>
+    <version>1.0.6</version>
+  </parent>
+  <artifactId>d11-vertx-mysql</artifactId>
+  <version>1.0.11</version>
+
+  <name>d11-vertx-mysql</name>
+  <description>MySQL Client library for use in vert.x projects in dream11</description>
+
+  <scm>
+    <developerConnection>scm:git:https://github.com/dream11/d11-vertx-mysql.git</developerConnection>
+    <tag>1.0.11</tag>
+  </scm>
+
+  <properties>
+    <mysql.version>3.5.0</mysql.version>
+    <d11-common.version>4.0.3</d11-common.version>
+  </properties>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-mysql-client</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>common</artifactId>
+      <version>${d11-common.version}</version>
+    </dependency>
+
+  </dependencies>
+
+
+  <distributionManagement>
+    <repository>
+      <id>central</id>
+      <name>d11-repo-release</name>
+      <url>https://artifacts.dream11.com/artifactory/d11-groups</url>
+    </repository>
+    <snapshotRepository>
+      <id>snapshots</id>
+      <name>d11-repo-snapshots</name>
+      <url>https://artifacts.dream11.com/artifactory/d11-groups</url>
+    </snapshotRepository>
+  </distributionManagement>
+</project>

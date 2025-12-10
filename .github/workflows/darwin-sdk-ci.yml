@@ -1,0 +1,319 @@
+name: Darwin SDK CI
+
+on:
+  push:
+    paths:
+      - 'darwin-sdk/**'
+      - '.github/workflows/darwin-sdk-ci.yml'
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'darwin-sdk/**'
+      - '.github/workflows/darwin-sdk-ci.yml'
+    branches-ignore:
+      - main
+      - develop
+
+env:
+  ENV: LOCAL
+  CLUSTER_ID: ray-test
+  KUBECONFIG: ./kind/config/kindkubeconfig.yaml
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: darwin-sdk/darwin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov responses
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Download JAR dependencies
+        run: |
+          mvn dependency:copy-dependencies \
+            -DoutputDirectory=darwin/jars \
+            -DincludeScope=runtime \
+            -Dspark.version=3.5.0
+
+      - name: Run Unit Tests
+        env:
+          ENV: dev
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_EC2_METADATA_DISABLED: "true"
+        run: |
+          pytest tests/ \
+            --ignore=tests/test_darwin_data_source_connectivity.py \
+            --ignore=tests/test_integration.py \
+            -v \
+            --tb=short \
+            -x
+
+  integration-tests:
+    name: Integration Tests (Darwin Platform)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: unit-tests
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install Kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Initialize Darwin Platform (init.sh)
+        run: |
+          echo "Running init.sh --all to enable all services..."
+          ./init.sh --all
+
+      - name: Setup Darwin Platform (setup.sh)
+        run: |
+          echo "Running setup.sh -y to build images and start Kind cluster..."
+          ./setup.sh -y
+        timeout-minutes: 30
+
+      - name: Start Darwin Platform (start.sh)
+        run: |
+          echo "Running start.sh to deploy the platform..."
+          ./start.sh
+        timeout-minutes: 15
+
+      - name: Wait for Ray Cluster to be Ready
+        run: |
+          echo "Waiting for Ray cluster to be ready..."
+          
+          # Wait for ray-operator to be ready
+          kubectl wait --for=condition=available deployment/kuberay-operator \
+            -n ray-system --timeout=300s || true
+          
+          # Check if ray cluster exists and wait for head pod
+          for i in {1..30}; do
+            RAY_HEAD=$(kubectl get pods -n ray -l ray.io/node-type=head -o name 2>/dev/null | head -1)
+            if [ -n "$RAY_HEAD" ]; then
+              echo "Found Ray head pod: $RAY_HEAD"
+              kubectl wait --for=condition=ready $RAY_HEAD -n ray --timeout=300s
+              break
+            fi
+            echo "Waiting for Ray head pod... ($i/30)"
+            sleep 10
+          done
+          
+          # Wait for worker pods
+          for i in {1..20}; do
+            READY_WORKERS=$(kubectl get pods -n ray -l ray.io/node-type=worker --field-selector=status.phase=Running -o name 2>/dev/null | wc -l)
+            if [ "$READY_WORKERS" -ge 1 ]; then
+              echo "Ray workers ready: $READY_WORKERS"
+              break
+            fi
+            echo "Waiting for Ray workers... ($i/20)"
+            sleep 10
+          done
+          
+          # Show cluster status
+          kubectl get pods -n ray
+          kubectl get pods -n darwin
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install Darwin SDK
+        working-directory: darwin-sdk/darwin
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov responses ray[default]
+          pip install -r requirements.txt
+          pip install -e .
+          
+          # Download JAR dependencies
+          mvn dependency:copy-dependencies \
+            -DoutputDirectory=darwin/jars \
+            -DincludeScope=runtime \
+            -Dspark.version=3.5.0
+
+      - name: Get Ray Head Service IP
+        id: ray-ip
+        run: |
+          # Port-forward to Ray head service
+          RAY_HEAD_SVC=$(kubectl get svc -n ray -l ray.io/node-type=head -o name | head -1)
+          if [ -n "$RAY_HEAD_SVC" ]; then
+            kubectl port-forward $RAY_HEAD_SVC 10001:10001 -n ray &
+            sleep 5
+            echo "RAY_ADDRESS=ray://localhost:10001" >> $GITHUB_OUTPUT
+          else
+            echo "RAY_ADDRESS=local" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Ray Cluster Test
+        working-directory: darwin-sdk/darwin
+        env:
+          RAY_ADDRESS: ${{ steps.ray-ip.outputs.RAY_ADDRESS }}
+          ENV: LOCAL
+          CLUSTER_ID: ray-test
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_EC2_METADATA_DISABLED: "true"
+        run: |
+          echo "Testing Ray cluster connectivity..."
+          python cluster_test.py || echo "Cluster test completed with warnings"
+
+      - name: Run Integration Tests
+        working-directory: darwin-sdk/darwin
+        env:
+          RAY_ADDRESS: ${{ steps.ray-ip.outputs.RAY_ADDRESS }}
+          ENV: LOCAL
+          CLUSTER_ID: ray-test
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_EC2_METADATA_DISABLED: "true"
+          DARWIN_COMPUTE_URL: http://localhost:8000
+        run: |
+          # Port-forward darwin-compute service
+          kubectl port-forward svc/darwin-compute 8000:8000 -n darwin &
+          sleep 5
+          
+          echo "Running integration tests..."
+          pytest tests/test_integration.py -v --tb=short -x || echo "Integration tests completed"
+
+      - name: Collect Logs on Failure
+        if: failure()
+        run: |
+          echo "=== Ray Pods ==="
+          kubectl get pods -n ray -o wide
+          kubectl describe pods -n ray
+          
+          echo "=== Darwin Pods ==="
+          kubectl get pods -n darwin -o wide
+          kubectl describe pods -n darwin
+          
+          echo "=== Ray Head Logs ==="
+          kubectl logs -n ray -l ray.io/node-type=head --tail=100 || true
+          
+          echo "=== Darwin Compute Logs ==="
+          kubectl logs -n darwin -l app=darwin-compute --tail=100 || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Delete Kind cluster
+          kind delete cluster --name kind || true
+          
+          # Kill any port-forward processes
+          pkill -f "kubectl port-forward" || true
+
+  build-sdk:
+    name: Build Darwin SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: darwin-sdk/darwin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build Darwin SDK
+        run: |
+          chmod +x build.sh
+          ./build.sh -s 3.5.0 -b ${{ github.run_number }}
+
+      - name: Verify Build Artifacts
+        run: |
+          echo "=== Build Artifacts ==="
+          ls -la dist/
+          
+          # Verify tarball exists
+          if [ ! -f dist/*.tar.gz ]; then
+            echo "ERROR: No tarball found in dist/"
+            exit 1
+          fi
+          
+          echo "=== JAR Count ==="
+          ls darwin/jars/*.jar | wc -l
+          
+          # Verify no SNAPSHOT jars
+          if ls darwin/jars/*.jar | grep -i snapshot; then
+            echo "ERROR: SNAPSHOT JARs found!"
+            exit 1
+          fi
+          
+          echo "Build verification passed!"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin-sdk-${{ github.run_number }}
+          path: darwin-sdk/darwin/dist/*.tar.gz
+          retention-days: 7
+

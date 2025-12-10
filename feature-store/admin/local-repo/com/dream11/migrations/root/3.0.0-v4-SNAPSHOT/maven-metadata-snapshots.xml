@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata modelVersion="1.1.0">
+  <groupId>com.dream11.migrations</groupId>
+  <artifactId>root</artifactId>
+  <versioning>
+    <lastUpdated>20250718085216</lastUpdated>
+    <snapshot>
+      <timestamp>20250718.085150</timestamp>
+      <buildNumber>1</buildNumber>
+    </snapshot>
+    <snapshotVersions>
+      <snapshotVersion>
+        <extension>pom</extension>
+        <value>3.0.0-v4-20250718.085150-1</value>
+        <updated>20250718085150</updated>
+      </snapshotVersion>
+    </snapshotVersions>
+  </versioning>
+  <version>3.0.0-SNAPSHOT</version>
+</metadata>

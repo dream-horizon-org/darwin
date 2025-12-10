@@ -159,6 +159,12 @@ ray-images:
     dockerfile-path: darwin-compute/runtimes/cpu/New-Lightweight/Ray2.37_Py3.10
     registry: localhost:5000
 
+darwin-sdk-runtime:
+  enabled: true
+  image-name: ray:2.37.0-darwin-sdk
+  spark-version: "3.5.0"
+  registry: localhost:5000
+
 serve-images:
   - image-name: serve-md-runtime:latest
     dockerfile-path: ml-serve-app/runtime/darwin-serve-runtime

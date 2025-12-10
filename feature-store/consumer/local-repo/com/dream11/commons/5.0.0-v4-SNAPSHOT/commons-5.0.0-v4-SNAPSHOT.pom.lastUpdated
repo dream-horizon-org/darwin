@@ -1,0 +1,10 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Wed Jul 23 00:03:35 IST 2025
+https\://repo.jenkins-ci.org/public/.lastUpdated=1753209213895
+https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1753209215361
+https\://repo.jenkins-ci.org/public/.error=
+http\://0.0.0.0/.error=Could not transfer artifact com.dream11\:commons\:pom\:5.0.0-v4-SNAPSHOT from/to maven-default-http-blocker (http\://0.0.0.0/)\: Blocked mirror for repositories\: [projectlombok.org (http\://projectlombok.org/mavenrepo, default, releases+snapshots)]
+https\://jcenter.bintray.com/.error=
+@default-maven-default-http-blocker-http\://0.0.0.0/.lastUpdated=1753209215366
+https\://dreamsports.jfrog.io/artifactory/d11-groups/.error=
+https\://jcenter.bintray.com/.lastUpdated=1753209215794

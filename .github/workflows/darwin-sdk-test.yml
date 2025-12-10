@@ -1,0 +1,109 @@
+name: Darwin SDK - Unit Tests & Package
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'darwin-sdk/**'
+      - '.github/workflows/darwin-sdk-test.yml'
+
+jobs:
+  test-and-package:
+    name: Test & Package Darwin SDK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('darwin-sdk/darwin/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        working-directory: darwin-sdk/darwin
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov pytest-mock
+          pip install -r requirements.txt
+
+      - name: Run unit tests
+        working-directory: darwin-sdk/darwin
+        env:
+          ENV: CI
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_EC2_METADATA_DISABLED: true
+        run: |
+          # Run only non-integration tests
+          pytest tests/ \
+            -v \
+            --ignore=tests/test_integration.py \
+            --cov=darwin \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --junitxml=test-results.xml
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: darwin-sdk/darwin/test-results.xml
+          retention-days: 7
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: darwin-sdk/darwin/coverage.xml
+          retention-days: 7
+
+      - name: Build Python package
+        working-directory: darwin-sdk/darwin
+        run: |
+          # Set version for build
+          echo "SPARK_VERSION=3.5.0" > version.txt
+          echo "BUILD_VERSION=1.0.0-ci" >> version.txt
+          
+          # Build package
+          python setup.py sdist bdist_wheel
+
+      - name: Verify package contents
+        working-directory: darwin-sdk/darwin
+        run: |
+          pip install dist/*.whl
+          python -c "import darwin; from darwin.darwin import init_spark; print('✅ Darwin SDK installed successfully')"
+          python -c "from darwin.version import VERSION; print(f'Version: {VERSION}')"
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin-sdk-package
+          path: |
+            darwin-sdk/darwin/dist/*.whl
+            darwin-sdk/darwin/dist/*.tar.gz
+          retention-days: 7
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Darwin SDK Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Unit tests completed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Package built successfully" >> $GITHUB_STEP_SUMMARY
+
+

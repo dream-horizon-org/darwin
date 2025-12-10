@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata modelVersion="1.1.0">
+  <plugins>
+    <plugin>
+      <name>Unnamed - [inherited]:migrations-maven-plugin:maven-plugin:[inherited]</name>
+      <prefix>migrations</prefix>
+      <artifactId>migrations-maven-plugin</artifactId>
+    </plugin>
+    <plugin>
+      <name>Unnamed - [inherited]:seed-maven-plugin:maven-plugin:[inherited]</name>
+      <prefix>seed</prefix>
+      <artifactId>seed-maven-plugin</artifactId>
+    </plugin>
+    <plugin>
+      <name>Unnamed - [inherited]:qadata-maven-plugin:maven-plugin:[inherited]</name>
+      <prefix>qadata</prefix>
+      <artifactId>qadata-maven-plugin</artifactId>
+    </plugin>
+  </plugins>
+</metadata>

@@ -1,0 +1,13 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sun May 19 21:52:06 IST 2024
+https\://repo.jenkins-ci.org/public/.lastUpdated=1716135725297
+https\://repo.maven.apache.org/maven2/.lastUpdated=1716135726488
+https\://repo.jenkins-ci.org/public/.error=
+http\://0.0.0.0/.error=Could not transfer artifact com.dream11\:Core-Test-Utils\:pom\:1.25 from/to maven-default-http-blocker (http\://0.0.0.0/)\: Blocked mirror for repositories\: [projectlombok.org (http\://projectlombok.org/mavenrepo, default, releases+snapshots)]
+https\://jcenter.bintray.com/.error=
+@default-maven-default-http-blocker-http\://0.0.0.0/.lastUpdated=1716135725770
+https\://dreamsports.jfrog.io/artifactory/d11-groups/.error=Could not transfer artifact com.dream11\:Core-Test-Utils\:pom\:1.25 from/to snapshots (https\://dreamsports.jfrog.io/artifactory/d11-groups)\: authorization failed for https\://dreamsports.jfrog.io/artifactory/d11-groups/com/dream11/Core-Test-Utils/1.25/Core-Test-Utils-1.25.pom, status\: 403 Forbidden
+https\://jcenter.bintray.com/.lastUpdated=1716135726127
+https\://repo.maven.apache.org/maven2/.error=
+a52dcb0f1ba66d1e9a39a6b1b7694c03d54f74f0@default-central-https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1716135725532
+a52dcb0f1ba66d1e9a39a6b1b7694c03d54f74f0@default-snapshots-https\://dreamsports.jfrog.io/artifactory/d11-groups/.lastUpdated=1716135725762

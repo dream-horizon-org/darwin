@@ -1,0 +1,16 @@
+
+The following files have been resolved:
+   com.dream11:d11-vertx-cassandra:jar:2.2.22:compile[36m -- module d11.vertx.cassandra[0;1;33m (auto)[m
+   com.dream11:d11-vertx-caffeine:jar:1.0.6:compile[36m -- module d11.vertx.caffeine[0;1;33m (auto)[m
+   com.dream11:d11-vertx-mysql:jar:1.0.11:compile[36m -- module d11.vertx.mysql[0;1;33m (auto)[m
+   com.dream11:d11-vertx-webclient:jar:1.0.5:compile[36m -- module d11.vertx.webclient[0;1;33m (auto)[m
+   com.dream11:rest:jar:7.3.5:compile[36m -- module rest[0;1;33m (auto)[m
+   com.dream11:common:jar:4.1.23:compile[36m -- module common[0;1;33m (auto)[m
+   com.dream11:config-core:jar:1.1.21:compile[36m -- module config.core[0;1;33m (auto)[m
+   com.dream11:d11-tests:jar:1.0.8:test[36m -- module d11.tests[0;1;33m (auto)[m
+   com.dream11:d11-vertx-kafka-producer:jar:2.0.1:test[36m -- module d11.vertx.kafka.producer[0;1;33m (auto)[m
+   com.dream11:d11-vertx-aerospike:jar:2.0.4:test[36m -- module d11.vertx.aerospike[0;1;33m (auto)[m
+   com.dream11.migrations:core:jar:2.4.1:test[36m -- module core[0;1;33m (auto)[m
+   com.dream11:d11-tests-common-utils:jar:1.0.14:test[36m -- module d11.tests.common.utils[0;1;33m (auto)[m
+   com.dream11:d11-vertx-logger:jar:1.0.2:compile[36m -- module d11.vertx.logger[0;1;33m (auto)[m
+

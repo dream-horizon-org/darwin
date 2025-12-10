@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.dream11</groupId>
+  <artifactId>Core-Test-Utils</artifactId>
+  <versioning>
+    <versions>
+      <version>1.5-SNAPSHOT</version>
+    </versions>
+    <lastUpdated>20221207114420</lastUpdated>
+  </versioning>
+</metadata>

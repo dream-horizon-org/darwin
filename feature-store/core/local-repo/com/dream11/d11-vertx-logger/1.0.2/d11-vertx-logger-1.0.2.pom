@@ -1,0 +1,53 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.dream11</groupId>
+    <artifactId>d11-vertx-library-parent</artifactId>
+    <version>1.0.7</version>
+  </parent>
+  <artifactId>d11-vertx-logger</artifactId>
+  <version>1.0.2</version>
+
+  <scm>
+    <developerConnection>scm:git:https://github.com/dream11/d11-vertx-logger.git</developerConnection>
+    <tag>1.0.2</tag>
+  </scm>
+
+  <properties>
+    <d11-common.version>4.1.16</d11-common.version>
+    <logstash-logback-encoder.version>6.6</logstash-logback-encoder.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>common</artifactId>
+      <version>${d11-common.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>net.logstash.logback</groupId>
+      <artifactId>logstash-logback-encoder</artifactId>
+      <version>${logstash-logback-encoder.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+    </plugins>
+  </build>
+
+  <distributionManagement>
+    <repository>
+      <id>central</id>
+      <name>d11-repo-release</name>
+      <url>https://artifacts.dream11.com/artifactory/d11-repo</url>
+    </repository>
+    <snapshotRepository>
+      <id>snapshots</id>
+      <name>d11-repo-snapshots</name>
+      <url>https://artifacts.dream11.com/artifactory/d11-repo</url>
+    </snapshotRepository>
+  </distributionManagement>
+</project>
+

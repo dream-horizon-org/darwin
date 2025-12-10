@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <parent>
+    <artifactId>d11-vertx-parent</artifactId>
+    <groupId>com.dream11</groupId>
+    <version>1.0.13</version>
+  </parent>
+  <modelVersion>4.0.0</modelVersion>
+
+  <artifactId>d11-vertx-microservice-parent</artifactId>
+  <packaging>pom</packaging>
+
+  <properties>
+    <fastjson.version>1.2.72</fastjson.version>
+    <d11-rest.version>6.2.1</d11-rest.version>
+    <d11-common.version>4.1.13</d11-common.version>
+    <spotbugs.version>4.0.6</spotbugs.version>
+
+    <d11-vertx-config.version>1.1.11</d11-vertx-config.version>
+    <d11-vertx-migrations.version>2.2.16</d11-vertx-migrations.version>
+    <d11-tests.version>1.0.8</d11-tests.version>
+    <d11-vertx-logger.version>1.0.2</d11-vertx-logger.version>
+
+    <app.release.artifact>target/${project.artifactId}</app.release.artifact>
+    <main.class>${project.groupId}.${project.artifactId}.MainApplication</main.class>
+    <resource.directory>src/main/resources</resource.directory>
+    <fat-jar.path>${project.basedir}/${app.release.artifact}/${project.artifactId}-${project.version}-fat.jar</fat-jar.path>
+
+    <!-- Swagger properties   -->
+    <swagger.outputFileName>swagger</swagger.outputFileName>
+    <swagger.configurationFilePath>${project.basedir}/src/main/resources/config/swagger/swagger-info.json</swagger.configurationFilePath>
+    <swagger.outputPath>target/classes/webroot/swagger</swagger.outputPath>
+    <swagger.resourcePackage>${project.groupId}.${project.artifactId}.rest</swagger.resourcePackage>
+
+    <!-- Use an older version until https://issues.apache.org/jira/browse/MRESOURCES-237 -->
+    <maven.resources.plugin.version>2.7</maven.resources.plugin.version>
+    <maven.shade.plugin.version>3.2.3</maven.shade.plugin.version>
+    <maven.swagger.plugin.version>2.1.7</maven.swagger.plugin.version>
+    <maven.spotbugs.plugin.version>3.1.12</maven.spotbugs.plugin.version>
+    <maven.dependency-check.plugin.version>5.3.2</maven.dependency-check.plugin.version>
+    <maven.dependency.plugin.version>3.1.2</maven.dependency.plugin.version>
+
+  </properties>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>com.alibaba</groupId>
+      <artifactId>fastjson</artifactId>
+      <version>${fastjson.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>rest</artifactId>
+      <version>${d11-rest.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>common</artifactId>
+      <version>${d11-common.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>config-core</artifactId>
+      <version>${d11-vertx-config.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>d11-tests</artifactId>
+      <version>${d11-tests.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.dream11</groupId>
+      <artifactId>d11-vertx-logger</artifactId>
+      <version>${d11-vertx-logger.version}</version>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+
+      <plugin>
+        <!-- TODO: Use Maven Profiles to activate gui or check goal in development env -->
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>${maven.spotbugs.plugin.version}</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs</artifactId>
+            <version>${spotbugs.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+
+      <plugin>
+        <groupId>com.dream11.migrations</groupId>
+        <artifactId>migrations-maven-plugin</artifactId>
+        <version>${d11-vertx-migrations.version}</version>
+      </plugin>
+
+      <plugin>
+        <groupId>org.owasp</groupId>
+        <artifactId>dependency-check-maven</artifactId>
+        <version>${maven.dependency-check.plugin.version}</version>
+        <configuration>
+          <format>ALL</format>
+          <suppressionFiles>
+            <!--<suppressionFile>http://dream11.com/owasp-suppression.xml</suppressionFile>-->
+            <!--<suppressionFile>config/owasp-suppression.xml</suppressionFile>-->
+          </suppressionFiles>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>com.dream11</groupId>
+        <artifactId>config-maven-plugin</artifactId>
+        <version>${d11-vertx-config.version}</version>
+      </plugin>
+
+      <plugin>
+        <!-- plugin handles the copying of project resources to the output directory. There are two different kinds of resources: main resources and test resources -->
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>${maven.resources.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>copy-resources</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.basedir}/${app.release.artifact}/resources</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${resource.directory}</directory>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <!-- This plugin provides the capability to package the artifact in an uber-jar, including its dependencies and to shade - i.e. rename - the packages of some of the dependencies -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>${maven.shade.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>create-fat-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <manifestEntries>
+                    <Main-Class>${main.class}</Main-Class>
+                    <!-- TODO: Don't we need a Main-Verticle entry -->
+                    <!-- <Main-Verticle>${main.verticle}</Main-Verticle>-->
+                    <X-Compile-Source-JDK>${maven.compile.source}</X-Compile-Source-JDK>
+                    <X-Compile-Target-JDK>${maven.compile.target}</X-Compile-Target-JDK>
+                  </manifestEntries>
+                </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+              </transformers>
+              <artifactSet>
+              </artifactSet>
+              <outputFile>${fat-jar.path}</outputFile>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+    </plugins>
+
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>io.swagger.core.v3</groupId>
+          <artifactId>swagger-maven-plugin</artifactId>
+          <version>${maven.swagger.plugin.version}</version>
+          <configuration>
+            <outputFileName>${swagger.outputFileName}</outputFileName>
+            <configurationFilePath>${swagger.configurationFilePath}</configurationFilePath>
+            <outputPath>${swagger.outputPath}</outputPath>
+            <outputFormat>JSONANDYAML</outputFormat>
+            <resourcePackages>
+              <package>${swagger.resourcePackage}</package>
+            </resourcePackages>
+            <prettyPrint>true</prettyPrint>
+          </configuration>
+          <executions>
+            <execution>
+              <id>generate-swagger-docs</id>
+              <phase>compile</phase>
+              <goals>
+                <goal>resolve</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>${maven.dependency.plugin.version}</version>
+          <executions>
+            <execution>
+              <id>add-swagger-resources</id>
+              <phase>generate-resources</phase>
+              <goals>
+                <goal>unpack</goal>
+              </goals>
+              <configuration>
+                <artifactItems>
+                  <artifactItem>
+                    <groupId>com.dream11</groupId>
+                    <artifactId>rest</artifactId>
+                    <outputDirectory>${resource.directory}/webroot</outputDirectory>
+                    <includes>swagger/**</includes>
+                  </artifactItem>
+                </artifactItems>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+
+      </plugins>
+    </pluginManagement>
+  </build>
+
+</project>

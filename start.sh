@@ -137,6 +137,51 @@ helm upgrade --install darwin ./helm/darwin \
 
 echo "✅ Deployment completed!"
 
+# ============================================================================
+# REGISTER DARWIN SDK RUNTIME
+# ============================================================================
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "               REGISTERING DARWIN SDK RUNTIME"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check if BOTH darwin-sdk-runtime AND darwin-compute are enabled
+SDK_ENABLED=$(yq eval '.darwin-sdk-runtime.enabled // false' "$ENABLED_SERVICES_FILE")
+COMPUTE_ENABLED=$(yq eval '.applications.darwin-compute // false' "$ENABLED_SERVICES_FILE")
+
+if [ "$SDK_ENABLED" = "true" ] && [ "$COMPUTE_ENABLED" = "true" ]; then
+  echo "📦 Registering darwin-sdk runtime as '1.0'..."
+  
+  # Wait for darwin-compute to be ready via ingress
+  echo "   Waiting for darwin-compute to be ready..."
+  sleep 5
+  
+  # Register the runtime via ingress (localhost/compute)
+  RESPONSE=$(curl -s -X POST http://localhost/compute/runtime/v2/create \
+    -H "Content-Type: application/json" \
+    -d '{
+      "runtime": "darwin-sdk-runtime-1.0",
+      "class": "CPU",
+      "type": "Ray and Spark",
+      "image": "localhost:5000/ray:2.37.0-darwin-sdk",
+      "user": "Darwin",
+      "spark_connect": false,
+      "spark_auto_init": true
+    }')
+  
+  # Check response
+  if echo "$RESPONSE" | grep -q '"status":"SUCCESS"'; then
+    echo "   ✅ Darwin SDK runtime '1.0' registered successfully"
+  else
+    echo "   ⚠️  Runtime registration response: $RESPONSE"
+  fi
+elif [ "$SDK_ENABLED" != "true" ]; then
+  echo "⏭️  Skipping darwin-sdk runtime registration (darwin-sdk-runtime disabled)"
+else
+  echo "⏭️  Skipping darwin-sdk runtime registration (darwin-compute disabled)"
+fi
+
 # Show hermes-cli activation reminder if it was installed
 HERMES_CLI_ENABLED=$(yq eval '.cli-tools.hermes-cli // false' "$ENABLED_SERVICES_FILE" 2>/dev/null || echo "false")
 if [ "$HERMES_CLI_ENABLED" = "true" ]; then
