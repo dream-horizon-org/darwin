@@ -1,0 +1,30 @@
+# Darwin SDK Runtime Extension
+#
+# This template shows the additions made to the base runtime Dockerfile
+# from darwin-compute/runtimes/cpu/New-Lightweight/Ray2.37_Py3.10_Spark3.5.0/Dockerfile
+#
+# The build_runtime.sh script automatically:
+# 1. Takes the base Dockerfile content
+# 2. Appends these darwin-sdk installation steps
+# 3. Builds the final image
+#
+# Base Dockerfile location:
+#   darwin-compute/runtimes/cpu/New-Lightweight/Ray2.37_Py3.10_Spark3.5.0/Dockerfile
+
+# =============================================================================
+# Darwin SDK Installation (appended to base Dockerfile)
+# =============================================================================
+
+# Fix grpcio version for Ray 2.37.0 compatibility
+# The runtime_env_agent crashes with certain grpcio versions (e.g., 1.60.0)
+RUN pip install grpcio==1.54.2 grpcio-tools==1.54.2 --force-reinstall
+
+# Copy and install darwin-sdk wheel
+# The wheel file is built by build_runtime.sh using: python setup.py bdist_wheel
+COPY darwin-*.whl /tmp/
+RUN pip install --no-cache-dir /tmp/darwin-*.whl && rm -f /tmp/darwin-*.whl
+
+# Set default environment variables for local development
+# These can be overridden at runtime via -e flags or Kubernetes env vars
+ENV ENV=LOCAL
+ENV DARWIN_COMPUTE_URL=http://darwin-compute.darwin.svc.cluster.local:8000

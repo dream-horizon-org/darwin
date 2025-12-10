@@ -1,0 +1,96 @@
+{
+  "status": "SUCCESS",
+  "data": {
+    "cluster_id": "id-dcepbyp5e8m8x8dk",
+    "name": "dev-akash-contest",
+    "tags": [
+      "prod-eks-2"
+    ],
+    "runtime": "Ray2.37.0-Py310-Spark3.5.1-CPU",
+    "auto_termination_policies": [
+      {
+        "policy_name": "JupyterLabActivity",
+        "params": {},
+        "enabled": true
+      },
+      {
+        "policy_name": "ClusterCPUUsage",
+        "params": {
+          "head_node_cpu_usage_threshold": 100,
+          "worker_node_cpu_usage_threshold": 5
+        },
+        "enabled": true
+      },
+      {
+        "policy_name": "ActiveRayJob",
+        "params": {},
+        "enabled": true
+      }
+    ],
+    "inactive_time": 60,
+    "status": "inactive",
+    "user": "akash.deep@organization.com",
+    "head_node_config": {
+      "head_node_cores": 4,
+      "head_node_memory": 16,
+      "node_type": "disk",
+      "node_capacity_type": "ondemand",
+      "gpu_pod": null
+    },
+    "worker_node_configs": [
+      {
+        "cores": 8,
+        "memory": 32,
+        "min_pods": 1,
+        "max_pods": 1,
+        "disk_setting": null,
+        "node_type": "disk",
+        "node_capacity_type": "ondemand",
+        "gpu_pod": null
+      },
+      {
+        "cores": 8,
+        "memory": 32,
+        "min_pods": 4,
+        "max_pods": 8,
+        "disk_setting": null,
+        "node_type": "disk",
+        "node_capacity_type": "spot",
+        "gpu_pod": null
+      }
+    ],
+    "advance_config": {
+      "env_variables": "",
+      "log_path": "",
+      "init_script": "pip install raydp==1.6.2 darwin-sdk",
+      "instance_role": {
+        "instance_role_id": "1",
+        "display_name": "darwin-ds-role",
+        "service_account_name": "darwin-ds-role"
+      },
+      "availability_zone": null,
+      "ray_start_params": {
+        "object_store_memory_perc": 5,
+        "num_cpus_on_head": 0,
+        "num_gpus_on_head": 0
+      },
+      "spark_config": {
+        "spark.darwin.enableRemoteShuffle": "true"
+      }
+    },
+    "dashboards": {
+      "status": "SUCCESS",
+      "data": {
+        "jupyter_lab_url": "https://darwin-uat.organization.com/prod-eks-2/id-dcepbyp5e8m8x8dk-jupyter",
+        "ray_dashboard_url": "https://darwin-uat.organization.com/prod-eks-2/id-dcepbyp5e8m8x8dk-dashboard/",
+        "spark_ui_url": "https://darwin-uat.organization.com/prod-eks-2/id-dcepbyp5e8m8x8dk-sparkui/",
+        "grafana_dashboard_url": "https://darwin-uat.organization.com/prod-eks-2/id-dcepbyp5e8m8x8dk-metrics/",
+        "code_server_url": "https://darwin-uat.organization.com/prod-eks-2/id-dcepbyp5e8m8x8dk-vscode/",
+        "resource_utilization_dashboard_url": "https://orgprod.datadoghq.com/dashboard/x2d-fft-pps?fromUser=false&refresh_mode=paused&tpl_var_darwin_cluster_id%5B0%5D=id-dcepbyp5e8m8x8dk&from_ts=1750853888000&to_ts=1750863241000&live=false"
+      }
+    },
+    "created_on": "2025-05-06 23:19:06.416474+05:30",
+    "is_job_cluster": false
+  },
+  "message": "Cluster Details Fetched Successfully"
+}

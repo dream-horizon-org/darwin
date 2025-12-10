@@ -1,0 +1,118 @@
+# Minimal Ray Cluster values for testing grpcio fix
+# Deploy with: helm install ray-test ./darwin-cluster-manager/charts/ray-cluster -n ray -f darwin-sdk/darwin/ray-cluster-test-values.yaml
+
+image:
+  repository: localhost:5000/ray
+  tag: 2.37.0
+  pullPolicy: Always
+
+nameOverride: "ray-test"
+fullnameOverride: "ray-test"
+
+serviceAccount:
+  create: false
+  name: darwin-ds-role
+
+common:
+  containerEnv:
+    - name: ENV
+      value: LOCAL
+    - name: CLUSTER_NAME
+      value: ray-test
+
+head:
+  enableInTreeAutoscaling: false
+  serviceAccountName: "darwin-ds-role"
+  rayStartParams:
+    port: "6379"
+    dashboard-host: "0.0.0.0"
+    num-cpus: "0"
+    node-ip-address: $MY_POD_IP
+    block: "true"
+    metrics-export-port: "8080"
+  containerEnv:
+    - name: TYPE
+      value: head
+    - name: MY_POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+  resources:
+    limits:
+      cpu: "1"
+      memory: "2G"
+    requests:
+      cpu: "1"
+      memory: "2G"
+  volumes:
+    - name: log-volume
+      emptyDir: {}
+  volumeMounts:
+    - mountPath: "/tmp/ray"
+      name: log-volume
+  # Override command to run Ray directly without custom scripts
+  command: []
+  args: []
+
+worker:
+  groupName: wg
+  replicas: 2
+  minReplicas: 2
+  maxReplicas: 2
+  serviceAccountName: "darwin-ds-role"
+  rayStartParams:
+    node-ip-address: $MY_POD_IP
+    block: "true"
+    metrics-export-port: "8080"
+    resources: '"{\"ondemand\": 100}"'
+  containerEnv:
+    - name: TYPE
+      value: worker
+    - name: MY_POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+  resources:
+    limits:
+      cpu: "1"
+      memory: "2G"
+    requests:
+      cpu: "1"
+      memory: "2G"
+  volumes:
+    - name: log-volume
+      emptyDir: {}
+  volumeMounts:
+    - mountPath: /tmp/ray
+      name: log-volume
+  # Override command to run Ray directly without custom scripts
+  command: []
+  args: []
+
+additionalWorkerGroups:
+  smallGroup:
+    disabled: true
+
+service:
+  type: ClusterIP
+
+# Disable monitoring for simple test
+grafana:
+  image: "localhost:5000/grafana:latest"
+  rootPath: "/ray-test-metrics/"
+
+prometheus:
+  replicas: 0
+
+commands: []
+sparkConfig: {}
+is_job_cluster: false
+env: local
+user: test
+email: test@test.com
+cluster_name: ray-test
+kube_cluster_key: kind
+domain: localhost
+terminate_after_minutes: 60
+cluster_id: ray-test
+

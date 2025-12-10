@@ -13,6 +13,7 @@ data:
     CREATE DATABASE IF NOT EXISTS darwin;
     CREATE DATABASE IF NOT EXISTS darwin_mlflow;
     CREATE DATABASE IF NOT EXISTS darwin_mlflow_auth;
+    CREATE DATABASE IF NOT EXISTS darwincatalog;
     CREATE DATABASE IF NOT EXISTS airflow;
     
     -- Grant all privileges to root user from any host

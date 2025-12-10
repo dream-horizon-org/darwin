@@ -22,7 +22,8 @@ spec:
     spec:
       containers:
         - name: opensearch
-          image: opensearchproject/opensearch:2.11.0
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.opensearch.image.repository }}:{{ .Values.opensearch.image.tag }}
+          imagePullPolicy: {{ .Values.opensearch.image.pullPolicy }}
           env:
             - name: cluster.name
               value: {{ .Values.opensearch.clusterName | quote }}
@@ -33,7 +34,7 @@ spec:
             - name: discovery.type
               value: {{ index .Values.opensearch.env "discovery.type" | quote }}
             - name: OPENSEARCH_JAVA_OPTS
-              value: "-Xms512m -Xmx512m"
+              value: {{ .Values.opensearch.javaOpts | quote }}
             - name: DISABLE_SECURITY_PLUGIN
               value: {{ index .Values.opensearch.env "DISABLE_SECURITY_PLUGIN" | quote }}
             - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
@@ -77,7 +78,7 @@ spec:
       {{- if and .Values.opensearch.persistence.enabled (index .Values.global "local-k8s") }}
       initContainers:
         - name: create-data-dir
-          image: busybox:1.36
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.opensearch.initImage.repository }}:{{ .Values.opensearch.initImage.tag }}
           command: ['sh', '-c', 'mkdir -p /data/$(POD_NAME) && chown -R 1000:1000 /data/$(POD_NAME)']
           env:
             - name: POD_NAME
@@ -88,7 +89,7 @@ spec:
             - name: data
               mountPath: /data
         - name: increase-vm-max-map
-          image: busybox:1.36
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.opensearch.initImage.repository }}:{{ .Values.opensearch.initImage.tag }}
           command: ['sysctl', '-w', 'vm.max_map_count=262144']
           securityContext:
             privileged: true

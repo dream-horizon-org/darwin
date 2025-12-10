@@ -33,6 +33,7 @@ Thumbs.db
 # ===========================
 target/
 *.jar
+!darwin-sdk/jar-resources/**/*.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 *.class

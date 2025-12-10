@@ -156,9 +156,17 @@ opensearch:
   enabled: true
   clusterName: darwin-opensearch
   replicaCount: 1  # Single node for local development
+  image:
+    repository: opensearchproject/opensearch
+    tag: "2.11.0"
+    pullPolicy: IfNotPresent
+  initImage:
+    repository: busybox
+    tag: "1.36"
   auth:
-    username: "{{ .Values.global.database.elasticsearch.username }}"
-    password: "{{ .Values.global.database.elasticsearch.password }}"
+    username: "admin"
+    password: "admin"
+  javaOpts: "-Xms512m -Xmx512m"
   persistence:
     enabled: true
     size: 2Gi
