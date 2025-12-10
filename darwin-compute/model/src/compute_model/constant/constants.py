@@ -19,6 +19,9 @@ INSTANCE_ROLE = [
         "service_account_name": "d11-prod-dspm-darwin-role",
     },
 ]
+
+CPU_NODE_LIMITS= {"cores": {"min": 1, "max": 90}, "memory": {"min": 1, "max": 736} }
+
 AZS = [{"az_id": "az_id", "display_name": "az_name"}]
 
 NODE_CAPACITY_TYPE = ["ondemand", "spot"]

@@ -2,6 +2,7 @@
 # Darwin project files
 # ===========================
 .setup/
+.cursor/
 kind/shared-storage/
 kind/config/kindkubeconfig.yaml
 config.env

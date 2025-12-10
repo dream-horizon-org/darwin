@@ -1,0 +1,29 @@
+# Example Compute Cluster Configuration
+# Usage: darwin-cli compute create --file cluster-config.yaml
+
+name: 'example-cluster'
+tags: ["example"]
+runtime: '0.0'
+terminate_after_minutes: 60
+user: 'darwin'
+
+head_node:
+  node:
+    cores: 4
+    memory: 8
+    node_capacity_type: 'ondemand'
+
+worker_group:
+  - node:
+      cores: 2
+      memory: 4
+      node_capacity_type: 'spot'
+    min_pods: 1
+    max_pods: 3
+
+packages:
+  - source: 'pypi'
+    body:
+      name: 'tensorflow'
+      version: '2.19.0'
+
