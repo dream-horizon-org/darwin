@@ -142,7 +142,7 @@ class DeploymentRouter:
         """
         return await self.deployment_service.deploy_model(
             request,
-            user.username
+            user
         )
 
     async def undeploy_model(

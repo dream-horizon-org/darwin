@@ -1026,6 +1026,7 @@ hermes create-serve \
 # 5. Deploy model
 hermes deploy-model \
   --serve-name test-model \
+  --artifact-version v1 \
   --model-uri mlflow-artifacts:/1/abc123/artifacts/model \
   --cores 2 \
   --memory 4 \

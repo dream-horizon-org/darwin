@@ -196,6 +196,7 @@ hermes create-serve --name my-model --type api --space serve --description "My M
 # 4. Deploy model
 hermes deploy-model \
   --serve-name my-model \
+  --artifact-version v1 \
   --model-uri mlflow-artifacts:/1/abc123/artifacts/model \
   --cores 4 \
   --memory 8 \
@@ -450,6 +451,7 @@ hermes create-serve \
 # 4. Deploy model (one-click)
 hermes deploy-model \
   --serve-name iris-classifier \
+  --artifact-version v1 \
   --model-uri mlflow-artifacts:/1/2b2b1b5727a14c5ca81b44e899979745/artifacts/model \
   --cores 2 \
   --memory 4 \
@@ -580,7 +582,8 @@ hermes create-serve \
 # 4. Deploy model (one-click)
 hermes deploy-model \
   --serve-name housing-model \
-  --model-uri mlflow-artifacts:/<experiment_id>/<run_id>/artifacts/model \
+  --artifact-version v1 \
+  --model-uri mlflow-artifacts:/1/<experiment_id>/<run_id>/artifacts/model \
   --cores 2 \
   --memory 4 \
   --node-capacity spot \

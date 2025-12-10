@@ -146,7 +146,7 @@ If you are using the following CLI commands inside a project created by the CLI 
   ```
 - **Options**:
   - `--serve_name`: Name of the serve. Optional if `.hermes/serve_config.json` exists
-  - `--artifact_version`: Version of the artifact. **Required**
+  - `--artifact_version`: Deployment label for the artifact (not the image tag). **Required**
   - `--api_serve_deployment_config`: API deployment configuration (JSON string). Optional
 - **Sample Command**:
   ```bash
@@ -158,10 +158,11 @@ If you are using the following CLI commands inside a project created by the CLI 
 - **Description**: One-click deploy serve with model. Combines serve creation, configuration, and deployment in a single command.
 - **Usage**:
   ```bash
-  hermes deploy-model --serve-name <name> --model-uri <uri> --cores <cores> --memory <memory> --node-capacity <capacity> --min-replicas <min> --max-replicas <max>
+  hermes deploy-model --serve-name <name> --artifact-version <version> --model-uri <uri> --cores <cores> --memory <memory> --node-capacity <capacity> --min-replicas <min> --max-replicas <max>
   ```
 - **Options**:
   - `--serve_name`: Name of the serve. **Required**
+  - `--artifact_version`: One-click deployment label used to track/undeploy (not the runtime image tag). **Required**
   - `--model_uri`: MLflow model URI (e.g., 's3://bucket/path/to/model'). **Required**
   - `--cores`: Number of CPU cores (e.g., 4). **Required**
   - `--memory`: Memory in GB (e.g., 8). **Required**
@@ -174,10 +175,11 @@ If you are using the following CLI commands inside a project created by the CLI 
 - **Description**: Undeploy a model serve from the specified environment.
 - **Usage**:
   ```bash
-  hermes undeploy-model --serve-name <name>
+  hermes undeploy-model --serve-name <name> --artifact-version <version>
   ```
 - **Options**:
   - `--serve_name`: Name of the serve to undeploy. **Required**
+  - `--artifact_version`: One-click deployment label that identifies the deployment to remove (not the runtime image tag). **Required**
 - **Note**: The environment is determined by the `ENV` environment variable.
 
 ### 11. `get-serve-status`
