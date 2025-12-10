@@ -97,12 +97,18 @@ fi
 export DOCKER_BUILDKIT=0
 
 # Determine platform based on environment
-# For local development, build for native platform
+# For local development with kind, build for native platform
 # For production, force linux/amd64
 PLATFORM="${DOCKER_BUILD_PLATFORM:-}"
 if [ -z "$PLATFORM" ]; then
-  # Auto-detect: if running on Apple Silicon and LOCAL_REGISTRY is set, use native
-  if [ -n "$LOCAL_REGISTRY" ] && [ "$(uname -m)" = "arm64" ]; then
+  # Check if kind-registry exists (indicates local kind development)
+  KIND_REGISTRY_CHECK=$(docker port kind-registry 5000/tcp 2>/dev/null)
+  
+  # Auto-detect: if running on Apple Silicon with kind-registry, use native
+  if [ -n "$KIND_REGISTRY_CHECK" ] && [ "$(uname -m)" = "arm64" ]; then
+    PLATFORM="linux/arm64"
+    echo "Building for native platform (kind detected): $PLATFORM"
+  elif [ -n "$LOCAL_REGISTRY" ] && [ "$(uname -m)" = "arm64" ]; then
     PLATFORM="linux/arm64"
     echo "Building for native platform: $PLATFORM"
   else
@@ -144,19 +150,40 @@ if [ -n "$AWS_ECR_ACCOUNT_ID" ]; then
   echo "Successfully pushed to AWS ECR"
 fi
 
-# Push to local registry (kind-registry) if configured
-LOCAL_REGISTRY="${LOCAL_REGISTRY:-}"
-IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-serve-app}"  
+# Push to kind-registry (auto-detect port from Docker)
+# Uses localhost:PORT which Docker allows without HTTPS (unlike Docker network IPs)
+IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-serve-app}"
 
-if [ -n "$LOCAL_REGISTRY" ]; then
-  echo "Tagging for Local Registry: $LOCAL_REGISTRY"
-  # Use IMAGE_REPOSITORY (not app_name) to match what ml-serve-app expects
-  docker tag "$CONTAINER_IMAGE_PREFIX":"$image_tag" "$LOCAL_REGISTRY/$IMAGE_REPOSITORY":"$image_tag" &&
-  echo "IMAGE TAGGED for Local Registry as $LOCAL_REGISTRY/$IMAGE_REPOSITORY:$image_tag"
+# Try to auto-detect kind-registry's host-mapped port
+# Docker allows HTTP push to localhost, but requires HTTPS for other IPs
+# So we use 127.0.0.1:PORT instead of the Docker network IP
+KIND_REGISTRY_PORT=$(docker port kind-registry 5000/tcp 2>/dev/null | head -1 | cut -d: -f2)
 
-  echo "Pushing to Local Registry: $LOCAL_REGISTRY..."
-  docker push "$LOCAL_REGISTRY/$IMAGE_REPOSITORY":"$image_tag" &&
-  echo "Successfully pushed to Local Registry as $LOCAL_REGISTRY/$IMAGE_REPOSITORY:$image_tag"
+if [ -n "$KIND_REGISTRY_PORT" ]; then
+  echo "Auto-detected kind-registry at port: $KIND_REGISTRY_PORT"
+  KIND_REGISTRY="127.0.0.1:${KIND_REGISTRY_PORT}"
+  
+  echo "Tagging for kind-registry: $KIND_REGISTRY"
+  docker tag "$CONTAINER_IMAGE_PREFIX":"$image_tag" "$KIND_REGISTRY/$IMAGE_REPOSITORY":"$image_tag" &&
+  echo "IMAGE TAGGED for kind-registry as $KIND_REGISTRY/$IMAGE_REPOSITORY:$image_tag"
+
+  echo "Pushing to kind-registry: $KIND_REGISTRY..."
+  docker push "$KIND_REGISTRY/$IMAGE_REPOSITORY":"$image_tag" &&
+  echo "Successfully pushed to kind-registry as $KIND_REGISTRY/$IMAGE_REPOSITORY:$image_tag"
+else
+  # Fallback to LOCAL_REGISTRY if kind-registry not found (for non-kind environments)
+  LOCAL_REGISTRY="${LOCAL_REGISTRY:-}"
+  if [ -n "$LOCAL_REGISTRY" ]; then
+    echo "kind-registry not found, using LOCAL_REGISTRY: $LOCAL_REGISTRY"
+    docker tag "$CONTAINER_IMAGE_PREFIX":"$image_tag" "$LOCAL_REGISTRY/$IMAGE_REPOSITORY":"$image_tag" &&
+    echo "IMAGE TAGGED for Local Registry as $LOCAL_REGISTRY/$IMAGE_REPOSITORY:$image_tag"
+
+    echo "Pushing to Local Registry: $LOCAL_REGISTRY..."
+    docker push "$LOCAL_REGISTRY/$IMAGE_REPOSITORY":"$image_tag" &&
+    echo "Successfully pushed to Local Registry as $LOCAL_REGISTRY/$IMAGE_REPOSITORY:$image_tag"
+  else
+    echo "No local registry configured (kind-registry not found, LOCAL_REGISTRY not set)"
+  fi
 fi
 
 docker system prune -af
