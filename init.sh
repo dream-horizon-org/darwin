@@ -287,6 +287,39 @@ else
 fi
 
 # ============================================================================
+# DARWIN SDK RUNTIME (auto-enabled if darwin-compute is enabled)
+# ============================================================================
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "                    DARWIN SDK RUNTIME"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+DARWIN_SDK_ENABLED=false
+
+# Check if darwin-sdk-runtime is defined in services.yaml
+sdk_defined=$(yq eval '.darwin-sdk-runtime.enabled' "$YAML_FILE")
+if [ "$sdk_defined" = "true" ]; then
+  sdk_image=$(yq eval '.darwin-sdk-runtime.image-name' "$YAML_FILE")
+  
+  if [ "$ALL_YES" = "true" ]; then
+    DARWIN_SDK_ENABLED=true
+  elif [ "$COMPUTE_ENABLED" = "true" ]; then
+    # Prompt user if darwin-compute is enabled
+    prompt_yn "  Enable Darwin SDK Runtime ($sdk_image)? (includes Spark support)" "y"
+    if [ "$PROMPT_RESULT" = "true" ]; then
+      DARWIN_SDK_ENABLED=true
+    fi
+  else
+    echo "  ⏭️  Darwin SDK Runtime skipped (requires darwin-compute)"
+  fi
+fi
+
+echo "" >> "$OUTPUT_FILE"
+echo "darwin-sdk-runtime:" >> "$OUTPUT_FILE"
+echo "  enabled: $DARWIN_SDK_ENABLED" >> "$OUTPUT_FILE"
+
+# ============================================================================
 # CLI TOOLS
 # ============================================================================
 echo ""
@@ -350,6 +383,13 @@ yq eval '.datastores | to_entries | .[] | select(.value == true) | "   ✓ " + .
 echo ""
 echo "🛠️  CLI Tools:"
 yq eval '.cli-tools | to_entries | .[] | select(.value == true) | "   ✓ " + .key' "$OUTPUT_FILE" 2>/dev/null || echo "   (none)"
+
+# Show darwin-sdk runtime status
+if [ "$DARWIN_SDK_ENABLED" = "true" ]; then
+  echo ""
+  echo "🔷 Darwin SDK Runtime:"
+  echo "   ✓ ray:2.37.0-darwin-sdk (Ray + Spark + Darwin SDK)"
+fi
 
 echo ""
 echo "Next steps:"

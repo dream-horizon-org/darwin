@@ -83,16 +83,24 @@ data:
     pids=()
 
     if [ "$NODE_TYPE" == "head" ]; then
+      {{- if .Values.remoteCommand.commands.head }}
       {{- range .Values.remoteCommand.commands.head }}
         # Launch each command in the background and capture its PID
         /tmp/remote-command/run-remote-command.sh {{ .executionId }} '{{ .command }}' {{ .timeout }} &
         pids+=($!)
       {{- end }}
+      {{- else }}
+        echo "$(date): No head commands to execute"
+      {{- end }}
     else
+      {{- if .Values.remoteCommand.commands.worker }}
       {{- range .Values.remoteCommand.commands.worker }}
         # Launch each command in the background and capture its PID
         /tmp/remote-command/run-remote-command.sh {{ .executionId }} '{{ .command }}' {{ .timeout }} &
         pids+=($!)
+      {{- end }}
+      {{- else }}
+        echo "$(date): No worker commands to execute"
       {{- end }}
     fi
 

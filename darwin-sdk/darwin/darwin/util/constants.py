@@ -1,0 +1,12 @@
+SPARK_CONFIG_SECTION = "spark.configs"
+APP_CONFIG_SECTION = "app.configs"
+SPARK_RSS_CONFIGS_SECTION = "spark.rss.configs"
+SPARK_DYNAMIC_ALLOCATION_SECTION = "spark.dynamicAllocation"
+SPARK_JARS_KEY = "spark.jars"
+SPARK_EXTRA_CLASSPATH_KEY = "spark.driver.extraClassPath"
+SPARK_JARS_SECTION = "spark.jars"
+SPARK_EVENT_LOG_DIR = "s3a://darwin-eks-prod/darwin/temp/spark_history_server"
+DARWIN_SPARK_DEFAULT_APP_NAME = "Darwin_SPARK"
+SPARK_MEMORY_UTILIZATION_FACTOR = 0.6
+EXTRA_JARS_PATH = "/home/ray/darwin_pkgs/jars"
+INT_MAX = 2_147_483_647
