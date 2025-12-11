@@ -24,10 +24,10 @@ from compute_core.util.package_management.package_manager import LibraryManager
 router = APIRouter(prefix="/cluster/{cluster_id}/library")
 
 
-@router.get("/")
+@router.get("")
 async def get_libraries(
     cluster_id: str,
-    key: str = None,
+    key: Optional[str] = "",
     sort_by: Optional[str] = "id",
     sort_order: Optional[str] = "desc",
     offset: int = 0,
@@ -42,7 +42,7 @@ async def get_libraries(
     )
 
 
-@router.get("/{library_id}/")
+@router.get("/{library_id}")
 async def get_library_details(
     cluster_id: str,
     library_id: str,
