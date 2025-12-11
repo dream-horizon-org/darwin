@@ -115,7 +115,7 @@ SERVICE_DATASTORES_darwin_cluster_manager="mysql opensearch localstack busybox"
 SERVICE_DATASTORES_darwin_workspace="mysql busybox"
 SERVICE_DATASTORES_ml_serve_app="mysql localstack busybox"
 SERVICE_DATASTORES_artifact_builder="mysql localstack busybox"
-SERVICE_DATASTORES_darwin_catalog="opensearch mysql"
+SERVICE_DATASTORES_darwin_catalog="mysql localstack"
 
 # ============================================================================
 # HELPER FUNCTIONS
