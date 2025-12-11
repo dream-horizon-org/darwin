@@ -19,11 +19,27 @@ class CreateServeRequest(BaseModel):
 
 
 class CreateArtifactRequest(BaseModel):
-    serve_name: str = Field(..., description="Name of the serve.")
+    serve_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="Name of the serve (1–50 characters)."
+    )
     github_repo_url: Optional[str] = Field(None, description="GitHub repository URL.")
-    version: str = Field(..., description="Version of the artifact.")
+    version: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="Version of the artifact (1–50 characters)."
+    )
     branch: Optional[str] = Field(None, description="Branch of the repository.")
     file_path: Optional[str] = Field(None, description="File path of the artifact.")
+
+    @field_validator("serve_name", "version", mode="before")
+    def strip_whitespace(cls, value):
+        if isinstance(value, str):
+            return value.strip()
+        return value
 
     def validation_for_workflow_serve_artifact_create_request(self):
         if self.branch is None:
@@ -204,12 +220,23 @@ class WorkflowServeDeploymentConfigRequest(BaseModel):
 
 
 class DeploymentRequest(BaseModel):
-    env: str
-    artifact_version: str
+    env: str = Field(..., min_length=1, description="Environment name (e.g., 'local', 'prod').")
+    artifact_version: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="Version label for the one-click artifact (1–50 characters).",
+    )
     api_serve_deployment_config: Optional[APIServeDeploymentConfigRequest] = Field(None,
                                                                                    description="Deployment configuration for the API serve.")
     workflow_serve_deployment_config: Optional[WorkflowServeDeploymentConfigRequest] = Field(None,
                                                                                              description="Deployment configuration for the workflow serve.")
+
+    @field_validator("artifact_version", mode="before")
+    def strip_artifact_version(cls, value):
+        if isinstance(value, str):
+            return value.strip()
+        return value
 
 
 class EnvironmentConfigRequest(BaseModel):
@@ -248,8 +275,17 @@ class EnvironmentRequest(BaseModel):
 
 
 class ModelDeploymentRequest(BaseModel):
-    serve_name: str = Field(
-        ..., min_length=1, max_length=16, description="Name of the serve (1–16 characters)."
+    serve_name: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=50,
+        description="Optional serve name. When omitted, a default one-click serve will be created.",
+    )
+    artifact_version: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="Version label for the one-click artifact (1–50 characters).",
     )
     model_uri: str = Field(
         ..., min_length=1, description="URI of the model."
@@ -272,7 +308,7 @@ class ModelDeploymentRequest(BaseModel):
             raise ValueError("min_replicas cannot be greater than max_replicas")
         return self
 
-    @field_validator("serve_name", "model_uri", mode="before")
+    @field_validator("serve_name", "model_uri", "artifact_version", mode="before")
     def strip_whitespace(cls, value):
         if isinstance(value, str):
             return value.strip()
@@ -282,11 +318,17 @@ class ModelDeploymentRequest(BaseModel):
 class ModelUndeployRequest(BaseModel):
     """Request to undeploy a one-click model deployment."""
     serve_name: str = Field(
-        ..., min_length=1, max_length=16, description="Name of the serve to undeploy (1–16 characters)."
+        ..., min_length=1, max_length=50, description="Name of the serve to undeploy (1–50 characters)."
+    )
+    artifact_version: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="Version label for the one-click artifact (1–50 characters).",
     )
     env: str = Field(..., description="Environment name where the model is deployed (e.g., 'local', 'prod')")
 
-    @field_validator("serve_name", mode="before")
+    @field_validator("serve_name", "artifact_version", mode="before")
     def strip_whitespace(cls, value):
         if isinstance(value, str):
             return value.strip()

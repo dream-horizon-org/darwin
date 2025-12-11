@@ -17,9 +17,6 @@ import (
 var (
 	ClustersService clustersServiceInterface = &clustersService{}
 )
-var (
-	URL = constants.URL
-)
 
 var (
 	ChartPath               = constants.ChartPath
@@ -37,9 +34,9 @@ type clustersService struct{}
 type clustersServiceInterface interface {
 	CreateCluster(clusters.Cluster) (*clusters.Cluster, rest_errors.RestErr)
 	UpdateCluster(clusters.Cluster) (*clusters.Cluster, rest_errors.RestErr)
-	StartCluster(string, string, string, string) (string, rest_errors.RestErr)
+	StartCluster(string, string, string, string) rest_errors.RestErr
 	StopCluster(string, string, string) rest_errors.RestErr
-	RestartCluster(string, string, string, string) (string, rest_errors.RestErr)
+	RestartCluster(string, string, string, string) rest_errors.RestErr
 	ClusterStatus(string, string, string) (kube_utils.ClusterStatusDto, rest_errors.RestErr)
 	GetAllClusters(string, string, string) ([]kube_utils.PodReleaseNameDto, rest_errors.RestErr)
 }
@@ -95,12 +92,13 @@ func (s *clustersService) UpdateCluster(cluster clusters.Cluster) (*clusters.Clu
 	}
 	return &cluster, nil
 }
-func (s *clustersService) StartCluster(clusterName string, artifactName string, namespace string, kubeCluster string) (string, rest_errors.RestErr) {
+
+func (s *clustersService) StartCluster(clusterName string, artifactName string, namespace string, kubeCluster string) rest_errors.RestErr {
 	KubeConfigPath := KubeConfigDir + kubeCluster
 	restError := s3_utils.ArtifactsStore.Configure()
 	if restError != nil {
 		logger.Error("Error configuring s3 store: %v", zap.Error(restError))
-		return "", restError
+		return restError
 	}
 
 	uuidPrefix := uuid.New()
@@ -110,19 +108,18 @@ func (s *clustersService) StartCluster(clusterName string, artifactName string, 
 	restError = s3_utils.ArtifactsStore.DownloadFile(chartLocalPath, ArtifactStoreS3Prefix+artifactName)
 	if restError != nil {
 		logger.Error("Error downloading file from s3: %v", zap.Error(restError))
-		return "", restError
+		return restError
 	}
 	_, restError = helm_utils.InstallorUpgradeHelmChartWithRetries(KubeConfigPath, chartLocalPath, clusterName, namespace)
 	if restError != nil {
 		logger.Error("Error installing helm chart: %v", zap.Error(restError))
-		return "", restError
+		return restError
 	}
 	err := os.RemoveAll(LocalArtifactPath + artifactName)
 	if err != nil {
-		return "", nil
+		return nil
 	}
-	return URL[ENV], nil
-
+	return nil
 }
 
 func (s *clustersService) StopCluster(clusterName string, namespace string, kubeCluster string) rest_errors.RestErr {
@@ -134,11 +131,11 @@ func (s *clustersService) StopCluster(clusterName string, namespace string, kube
 	return nil
 }
 
-func (s *clustersService) RestartCluster(clusterName string, artifactName string, namespace string, kubeCluster string) (string, rest_errors.RestErr) {
+func (s *clustersService) RestartCluster(clusterName string, artifactName string, namespace string, kubeCluster string) rest_errors.RestErr {
 	KubeConfigPath := KubeConfigDir + kubeCluster
 	restError := s3_utils.ArtifactsStore.Configure()
 	if restError != nil {
-		return "", restError
+		return restError
 	}
 
 	uuidPrefix := uuid.New()
@@ -147,14 +144,15 @@ func (s *clustersService) RestartCluster(clusterName string, artifactName string
 
 	restError = s3_utils.ArtifactsStore.DownloadFile(chartLocalPath, ArtifactStoreS3Prefix+artifactName)
 	if restError != nil {
-		return "", restError
+		return restError
 	}
 	_, restError = helm_utils.RestartHelmRelease(KubeConfigPath, chartLocalPath, clusterName, namespace)
 	if restError != nil {
-		return "", restError
+		return restError
 	}
-	return URL[ENV], nil
+	return nil
 }
+
 func (s *clustersService) ClusterStatus(clusterName string, namespace string, kubeCluster string) (kube_utils.ClusterStatusDto, rest_errors.RestErr) {
 	KubeConfigPath := KubeConfigDir + kubeCluster
 	resources, restError := kube_utils.GetResources(clusterName, namespace, KubeConfigPath)

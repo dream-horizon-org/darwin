@@ -455,7 +455,7 @@ class Compute:
 
             run_id = get_run_id()
 
-            self.dao.start_cluster(cluster_id, run_id, response["DashboardLink"], response["JupyterLink"])
+            self.dao.start_cluster(cluster_id, run_id)
             self.dao.insert_cluster_action(
                 run_id=run_id,
                 action="Started",
@@ -580,7 +580,7 @@ class Compute:
 
             response = self.dcm.restart_cluster(cluster_id, artifact_name, ns, kube_cluster)
 
-            self.dao.restart_cluster(cluster_id, response["DashboardLink"], response["JupyterLink"])
+            self.dao.restart_cluster(cluster_id)
 
             run_id = self.dao.get_cluster_run_id(cluster_id)
             if run_id:
@@ -778,7 +778,7 @@ class Compute:
         cluster_details = self.get_cluster(cluster_id)
         dashboard_id = self._config.datadog_dashboard_id
         cloud_env = cluster_details.cloud_env
-        resp = self.get_ray_cluster_dashboards(host=darwin_host, cloud_env=cloud_env, cluster_id=cluster_id, https=True)
+        resp = self.get_ray_cluster_dashboards(host=darwin_host, cloud_env=cloud_env, cluster_id=cluster_id, https=False)
         resp["resource_utilization_dashboard_url"] = generate_ray_cluster_dashboard_url(
             cluster_id, datadog_host, dashboard_id, self.dao
         )

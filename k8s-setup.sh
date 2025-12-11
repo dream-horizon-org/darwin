@@ -48,4 +48,3 @@ helm upgrade --install pv-chart ./helm/pv-chart -n ray
 # Setup for serve
 kubectl create namespace serve 2>/dev/null || echo "Namespace already exists"
 kubectl apply -f ./helm/serve/serve-rbac.yaml 2>/dev/null || echo "Serve RBAC already exists"
-

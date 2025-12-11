@@ -81,7 +81,7 @@ nginx:
 # Global configuration
 global:
   # Cluster key for path routing
-  kubeClusterKey: "eks-0"
+  kubeClusterKey: "kind-0"
 
   # Environment
   environment: "local"
@@ -111,7 +111,7 @@ ingress:
     hosts:
       - host: localhost
         paths:
-          - path: "/eks-0(/|$)(.*)"
+          - path: "/kind-0(/|$)(.*)"
             pathType: ImplementationSpecific
 
   external:

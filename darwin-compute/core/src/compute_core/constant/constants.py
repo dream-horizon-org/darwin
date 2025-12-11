@@ -19,9 +19,9 @@ CONFIGS_MAP = {
             "username": f'{os.getenv("VAULT_SERVICE_ES_USERNAME")}',
             "password": f'{os.getenv("VAULT_SERVICE_ES_PASSWORD")}',
         },
-        "cloud_env": ["eks-0"],
-        "kube_cluster": {"eks-0": "kind"},
-        "internal_host_url": {"eks-0": "nginx-proxy-server.ray-system.svc.cluster.local"},
+        "cloud_env": ["kind-0"],
+        "kube_cluster": {"kind-0": "kind"},
+        "internal_host_url": {"kind-0": "nginx-proxy-server.ray-system.svc.cluster.local"},
         "datadog_host_url": "d11stag.datadoghq.com",
         "datadog_dashboard_id": "abc-def-ghi",
         "jupyter_namespace": "ray",
@@ -51,8 +51,8 @@ CONFIGS_MAP = {
             "url": f'{os.getenv("AWS_ENDPOINT_URL_S3")}',
             "region": f'{os.getenv("AWS_DEFAULT_REGION")}',
             "access_key": f'{os.getenv("AWS_ACCESS_KEY_ID")}',
-            "secret_access_key": f'{os.getenv("AWS_SECRET_ACCESS_KEY")}'
-        }
+            "secret_access_key": f'{os.getenv("AWS_SECRET_ACCESS_KEY")}',
+        },
     },
     "local": {
         "thanos_remote_write_url": "http://darwin-thanos-receive.com",  # placeholder
@@ -241,6 +241,7 @@ class KubeCluster(Enum):
     AWS_0 = "eks-0"
     AWS_1 = "eks-1"
     AWS_2 = "eks-2"
+    KIND_0 = "kind-0"
 
 
 class ResourceType(Enum):

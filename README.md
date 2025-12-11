@@ -196,6 +196,7 @@ hermes create-serve --name my-model --type api --space serve --description "My M
 # 4. Deploy model
 hermes deploy-model \
   --serve-name my-model \
+  --artifact-version v1 \
   --model-uri mlflow-artifacts:/1/abc123/artifacts/model \
   --cores 4 \
   --memory 8 \
@@ -396,9 +397,11 @@ curl --location 'http://localhost/compute/cluster' \
     "user": "user@example.com"
 }'
 
-# Response will include cluster_id, jupyter_link, and dashboard_link
-# Access Jupyter notebook at the returned jupyter_link
-# Monitor cluster at the Ray dashboard_link
+# Response will include cluster_id
+# Get Cluster Dashboards link via below API using cluster_id
+curl --location 'http://localhost/compute/cluster/{cluster_id}/dashboards'
+# Access Jupyter notebook at the returned jupyter_lab_url
+# Monitor Ray cluster at the ray_dashboard_url
 
 # Stop the cluster when done
 curl --location --request POST 'http://localhost/compute/cluster/stop-cluster/{cluster_id}' \
@@ -448,6 +451,7 @@ hermes create-serve \
 # 4. Deploy model (one-click)
 hermes deploy-model \
   --serve-name iris-classifier \
+  --artifact-version v1 \
   --model-uri mlflow-artifacts:/1/2b2b1b5727a14c5ca81b44e899979745/artifacts/model \
   --cores 2 \
   --memory 4 \
@@ -532,7 +536,7 @@ curl http://localhost/compute/cluster/{cluster_id}/status
 Once the cluster is ready, access the Jupyter notebook at:
 
 ```
-http://localhost:30080/eks-0/{cluster_id}-jupyter
+http://localhost/kind-0/{cluster_id}-jupyter
 ```
 
 Open this URL in your browser to start working in the workspace.
@@ -578,7 +582,8 @@ hermes create-serve \
 # 4. Deploy model (one-click)
 hermes deploy-model \
   --serve-name housing-model \
-  --model-uri mlflow-artifacts:/<experiment_id>/<run_id>/artifacts/model \
+  --artifact-version v1 \
+  --model-uri mlflow-artifacts:/1/<experiment_id>/<run_id>/artifacts/model \
   --cores 2 \
   --memory 4 \
   --node-capacity spot \

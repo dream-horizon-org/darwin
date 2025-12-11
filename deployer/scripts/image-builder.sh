@@ -51,6 +51,14 @@ cp -r .odin/$application/. $path/target/$application/.odin
 chmod 755 $path/target/$application/.odin
 cd "$cur_dir"
 
+# Select Dockerfile based on base image type
+if echo "$base_image" | grep -q "golang"; then
+  DOCKERFILE="deployer/images/Dockerfile-golang"
+  echo "Using Go multi-stage Dockerfile for $application"
+else
+  DOCKERFILE="deployer/images/Dockerfile"
+fi
+
 docker build \
   --build-arg BASE_IMAGE=$base_image \
   --build-arg APP_NAME=$application \
@@ -58,7 +66,7 @@ docker build \
   --build-arg APP_DIR=$path \
   --build-arg EXTRA_ENV_VARS="$env_vars" \
   -t $application:latest \
-  -f deployer/images/Dockerfile .
+  -f $DOCKERFILE .
   
 docker tag "$application":latest "$registry/$application":latest
 docker push "$registry/$application":latest

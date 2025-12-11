@@ -33,6 +33,27 @@ class HermesDeployer:
                 f"Failed to initialize HermesDeployer: {str(e)}",
             )
 
+    @staticmethod
+    def _validate_str_length(value: Any, field_name: str, min_len: int = 1, max_len: int = 50) -> str:
+        """
+        Ensure a string field respects length constraints and trim surrounding whitespace.
+        """
+        if not isinstance(value, str):
+            raise HermesException(
+                HermesErrorCodes.INVALID_FIELD.value.code,
+                f"{field_name} must be a string.",
+            )
+
+        value = value.strip()
+
+        if len(value) < min_len or len(value) > max_len:
+            raise HermesException(
+                HermesErrorCodes.INVALID_FIELD.value.code,
+                f"{field_name} must be between {min_len} and {max_len} characters.",
+            )
+
+        return value
+
     async def create_serve(self, name: str, serve_type: str, space: str, description: Optional[str] = None) -> Dict:
         """Create a new serve"""
 
@@ -158,6 +179,7 @@ class HermesDeployer:
         self,
         env: str,
         serve_name: str,
+        artifact_version: str,
         model_uri: str,
         cores: int,
         memory: int,
@@ -171,6 +193,7 @@ class HermesDeployer:
             required_fields = {
                 "env": env,
                 "serve_name": serve_name,
+                "artifact_version": artifact_version,
                 "model_uri": model_uri,
                 "cores": cores,
                 "memory": memory,
@@ -186,10 +209,14 @@ class HermesDeployer:
                     f"Missing required fields: {', '.join(missing_fields)}",
                 )
 
+            serve_name = self._validate_str_length(serve_name, "serve_name")
+            artifact_version = self._validate_str_length(artifact_version, "artifact_version")
+
             # Create request payload
             request = DeployModelRequest(
                 env=env,
                 serve_name=serve_name,
+                artifact_version=artifact_version,
                 model_uri=model_uri,
                 cores=cores,
                 memory=memory,
@@ -220,6 +247,7 @@ class HermesDeployer:
     async def undeploy_model(
         self,
         serve_name: str,
+        artifact_version: str,
         env: str,
     ) -> Dict:
         """Undeploy a model serve"""
@@ -230,15 +258,24 @@ class HermesDeployer:
                     HermesErrorCodes.MISSING_FIELD.value.code,
                     "serve_name is a required field",
                 )
+            if not artifact_version:
+                raise HermesException(
+                    HermesErrorCodes.MISSING_FIELD.value.code,
+                    "artifact_version is a required field",
+                )
             if not env:
                 raise HermesException(
                     HermesErrorCodes.MISSING_FIELD.value.code,
                     "env is a required field",
                 )
 
+            serve_name = self._validate_str_length(serve_name, "serve_name")
+            artifact_version = self._validate_str_length(artifact_version, "artifact_version")
+
             # Create request payload
             request = UndeployModelRequest(
                 serve_name=serve_name,
+                artifact_version=artifact_version,
                 env=env,
             )
             payload = request.to_dict()

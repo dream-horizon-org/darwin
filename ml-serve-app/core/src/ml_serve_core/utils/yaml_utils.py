@@ -40,6 +40,11 @@ def configure_ingress_for_local(values: dict, serve_name: str, namespace: str) -
         values: The Helm values dict to modify
         serve_name: The name of the serve (used as path prefix)
         namespace: The namespace where the service is deployed
+
+    Swagger UI:
+        For Swagger UI to work correctly, deployed FastAPI apps must read the
+        ROOT_PATH environment variable (automatically set by this function) and
+        pass it to FastAPI(root_path=...). See ml-serve-app README for details.
     """
     # Set serviceName to match the path - this ensures ingress routes to correct service
     values['serviceName'] = serve_name

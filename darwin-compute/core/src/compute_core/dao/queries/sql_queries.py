@@ -68,8 +68,6 @@ START_CLUSTER = """
 UPDATE cluster_status
 SET status               = 'creating',
     active_cluster_runid = %(run_id)s,
-    dashboard_link       = %(dashboard_link)s,
-    notebook_link        = %(notebook_link)s,
     last_used_at         = CURRENT_TIMESTAMP,
     last_updated_at      = CURRENT_TIMESTAMP,
     last_picked_at       = DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 10 SECOND)
@@ -88,8 +86,6 @@ WHERE cluster_id = %(cluster_id)s;
 RESTART_CLUSTER = """
 UPDATE cluster_status
 SET status          = 'creating',
-    dashboard_link  = %(dashboard_link)s,
-    notebook_link   = %(notebook_link)s,
     last_used_at    = CURRENT_TIMESTAMP,
     last_updated_at = CURRENT_TIMESTAMP,
     last_picked_at  = DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 10 SECOND)

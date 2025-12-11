@@ -1,15 +1,66 @@
-# Darwin ML Serve
+# Darwin Artifact Builder
 
-A scalable Docker image building and runtime management platform for machine learning applications.
+A Docker image building service for the Darwin ML Platform - part of the Darwin ecosystem.
 
 ## Overview
 
-Darwin ML Serve is a comprehensive platform for building, managing, and deploying Docker images for machine learning applications. It provides a REST API for creating Docker images from Git repositories and integrating with container registries.
+Darwin Artifact Builder is a service that builds Docker images from Git repositories and pushes them to container registries. When deployed as part of the Darwin ecosystem, it builds custom model serving images and pushes them to the **kind-registry** (`localhost:5000`), making them available for deployment to the kind cluster.
+
+This service is called by **ML Serve App** when users create artifacts for their model serves. The built images are then deployed to Kubernetes via Darwin Cluster Manager.
 
 This repository manages:
 - **Docker Image Building** - Build images from Git repositories with custom Dockerfiles
-- **Container Registry Integration** - Push to AWS ECR, GCP GCR, and other registries
+- **Container Registry Integration** - Push to local kind-registry, AWS ECR, or GCP GCR
 - **Task Management** - Queue-based image building with status tracking
+
+## Darwin Ecosystem Integration
+
+This service is designed to be deployed as part of the **Darwin** ecosystem. The typical setup workflow is:
+
+```
+Darwin Workflow:
+1. init.sh      → Select which services to enable (enable artifact-builder)
+2. setup.sh     → Build images, push to kind-registry (localhost:5000)
+3. start.sh     → Deploy to kind cluster via Helm
+
+Image Building Flow (triggered by ML Serve App):
+┌─────────────────────────────────────────────────────────────────────┐
+│  1. User calls ML Serve API to create artifact                      │
+│  2. ML Serve calls Artifact Builder API                             │
+│  3. Artifact Builder clones GitHub repo                             │
+│  4. Builds Docker image using repo's Dockerfile                     │
+│  5. Pushes to kind-registry: localhost:5000/serve-app:{tag}         │
+│  6. ML Serve deploys the image to kind cluster via DCM              │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Services Interaction
+
+| Service | Role | Kubernetes Service URL |
+|---------|------|------------------------|
+| **Artifact Builder** | Builds Docker images from GitHub repos | `darwin-artifact-builder:8000` |
+| **ML Serve App** | Control plane for model deployments | `darwin-ml-serve-app:8000` |
+| **Darwin Cluster Manager (DCM)** | Manages Kubernetes resources (Helm charts) | `darwin-cluster-manager:8080` |
+
+### Docker-in-Docker Configuration
+
+When running inside the kind cluster, Artifact Builder needs access to the Docker daemon to build images. The Helm chart mounts the Docker socket from the host:
+
+```yaml
+# From helm/darwin/charts/services/values.yaml
+artifact-builder:
+  securityContext:
+    privileged: true        # Required for Docker-in-Docker
+    runAsUser: 0            # Root access needed for Docker operations
+  volumeMounts:
+    - mountPath: /var/run/docker.sock
+      name: docker-socket
+  volumes:
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket
+```
 
 ## Repository Structure
 
@@ -17,7 +68,7 @@ This repository manages:
 .
 ├── README.md                   # Project documentation
 ├── env.example                 # Environment variables template
-├── run_simple.sh              # Quick start script
+├── run_simple.sh              # Quick start script (standalone dev)
 ├── model/                     # Database models (Tortoise ORM)
 │   ├── src/
 │   │   └── serve_model/       # ORM model definitions
@@ -29,6 +80,8 @@ This repository manages:
 │   │       ├── main.py        # FastAPI application
 │   │       ├── models/        # Request/Response models
 │   │       ├── utils/         # Utility functions and shell scripts
+│   │       │   ├── createImageFromGithub.sh       # Production build script
+│   │       │   └── createImageFromGithub_local.sh # Local/kind build script
 │   │       └── constants/     # App-layer constants
 │   └── tests/
 ├── core/                      # Core business logic
@@ -47,14 +100,30 @@ This repository manages:
 
 ## Features
 
-- 🐳 **Docker Image Building** - Build images from Git repositories with custom Dockerfiles
-- 🔄 **Queue-based Processing** - Background task processing for image builds
-- 📦 **Multi-Registry Support** - Push to AWS ECR, GCP GCR, and other container registries
-- 🔍 **Task Monitoring** - Real-time build status and log streaming
-- 🌍 **Multi-Environment** - Support for local and production environments
-- 🔧 **Flexible Configuration** - Environment-based configuration with sensible defaults
+- **Docker Image Building** - Build images from Git repositories with custom Dockerfiles
+- **Queue-based Processing** - Background task processing for image builds
+- **Kind Registry Support** - Push to local kind-registry for kind cluster deployments
+- **Multi-Registry Support** - Also supports AWS ECR and GCP GCR
+- **Task Monitoring** - Real-time build status and log streaming
+- **Multi-Environment** - Support for local and production environments
+- **Flexible Configuration** - Environment-based configuration with sensible defaults
 
 ## Prerequisites
+
+### For Darwin Deployment (Recommended)
+
+- Docker Desktop or Docker Engine
+- `kind` (Kubernetes in Docker) - auto-installed by setup.sh
+- `kubectl` CLI
+- `helm` CLI
+
+The Darwin setup scripts handle:
+- Creating the kind cluster
+- Setting up the local container registry (`kind-registry`)
+- Building and pushing the artifact-builder image
+- Deploying via Helm with Docker socket mounted
+
+### For Standalone Development
 
 - Python 3.9+
 - Docker (for image building)
@@ -63,7 +132,217 @@ This repository manages:
 - AWS CLI (for ECR integration, optional)
 - GCP CLI (for GCR integration, optional)
 
-## Project Setup Instructions
+## Environment Variables
+
+When deployed via Darwin ecosystem, these variables are **automatically configured** in the Helm values. For standalone development, configure them in your `.env` file.
+
+### Core Configuration
+| Variable | Description | Default (Darwin Ecosystem) |
+|----------|-------------|-------------------------------|
+| `ENV` | Environment (local/prod) | `local` |
+| `DEV` | Development mode flag | `true` |
+| `BUILD_ARTIFACTS_ROOT` | Build artifacts directory | `build_artifacts` |
+| `LOG_FILE_ROOT_LOCAL` | Local logs directory | `logs` |
+| `LOG_FILE_ROOT_PROD` | Production logs directory | `/var/www/artifact-builder/logs` |
+
+### Database Configuration
+| Variable | Description | Default (Darwin Ecosystem) |
+|----------|-------------|-------------------------------|
+| `MYSQL_HOST` | MySQL host | `darwin-mysql` (K8s service) |
+| `MYSQL_PORT` | MySQL port | `3306` |
+| `MYSQL_DATABASE` | Database name | `mlp_serve` |
+| `MYSQL_USERNAME` | Database user | `root` |
+| `MYSQL_PASSWORD` | Database password | `password` |
+
+### Container Registry Configuration
+| Variable | Description | Default (Darwin Ecosystem) |
+|----------|-------------|-------------------------------|
+| `CONTAINER_IMAGE_PREFIX` | Docker image prefix | `serve-app` |
+| `CONTAINER_IMAGE_PREFIX_GCP` | GCP image prefix | `ray-images` |
+| `IMAGE_REPOSITORY` | Repository name for local registry | `serve-app` |
+| `LOCAL_REGISTRY` | Local container registry URL | Dynamically set (e.g., `127.0.0.1:55000`) |
+| `AWS_ECR_ACCOUNT_ID` | AWS ECR account ID | `` |
+| `AWS_ECR_REGION` | AWS ECR region | `us-east-1` |
+| `GCP_PROJECT_ID` | GCP project ID | `` |
+| `GCP_CREDS_PATH` | GCP credentials file path | `` |
+
+### Service URLs
+| Variable | Description | Default (Darwin Ecosystem) |
+|----------|-------------|-------------------------------|
+| `APP_LAYER_URL` | App layer service URL | `http://localhost/artifact-builder` |
+
+### OpenTelemetry Configuration (Optional)
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ENABLE_OTEL` | Enable OpenTelemetry exporters/instrumentation | `false` (local) |
+| `OTEL_SERVICE_NAME` | Service name for telemetry | `artifact-builder` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint | `http://localhost:4318` |
+
+See [env.example](env.example) for the complete configuration template.
+
+## Quick Start with Darwin
+
+### 1. Deploy via Darwin (Recommended)
+
+From the Darwin root directory:
+
+```bash
+# 1. Configure which services to enable (enable artifact-builder)
+./init.sh
+
+# 2. Build all images and set up the kind cluster
+./setup.sh
+
+# 3. Deploy to Kubernetes
+./start.sh
+```
+
+This automatically:
+- Creates a kind cluster with `kind-registry`
+- Builds the `artifact-builder` image and pushes it to the registry
+- Deploys with Docker socket mounted for building images
+- Configures `LOCAL_REGISTRY` to point to the kind-registry using `DOCKER_REGISTRY` value from `config.env`.
+
+### 2. Access the API
+
+Once deployed, access the Artifact Builder API through the ingress:
+
+```bash
+# Via ingress (path-based routing)
+curl http://localhost/artifact-builder/healthcheck
+
+# Or port-forward for direct access
+kubectl port-forward svc/darwin-artifact-builder -n darwin 8000:8000
+curl http://localhost:8000/healthcheck
+```
+
+**API Documentation:**
+- **Swagger UI**: http://localhost/artifact-builder/docs
+- **Health Check**: http://localhost/artifact-builder/healthcheck
+
+### 3. Build an Image
+
+When called by ML Serve App (or directly):
+
+```bash
+# Build an image from a GitHub repository
+curl -X POST "http://localhost/artifact-builder/build_with_dockerfile" \
+  -F "app_name=my-model" \
+  -F "image_tag=v1.0.0" \
+  -F "git_repo=https://github.com/myorg/my-model-repo.git" \
+  -F "branch=main"
+```
+
+The image will be built and pushed to:
+```
+localhost:5000/serve-app:v1.0.0
+```
+
+## Kind Registry (Local Container Registry)
+
+When running in the Darwin ecosystem, a local container registry (`kind-registry`) is automatically created during `setup.sh`. This registry:
+
+- Runs as a Docker container on the host machine
+- Is accessible at a dynamically assigned port (stored in `config.env`)
+- Is connected to the kind cluster's network
+- Stores images that Kubernetes pods can pull
+
+### How Images Are Built and Pushed
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Build Environment: Artifact Builder pod in kind cluster           │
+│                                                                      │
+│  1. Clone GitHub repo to local directory                            │
+│  2. docker build -t serve-app:v1.0.0 .                              │
+│  3. docker tag serve-app:v1.0.0 127.0.0.1:{PORT}/serve-app:v1.0.0   │
+│  4. docker push 127.0.0.1:{PORT}/serve-app:v1.0.0                   │
+│                                                                      │
+│  Result: Image available at localhost:5000/serve-app:v1.0.0         │
+│          (accessible by kind cluster pods)                          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Registry Configuration
+
+The `LOCAL_REGISTRY` environment variable tells artifact-builder where to push images:
+
+```yaml
+# From Helm values
+- name: LOCAL_REGISTRY
+  value: "127.0.0.1:55000"  # Dynamically assigned port
+- name: IMAGE_REPOSITORY
+  value: "serve-app"
+```
+
+Images are tagged and pushed in the format:
+```
+${LOCAL_REGISTRY}/${IMAGE_REPOSITORY}:${image_tag}
+```
+
+Example: `127.0.0.1:55000/serve-app:v1.0.0`
+
+## API Usage Examples
+
+### Complete Workflow: Build and Track an Image
+
+```bash
+# Step 1: Submit a build task
+RESPONSE=$(curl -s -X POST "http://localhost/artifact-builder/build_with_dockerfile" \
+  -F "app_name=my-app" \
+  -F "image_tag=v1.0" \
+  -F "git_repo=https://github.com/username/repo.git" \
+  -F "branch=main")
+
+# Extract task_id from response
+TASK_ID=$(echo $RESPONSE | grep -o '"task_id":"[^"]*"' | cut -d'"' -f4)
+echo "Task ID: $TASK_ID"
+
+# Step 2: Check build status
+curl -X GET "http://localhost/artifact-builder/task/status?task_id=$TASK_ID"
+
+# Step 3: Stream build logs (while building)
+curl -X GET "http://localhost/artifact-builder/task/logs?task_id=$TASK_ID"
+
+# Step 4: List all tasks
+curl -X GET "http://localhost/artifact-builder/task"
+```
+
+### Build Status Values
+- `waiting` - Task is queued, waiting to start
+- `running` - Build is in progress
+- `completed` - Build finished successfully
+- `failed` - Build encountered an error
+
+## API Endpoints
+
+### Image Building
+- `POST /build_with_dockerfile` - Build Docker image with custom Dockerfile
+- `GET /task` - List all build tasks
+- `GET /task/logs?task_id={id}` - Get build task logs
+- `GET /task/status?task_id={id}` - Get build task status
+
+### Health & Monitoring
+
+#### `GET /healthcheck`
+Service health check endpoint.
+
+```bash
+curl -X GET "http://localhost/artifact-builder/healthcheck"
+```
+
+**Response:**
+
+```json
+{
+  "status": "SUCCESS",
+  "message": "OK"
+}
+```
+
+## Standalone Development Setup
+
+For developing Artifact Builder independently (outside Darwin Ecosystem):
 
 ### PyCharm Setup
 
@@ -108,17 +387,11 @@ This repository manages:
    > **Note:** The database and tables are created **automatically** on first startup. No manual setup required!
 
 6. **Run the application**:
-   - Create a FastAPI run configuration:
-     - **Script path**: `app_layer/src/serve_app_layer/main.py`
-     - **Module name**: `serve_app_layer.main`
-     - **Working directory**: `app_layer/src`
-     - **Environment variables**: Load from `.env` file
-   - Or run from terminal:
-     ```bash
-     ./run_simple.sh
-     ```
+   ```bash
+   ./run_simple.sh
+   ```
 
-## Quick Start (Command Line)
+### Quick Start (Standalone)
 
 ```bash
 # 1. Clone and setup
@@ -146,145 +419,9 @@ pip install -r app_layer/requirements.txt
 # - Health Check: http://localhost:8000/healthcheck
 ```
 
-## Environment Variables
-
-### Core Configuration
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ENV` | Environment (local/prod) | `local` |
-| `DEV` | Development mode flag | `true` |
-| `BUILD_ARTIFACTS_ROOT` | Build artifacts directory | `build_artifacts` |
-| `LOG_FILE_ROOT_LOCAL` | Local logs directory | `logs` |
-| `LOG_FILE_ROOT_PROD` | Production logs directory | `/var/www/artifact-builder/logs` |
-
-### Database Configuration
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `MYSQL_HOST` | MySQL host | `localhost` |
-| `MYSQL_PORT` | MySQL port | `3306` |
-| `MYSQL_DATABASE` | Database name | `mlp_serve` |
-| `MYSQL_USERNAME` | Database user | `root` |
-| `MYSQL_PASSWORD` | Database password | `` |
-
-### Container Registry Configuration
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `CONTAINER_IMAGE_PREFIX` | Docker image prefix | `darwin` |
-| `CONTAINER_IMAGE_PREFIX_GCP` | GCP image prefix | `ray-images` |
-| `IMAGE_REPOSITORY` | Repository name for local registry pushes | `serve-app` |
-| `AWS_ECR_ACCOUNT_ID` | AWS ECR account ID | `` |
-| `AWS_ECR_REGION` | AWS ECR region | `us-east-1` |
-| `GCP_PROJECT_ID` | GCP project ID | `` |
-| `GCP_CREDS_PATH` | GCP credentials file path | `/home/admin/gcp_creds.json` |
-| `LOCAL_REGISTRY` | Local container registry URL (for kind/local K8s) | `localhost:55000` |
-
-### Service URLs
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `APP_LAYER_URL` | App layer service URL | `http://localhost:8000` |
-
-### OpenTelemetry Configuration (Optional)
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ENABLE_OTEL` | Enable OpenTelemetry exporters/instrumentation | Auto (disabled for `ENV=local`, enabled otherwise) |
-| `OTEL_SERVICE_NAME` | Service name for telemetry | `artifact-builder` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint | `http://localhost:4318` |
-
-See [env.example](env.example) for the complete configuration template.
-
-## API Usage Examples
-
-### Complete Workflow: Build and Track an Image
-
-```bash
-# Step 1: Submit a build task
-RESPONSE=$(curl -s -X POST "http://localhost:8000/build_with_dockerfile" \
-  -F "app_name=my-app" \
-  -F "image_tag=v1.0" \
-  -F "git_repo=https://github.com/username/repo.git" \
-  -F "branch=main")
-
-# Extract task_id from response
-TASK_ID=$(echo $RESPONSE | grep -o '"task_id":"[^"]*"' | cut -d'"' -f4)
-echo "Task ID: $TASK_ID"
-
-# Step 2: Check build status
-curl -X GET "http://localhost:8000/task/status?task_id=$TASK_ID"
-
-# Step 3: Stream build logs (while building)
-curl -X GET "http://localhost:8000/task/logs?task_id=$TASK_ID"
-
-# Step 4: List all tasks
-curl -X GET "http://localhost:8000/task"
-```
-
-### Build Status Values
-- `waiting` - Task is queued, waiting to start
-- `running` - Build is in progress
-- `completed` - Build finished successfully
-- `failed` - Build encountered an error
-
-## API Endpoints
-
-### Image Building
-- `POST /build_with_dockerfile` - Build Docker image with custom Dockerfile
-- `GET /task` - List all build tasks
-- `GET /task/logs?task_id={id}` - Get build task logs
-- `GET /task/status?task_id={id}` - Get build task status
-
-### Health & Monitoring
-
-#### `GET /healthcheck`
-Service health check endpoint.
-
-```bash
-curl -X GET "http://localhost:8000/healthcheck"
-```
-
-**Response:**
-
-```json
-{
-  "status": "OK",
-  "message": "Docker is running.",
-  "docker_info": {
-    "version": "24.0.6"
-  }
-}
-```
-
-## PyCharm Setup
-
-1. **Open project** in PyCharm
-
-2. **Mark source directories**: Right-click → Mark Directory as → Sources Root
-   - `app_layer/src`
-   - `core/src`
-   - `model/src`
-
-3. **Mark test directories**: Right-click → Mark Directory as → Test Sources Root
-   - `app_layer/tests`
-   - `core/tests`
-   - `model/tests`
-
-4. **Install dependencies**:
-   ```bash
-   pip install -e app_layer/.
-   pip install -e core/.
-   pip install -e model/.
-   ```
-
-5. **Configure run configuration**:
-   - **Module name**: `serve_app_layer.main`
-   - **Working directory**: `app_layer/src`
-   - **Environment variables**: Load from `.env` file or set manually
-   - **Python interpreter**: Project interpreter
-
-6. **Run the application** using the configured run configuration (database will be auto-created in local/dev environments)
-
 ## Database Management
 
-Darwin ML Serve uses **Tortoise ORM** for database management, providing an elegant async ORM solution for Python.
+Darwin Artifact Builder uses **Tortoise ORM** for database management, providing an elegant async ORM solution for Python.
 
 ### Database Structure
 
@@ -339,18 +476,6 @@ async def startup_event():
     await db_client.init_tortoise()  # Auto-generates schemas
 ```
 
-### Database Configuration
-
-Configure database connection via environment variables:
-
-```bash
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_DATABASE=mlp_serve
-MYSQL_USERNAME=root
-MYSQL_PASSWORD=
-```
-
 ### Working with Models
 
 ```python
@@ -369,38 +494,6 @@ new_task = await ImageBuilder.create(
     status="waiting"
 )
 ```
-
-### Benefits of Tortoise ORM
-
-- ✅ **Async/Await Support** - Native async operations for FastAPI
-- ✅ **Type Safety** - Pydantic-like model validation
-- ✅ **Auto Schema Generation** - No manual SQL migrations needed
-- ✅ **Query Builder** - Pythonic query API
-- ✅ **Relationships** - Foreign key and relation support
-- ✅ **Migration Support** - Built-in migration tools (Aerich)
-
-### Production Considerations
-
-For production deployments:
-
-1. **Use Aerich for migrations**:
-   ```bash
-   pip install aerich
-   aerich init -t core.src.serve_core.client.mysql_client.TORTOISE_ORM
-   aerich init-db
-   ```
-
-2. **Disable auto-generation** in production:
-   ```python
-   register_tortoise(
-       app,
-       db_url=db_url,
-       modules=modules,
-       generate_schemas=False,  # Set to False in production
-   )
-   ```
-
-3. **Use connection pooling** for better performance
 
 ## Development Workflow
 
@@ -426,33 +519,6 @@ black app_layer/ core/ --line-length 120
 flake8 app_layer/ core/
 ```
 
-### Adding New Environments
-
-To add a custom environment beyond `local` and `prod`:
-
-1. Edit `core/src/serve_core/constant/config_constants.py`:
-   ```python
-   CONFIGS_MAP = {
-       "local": {...},
-       "prod": {...},
-       "staging": {  # Your custom environment
-           "mysql_db": {
-               "host": os.getenv("MYSQL_HOST", "staging-mysql"),
-               "username": os.getenv("MYSQL_USERNAME", "root"),
-               "password": os.getenv("MYSQL_PASSWORD", ""),
-               "database": os.getenv("MYSQL_DATABASE", "mlp_serve"),
-               "port": os.getenv("MYSQL_PORT", "3306"),
-           },
-           "s3.bucket": os.getenv("S3_BUCKET", "staging-bucket"),
-           "app-layer-url": os.getenv("APP_LAYER_URL", "http://staging:8000"),
-       }
-   }
-   ```
-
-2. Set `ENV=staging` in your environment variables
-
-3. Restart the application
-
 ## OpenTelemetry Observability
 
 This service uses **OpenTelemetry** for distributed tracing and metrics. By default:
@@ -473,114 +539,81 @@ OTEL_SERVICE_NAME=artifact-builder
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
 ```
 
-### What's Instrumented
+## Helm Chart Configuration
 
-- ✅ **FastAPI routes** - Automatic span creation for all endpoints
-- ✅ **HTTP requests** - Outbound requests to external services
-- ✅ **Custom metrics** - Service-specific metrics (if configured)
+When deployed via Darwin ecosystem, the service is configured through Helm values. Key configuration in `helm/darwin/charts/services/values.yaml`:
 
-### Local Testing with OTEL
-
-To test OpenTelemetry locally:
-
-```bash
-# 1. Run OTEL collector (optional)
-docker run -d -p 4318:4318 -p 55679:55679 \
-  otel/opentelemetry-collector-contrib:latest
-
-# 2. Enable OTEL in .env
-ENABLE_OTEL=true
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-
-# 3. Start the service
-./run_simple.sh
+```yaml
+artifact-builder:
+  enabled: true
+  serviceName: darwin-artifact-builder
+  image:
+    registry: localhost:5000
+    name: artifact-builder
+    tag: latest
+  securityContext:
+    privileged: true          # Required for Docker-in-Docker
+    runAsUser: 0              # Root access for Docker operations
+  volumeMounts:
+    - mountPath: /var/run/docker.sock
+      name: docker-socket
+  volumes:
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket
+  extraEnvVars:
+    - name: LOCAL_REGISTRY
+      value: "127.0.0.1:55000" # Dynamically assigned port
+    - name: IMAGE_REPOSITORY
+      value: "serve-app"
+    # ... other env vars
 ```
-
-## Container Registry Setup
-
-### Local Registry (for Kubernetes Local Development)
-
-For local Kubernetes development (e.g., with kind, minikube), you can configure a local container registry:
-
-```bash
-# Set up a local registry (example with kind)
-docker run -d --restart=always -p 55000:5000 --name kind-registry registry:2
-
-# Configure environment variables
-export LOCAL_REGISTRY=localhost:55000
-export IMAGE_REPOSITORY=serve-app
-```
-
-**How it works:**
-- `LOCAL_REGISTRY` - The URL of your local container registry
-- `IMAGE_REPOSITORY` - The repository name used when pushing images (must match your Kubernetes deployment expectations)
-- Images are automatically tagged and pushed to the local registry when configured
-- Format: `${LOCAL_REGISTRY}/${IMAGE_REPOSITORY}:${image_tag}`
-- Example: `localhost:55000/serve-app:v1.0`
-
-> **Note:** These variables are optional and only needed for local Kubernetes development.
-
-### AWS ECR
-```bash
-# Configure AWS CLI
-aws configure
-
-# Set environment variables
-export AWS_ECR_ACCOUNT_ID=123456789012
-export AWS_ECR_REGION=us-east-1
-```
-
-### GCP GCR
-```bash
-# Authenticate with GCP
-gcloud auth login
-
-# Set environment variables
-export GCP_PROJECT_ID=my-project
-export GCP_CREDS_PATH=/path/to/service-account.json
-```
-
-## Deployment
-
-### Docker Deployment
-```bash
-# Build application image
-docker build -t artifact-builder .
-
-# Run with environment file
-docker run --env-file .env -p 8000:8000 artifact-builder
-```
-
-### Production Considerations
-- Use external MySQL database
-- Configure proper logging directory
-- Set up container registry authentication
-- Set up monitoring and alerting
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Docker not running**
-   - Ensure Docker daemon is running
-   - Check Docker permissions for the user
+1. **Docker not running / permission denied**
+   - In Darwin Ecosystem: Check that Docker socket is mounted correctly
+   - Verify the pod has `privileged: true` security context
+   - Check pod logs: `kubectl logs -f deployment/darwin-artifact-builder -n darwin`
 
-2. **Database connection failed**
-   - Verify MySQL is running and accessible
-   - Check database credentials in `.env`
+2. **Cannot push to local registry**
+   - Verify kind-registry is running: `docker ps | grep kind-registry`
+   - Check the registry port in `config.env`
+   - Ensure `LOCAL_REGISTRY` env var matches the actual registry port
 
-3. **Container registry authentication failed**
-   - Verify AWS/GCP credentials are configured
-   - Check registry URLs and permissions
+3. **Database connection failed**
+   - Verify MySQL is running: `kubectl get pods -n darwin | grep mysql`
+   - Check database credentials in Helm values
 
 4. **Build tasks stuck in 'waiting' status**
    - Check background task processor is running
-   - Verify Docker daemon accessibility
+   - Verify Docker daemon accessibility from the pod
+   - Check pod logs for errors
 
 ### Logs
-- Application logs: `logs/` directory
-- Build task logs: Available via API `/task/logs?task_id={id}`
-- Database logs: Check MySQL error logs
+- **Application logs**: Available via `kubectl logs`
+- **Build task logs**: Via API `/task/logs?task_id={id}`
+- **Docker build logs**: Stored in build artifacts directory
+
+### Debugging in Kind Cluster
+
+```bash
+# Check pod status
+kubectl get pods -n darwin | grep artifact-builder
+
+# Check pod logs
+kubectl logs -f deployment/darwin-artifact-builder -n darwin
+
+# Exec into the pod
+kubectl exec -it deployment/darwin-artifact-builder -n darwin -- /bin/bash
+
+# Test Docker access inside the pod
+docker version
+docker images
+```
 
 ## Contributing
 
@@ -593,18 +626,10 @@ We welcome contributions! Please follow these steps:
 5. Open a Pull Request
 
 Please ensure:
-- Code follows existing style
+- Code follows existing style (Black formatter with 120 line length)
 - Tests pass (`pytest`)
 - Documentation is updated
 
-## License
-
-This project is open-sourced under [License TBD].
-
 ## Acknowledgments
 
-Darwin ML Serve was originally developed internally and is now open-sourced to benefit the machine learning community.
-
----
-
-For more detailed information, please refer to the API documentation at `/docs` when the service is running.
+Darwin Artifact Builder was originally developed internally and is now open-sourced to benefit the machine learning community.

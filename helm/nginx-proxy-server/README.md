@@ -369,8 +369,8 @@ ingress:
 ```yaml
 # Different cluster keys for different environments
 global:
-  kube_cluster_key: "eks-0"  # Production
-  # kube_cluster_key: "eks-1"  # UAT
+  kube_cluster_key: "kind-0"  # Local Kind
+  # kube_cluster_key: "eks-0"   # AWS
 ```
 
 ## Troubleshooting

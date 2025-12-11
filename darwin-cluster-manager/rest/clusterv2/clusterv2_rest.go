@@ -23,11 +23,11 @@ type ResponseforCreate struct {
 	ClusterHelmArtifact string
 	ArtifactS3Url       string
 }
+
 type ResponseforStart struct {
 	ClusterName   string
-	DashboardLink string
-	JupyterLink   string
-	MetricsLink   string
+	Namespace     string
+	KubeCluster   string
 }
 
 func Create(c *gin.Context) {
@@ -110,13 +110,13 @@ func Start(c *gin.Context) {
 	artifactName, _ := c.GetPostForm("artifact_name")
 	namespace, _ := c.GetPostForm("namespace")
 	kubeCluster, _ := c.GetPostForm("kube_cluster")
-	url, restError := clusterv2.ClustersService.StartCluster(clusterName, artifactName, namespace, kubeCluster)
+	restError := clusterv2.ClustersService.StartCluster(clusterName, artifactName, namespace, kubeCluster)
 	if restError != nil {
 		c.JSON(restError.Status(), restError)
 		logger.ErrorR(requestID, restError.Message(), zap.Error(restError))
 		return
 	}
-	response := ResponseforStart{clusterName, url + "/" + clusterName + DashboardSuffix, url + "/" + clusterName + JupyterSuffix, url + "/" + clusterName + MetricsSuffix}
+	response := ResponseforStart{clusterName, namespace, kubeCluster}
 	c.JSON(http.StatusAccepted, response)
 }
 
@@ -140,13 +140,13 @@ func Restart(c *gin.Context) {
 	artifactName, _ := c.GetPostForm("artifact_name")
 	namespace, _ := c.GetPostForm("namespace")
 	kubeCluster, _ := c.GetPostForm("kube_cluster")
-	url, restError := clusterv2.ClustersService.RestartCluster(clusterName, artifactName, namespace, kubeCluster)
+	restError := clusterv2.ClustersService.RestartCluster(clusterName, artifactName, namespace, kubeCluster)
 	if restError != nil {
 		c.JSON(restError.Status(), restError)
 		logger.ErrorR(requestId, restError.Message(), zap.Error(restError))
 		return
 	}
-	response := ResponseforStart{clusterName, url + "/" + clusterName + DashboardSuffix, url + "/" + clusterName + JupyterSuffix, url + "/" + clusterName + MetricsSuffix}
+	response := ResponseforStart{clusterName, namespace, kubeCluster}
 	c.JSON(http.StatusAccepted, response)
 }
 

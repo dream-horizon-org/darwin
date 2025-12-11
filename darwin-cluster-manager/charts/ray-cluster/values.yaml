@@ -40,7 +40,7 @@ common:
     - name: RAY_GRAFANA_HOST
       value: http://id-test-grafana.prometheus.svc.cluster.local:3000
     - name: RAY_GRAFANA_IFRAME_HOST
-      value: https://localhost/eks-0/id-test-metrics
+      value: https://localhost/kind-0/id-test-metrics
     - name: ENV
       value: id-test
     - name: CREATED_BY
@@ -433,7 +433,7 @@ service:
 
 grafana:
   image: "localhost:5000/grafana:latest"
-  rootPath: "/eks-0/id-test-metrics/"
+  rootPath: "/kind-0/id-test-metrics/"
   nodeSelector: {}
 
 prometheus:
@@ -444,7 +444,7 @@ prometheus:
 
 commands: [ ]
 sparkConfig:
-  spark.ui.proxyBase: "/eks-0/id-test-sparkui"
+  spark.ui.proxyBase: "/kind-0/id-test-sparkui"
   spark.ui.proxyRedirectUri: "/"
   spark.metrics.conf.*.sink.prometheusServlet.class: org.apache.spark.metrics.sink.PrometheusServlet
   spark.metrics.conf.*.sink.prometheusServlet.path: "/metrics/prometheus"
@@ -456,7 +456,7 @@ env: uat
 user: darwin
 email: darwin@darwin.com
 cluster_name: id-test
-kube_cluster_key: eks-0
+kube_cluster_key: kind-0
 domain: localhost
 terminate_after_minutes: 60
 cluster_id: id-test

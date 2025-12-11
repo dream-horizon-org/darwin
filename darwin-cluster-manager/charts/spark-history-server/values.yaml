@@ -6,7 +6,7 @@ resource: id-dzj63uqg2iwfeznj
 ttl: 180
 user: harsh.a@dream11.com
 env: prod
-kubeClusterKey: eks-0
+kubeClusterKey: kind-0
 
 serviceAccount:
   create: false
@@ -29,7 +29,7 @@ service:
   annotations: {}
 
 environment:
-  SPARK_HISTORY_OPTS: "-Dspark.ui.proxyRedirectUri=/ -Dspark.ui.proxyBase=/eks-0/shs-harsh "
+  SPARK_HISTORY_OPTS: "-Dspark.ui.proxyRedirectUri=/ -Dspark.ui.proxyBase=/kind-0/shs-harsh "
   RESOURCE: id-dzj63uqg2iwfeznj
   TTL: 180
   USER: harsh.a@dream11.com

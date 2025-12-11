@@ -147,14 +147,9 @@ class ClusterDao:
         result = self._mysql_dao.update(sql_query, sql_data, lambda: self._es_dao.update(es_index, es_data))
         return result
 
-    def start_cluster(self, cluster_id: str, run_id: str, dashboard_link: str, notebook_link: str):
+    def start_cluster(self, cluster_id: str, run_id: str):
         sql_query = START_CLUSTER
-        sql_data = {
-            "dashboard_link": dashboard_link,
-            "notebook_link": notebook_link,
-            "run_id": run_id,
-            "cluster_id": cluster_id,
-        }
+        sql_data = {"run_id": run_id, "cluster_id": cluster_id}
         es_data = self.get_cluster_info(cluster_id)
         es_data.status = "creating"
         es_index = cluster_id
@@ -172,13 +167,9 @@ class ClusterDao:
         result = self._mysql_dao.update(sql_query, sql_data, lambda: self._es_dao.update(es_index, es_data))
         return result
 
-    def restart_cluster(self, cluster_id: str, dashboard_link: str, notebook_link: str):
+    def restart_cluster(self, cluster_id: str):
         sql_query = RESTART_CLUSTER
-        sql_data = {
-            "dashboard_link": dashboard_link,
-            "notebook_link": notebook_link,
-            "cluster_id": cluster_id,
-        }
+        sql_data = {"cluster_id": cluster_id}
         es_data = self.get_cluster_info(cluster_id)
         es_data.status = "creating"
         es_index = cluster_id

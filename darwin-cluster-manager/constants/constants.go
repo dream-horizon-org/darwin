@@ -10,9 +10,11 @@ var (
 		"local": "d11-mlstag",
 	}
 )
+
+// TODO: To be removed completely as this is not getting used anywhere
 var (
 	URL = map[string]string{
-		"darwin-local": "localhost:30080",
+		"darwin-local": "localhost",
 		"local": "darwin-mlp-stag.d11dev.com",
 	}
 )

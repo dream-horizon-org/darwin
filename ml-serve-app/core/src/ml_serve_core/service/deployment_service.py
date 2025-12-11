@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Optional, List
 
 from fastapi import HTTPException
@@ -19,7 +20,7 @@ from ml_serve_core.constants.constants import (
 )
 from ml_serve_core.dtos.dtos import EnvConfig
 from ml_serve_core.service.serve_config_service import ServeConfigService
-from ml_serve_core.utils.utils import get_host_name, generate_secure_string, get_service_url, get_service_url_for_one_click
+from ml_serve_core.utils.utils import get_host_name, get_service_url, get_service_url_for_one_click
 from ml_serve_core.utils.yaml_utils import generate_fastapi_values, generate_fastapi_infra_values, \
     generate_fastapi_values_for_one_click_model_deployment
 from ml_serve_model import Serve, Artifact, Environment, APIServeInfraConfig, User, ScheduledWorkflowDeployment, \
@@ -38,6 +39,50 @@ class DeploymentService:
         self.dcm_client = DCMClient()
         self.serve_config_service = ServeConfigService()
         self.workflow_client = DarwinWorkflowClient()
+
+    @staticmethod
+    def _sanitize_identifier(value: str) -> str:
+        sanitized = re.sub(r"[^a-z0-9-]", "-", value.lower())
+        sanitized = re.sub(r"-+", "-", sanitized).strip("-")
+        return sanitized
+
+    def _default_space(self, user: User) -> str:
+        username = (user.username or "").replace("@", "-")
+        sanitized = self._sanitize_identifier(username) if username else "one-click"
+        return sanitized or "one-click"
+
+    def _derive_serve_name(self, request: ModelDeploymentRequest, user: User) -> str:
+        if request.serve_name:
+            if "_" in request.serve_name:
+                raise HTTPException(
+                    status_code=400,
+                    detail="serve_name cannot contain underscores for one-click deployments."
+                )
+            return request.serve_name.lower()
+
+        base = self._default_space(user)
+        candidate = f"{base}-one-click-deployments"
+        return candidate[:50]
+
+    def _build_one_click_env_vars(self, model_uri: str) -> dict:
+        env_vars = {"MLFLOW_MODEL_URI": model_uri}
+        if MLFLOW_TRACKING_URI:
+            env_vars["MLFLOW_TRACKING_URI"] = MLFLOW_TRACKING_URI
+        if MLFLOW_TRACKING_USERNAME:
+            env_vars["MLFLOW_TRACKING_USERNAME"] = MLFLOW_TRACKING_USERNAME
+        if MLFLOW_TRACKING_PASSWORD:
+            env_vars["MLFLOW_TRACKING_PASSWORD"] = MLFLOW_TRACKING_PASSWORD
+        return env_vars
+
+    async def _update_active_deployment(self, serve: Serve, env: Environment, deployment: Deployment):
+        active_deployment = await ActiveDeployment.get_or_none(serve=serve, environment=env)
+        if not active_deployment:
+            await ActiveDeployment.create(serve=serve, environment=env, deployment=deployment)
+            return
+
+        active_deployment.previous_deployment = await active_deployment.deployment
+        active_deployment.deployment = deployment
+        await active_deployment.save()
 
     async def get_deployment_by_serve_id(self, serve_id: int) -> Optional[list[Deployment]]:
         if not await Deployment.exists(serve_id=serve_id):
@@ -465,8 +510,7 @@ class DeploymentService:
             workflow
         )
 
-    async def deploy_model(self, request: ModelDeploymentRequest, user_email: str):
-        # Get environment from database
+    async def deploy_model(self, request: ModelDeploymentRequest, user: User):
         env = await Environment.get_or_none(name=request.env)
         if not env:
             raise HTTPException(
@@ -475,24 +519,70 @@ class DeploymentService:
             )
 
         env_config = EnvConfig(**env.env_configs)
-        serve_name = request.serve_name
+        serve_name = self._derive_serve_name(request, user)
 
-        # Build environment variables dict with MLflow configs
-        environment_variables = {"MLFLOW_MODEL_URI": request.model_uri}
+        serve = await Serve.get_or_none(name=serve_name)
+        if serve and serve.type != ServeType.API.value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Serve '{serve_name}' exists but is not of API type."
+            )
 
-        if MLFLOW_TRACKING_URI:
-            environment_variables["MLFLOW_TRACKING_URI"] = MLFLOW_TRACKING_URI
-        if MLFLOW_TRACKING_USERNAME:
-            environment_variables["MLFLOW_TRACKING_USERNAME"] = MLFLOW_TRACKING_USERNAME
-        if MLFLOW_TRACKING_PASSWORD:
-            environment_variables["MLFLOW_TRACKING_PASSWORD"] = MLFLOW_TRACKING_PASSWORD
+        if not serve:
+            serve = await Serve.create(
+                name=serve_name,
+                type=ServeType.API.value,
+                description="Auto-generated serve for one-click deployments",
+                space=self._default_space(user),
+                created_by=user,
+            )
+
+        artifact = await Artifact.get_or_none(serve=serve, version=request.artifact_version)
+        if not artifact:
+            artifact = await Artifact.create(
+                serve=serve,
+                version=request.artifact_version,
+                github_repo_url=request.model_uri,
+                image_url=DEFAULT_RUNTIME,
+                created_by=user,
+            )
+        else:
+            artifact.github_repo_url = request.model_uri
+            artifact.image_url = DEFAULT_RUNTIME
+            await artifact.save()
+
+        fast_api_config = {
+            "cores": request.cores,
+            "memory": request.memory,
+            "node_capacity_type": request.node_capacity,
+            "min_replicas": request.min_replicas,
+            "max_replicas": request.max_replicas,
+        }
+
+        api_infra_config = await APIServeInfraConfig.get_or_none(serve=serve, environment=env)
+        if not api_infra_config:
+            api_infra_config = await APIServeInfraConfig.create(
+                serve=serve,
+                environment=env,
+                backend_type=BackendType.FastAPI.value,
+                fast_api_config=fast_api_config,
+                additional_hosts=None,
+                created_by=user,
+                updated_by=user,
+            )
+        else:
+            api_infra_config.fast_api_config = fast_api_config
+            api_infra_config.updated_by = user
+            await api_infra_config.save()
+
+        environment_variables = self._build_one_click_env_vars(request.model_uri)
 
         values_json = generate_fastapi_values_for_one_click_model_deployment(
-            name=serve_name,
+            name=serve.name,
             env=request.env,
             runtime=DEFAULT_RUNTIME,
             env_config=env_config,
-            user_email=user_email,
+            user_email=user.username,
             environment_variables=environment_variables,
             cores=request.cores,
             memory=request.memory,
@@ -501,25 +591,41 @@ class DeploymentService:
             node_capacity_type=request.node_capacity,
         )
 
-        random_id = generate_secure_string(8)
+        artifact_identifier = f"{env.name}-{serve.name}-{artifact.version}"
 
-        build_resp = await self.dcm_client.build_resource(
+        await self.dcm_client.build_resource(
             darwin_resource=FASTAPI_SERVE_RESOURCE_NAME,
-            artifact_id=f"{random_id}-{serve_name}",
+            artifact_id=artifact_identifier,
             values=values_json,
             version=FASTAPI_SERVE_CHART_VERSION
         )
 
-        start_resp = await self.dcm_client.start_resource(
-            resource_id=serve_name,
-            artifact_id=f"{random_id}-{serve_name}",
+        await self.dcm_client.start_resource(
+            resource_id=serve.name,
+            artifact_id=artifact_identifier,
             kube_cluster=env_config.cluster_name,
             namespace=env_config.namespace,
             darwin_resource=FASTAPI_SERVE_RESOURCE_NAME
         )
 
+        async with in_transaction():
+            deployment = await Deployment.create(
+                serve=serve,
+                artifact=artifact,
+                environment=env,
+                created_by=user,
+            )
+            await AppLayerDeployment.create(
+                deployment=deployment,
+                deployment_strategy=None,
+                deployment_params=None,
+                environment_variables=environment_variables
+            )
+
+        await self._update_active_deployment(serve, env, deployment)
+
         return {
-            "service_url": get_service_url_for_one_click(serve_name, env_config)
+            "service_url": get_service_url_for_one_click(serve.name, env_config)
         }
 
     async def undeploy_model(self, request: ModelUndeployRequest) -> dict:

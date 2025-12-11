@@ -1,0 +1,69 @@
+# Multi-stage Dockerfile for Go applications
+# Stage 1: Build stage using official Go alpine image
+ARG BASE_IMAGE
+FROM golang:1.18-alpine AS builder
+
+ARG APP_NAME
+ARG APP_BASE_DIR
+ARG APP_DIR
+ARG EXTRA_ENV_VARS
+WORKDIR /app/
+
+# Install git for go mod download (some modules may need it)
+RUN apk add --no-cache git
+
+# Append BASE_DIR, SERVICE_NAME, DEPLOYMENT_TYPE, APP_DIR to EXTRA_ENV_VARS
+ENV EXTRA_ENV_VARS_FINAL="${EXTRA_ENV_VARS}|SERVICE_NAME=${APP_NAME}|APP_DIR=${APP_DIR}"
+
+COPY ${APP_BASE_DIR}/${APP_DIR}/target/${APP_NAME}/. /app/
+
+RUN chmod +x /app/.odin/*.sh 2>/dev/null || true
+
+# Set environment variables needed by setup.sh
+ENV BASE_DIR=/app
+ENV DEPLOYMENT_TYPE=container
+ENV CGO_ENABLED=0
+
+# Run setup.sh to build the Go binary
+RUN if [ -f "/app/.odin/setup.sh" ]; then \
+      env $(echo ${EXTRA_ENV_VARS_FINAL} | tr '|' ' ') sh -x /app/.odin/setup.sh; \
+    fi
+
+# Cleanup Go build cache to reduce layer size
+RUN go clean -cache -modcache 2>/dev/null || true
+
+# Stage 2: Minimal runtime image (~8MB base)
+FROM alpine:3.19 AS runtime
+
+ARG APP_NAME
+ARG APP_DIR
+
+# Install runtime dependencies including AWS CLI
+RUN apk add --no-cache \
+    ca-certificates \
+    bash \
+    curl \
+    aws-cli
+
+WORKDIR /app/
+
+# Copy everything from builder (binary, charts, configs, etc.)
+# Use wildcard to handle different binary names and directory structures
+COPY --from=builder /app/ /app/
+
+# Remove source files, keeping only runtime essentials
+RUN rm -rf /app/*.go /app/go.mod /app/go.sum \
+    /app/app/ /app/constants/ /app/dto/ /app/logger/ \
+    /app/rest/ /app/services/ /app/utils/ /app/tests/ \
+    2>/dev/null || true
+
+RUN chmod +x /app/.odin/*.sh 2>/dev/null || true
+
+# Set runtime environment
+ENV BASE_DIR=/app \
+    DEPLOYMENT_TYPE=container \
+    APP_DIR=/app
+
+# Entrypoint
+ENTRYPOINT ["bash", "-c", "/app/.odin/start.sh"]
+
