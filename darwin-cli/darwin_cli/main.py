@@ -1,7 +1,7 @@
 import sys
 import typer
 from loguru import logger
-from darwin_cli.commands import compute, config
+from darwin_cli.commands import compute, config, workspace
 
 
 app = typer.Typer(
@@ -13,6 +13,7 @@ app = typer.Typer(
 
 app.add_typer(compute.app, name="compute", help="Ray cluster management")
 app.add_typer(config.app, name="config", help="CLI configuration")
+app.add_typer(workspace.app, name="workspace", help="Workspace projects and codespaces")
 
 
 def main():
