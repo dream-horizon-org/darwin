@@ -32,7 +32,6 @@ Thumbs.db
 # Java/Maven
 # ===========================
 target/
-*.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 *.class
