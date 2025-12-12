@@ -299,14 +299,12 @@ def deploy_model(
 @app.command(name="undeploy-model")
 def undeploy_model(
     serve_name: str = typer.Option(..., help="Name of the serve to undeploy"),
-    artifact_version: str = typer.Option(..., help="Version label for the one-click artifact"),
 ):
     """CLI command to undeploy a model serve."""
     try:
         asyncio.run(
             get_deployer(ENV).undeploy_model(
                 serve_name=serve_name,
-                artifact_version=artifact_version,
                 env=ENV,
             )
         )

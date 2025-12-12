@@ -247,7 +247,6 @@ class HermesDeployer:
     async def undeploy_model(
         self,
         serve_name: str,
-        artifact_version: str,
         env: str,
     ) -> Dict:
         """Undeploy a model serve"""
@@ -258,11 +257,6 @@ class HermesDeployer:
                     HermesErrorCodes.MISSING_FIELD.value.code,
                     "serve_name is a required field",
                 )
-            if not artifact_version:
-                raise HermesException(
-                    HermesErrorCodes.MISSING_FIELD.value.code,
-                    "artifact_version is a required field",
-                )
             if not env:
                 raise HermesException(
                     HermesErrorCodes.MISSING_FIELD.value.code,
@@ -270,12 +264,10 @@ class HermesDeployer:
                 )
 
             serve_name = self._validate_str_length(serve_name, "serve_name")
-            artifact_version = self._validate_str_length(artifact_version, "artifact_version")
 
             # Create request payload
             request = UndeployModelRequest(
                 serve_name=serve_name,
-                artifact_version=artifact_version,
                 env=env,
             )
             payload = request.to_dict()

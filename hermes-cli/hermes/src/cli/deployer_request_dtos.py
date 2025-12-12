@@ -47,7 +47,6 @@ class DeployModelRequest:
 @dataclass
 class UndeployModelRequest:
     serve_name: str
-    artifact_version: str
     env: str
 
     def to_dict(self):
