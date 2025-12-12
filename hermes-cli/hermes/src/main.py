@@ -1,19 +1,15 @@
 import asyncio
-import typer
 import os
 from typing import Optional, Dict
-from hermes.src.template_service.cookiecutter_context_validation import (
-    create_serve_repo_from_template,
-)
-from hermes.src.cli.hermes_deployer import HermesDeployer
-from hermes.src.config.config import Config
+import typer
 from hermes.src.cli.deployer_request_dtos import APIServeConfig, APIServeDeploymentConfig
+from hermes.src.cli.hermes_deployer import HermesDeployer
 from hermes.src.cli.hermes_exceptions import HermesException, HermesErrorCodes
-from hermes.src.utils.template_utils import read_json_file
-
-
-# Global environment variable check
-ENV = os.getenv("ENV", "local")
+from hermes.src.config.config import Config
+from hermes.src.template_service.cookiecutter_context_validation import create_serve_repo_from_template
+from hermes.src.utils.template_utils import read_file
+from loguru import logger
+ENV = os.getenv("ENV", "darwin-local")
 
 
 def get_deployer(env: Optional[str] = None):
@@ -24,32 +20,46 @@ def get_deployer(env: Optional[str] = None):
 
 
 def get_deployment_config(env: str = "uat") -> dict:
-    filename: str = f".hermes/deployment_{env}.json"
-    return read_json_file(filename)
+    file: str = f".hermes/deployment_{env}.json"
+    return read_file(file)
 
 
+# Top-level serve app
 app = typer.Typer(
-    name="hermes",
-    help="CLI tool for generating projects from templates",
+    name="serve",
+    help="Manages model serving and deployment.",
     no_args_is_help=True,
 )
 
+# Sub-apps
+env_app = typer.Typer(help="Environment operations", no_args_is_help=True)
+config_app = typer.Typer(help="Serve config operations", no_args_is_help=True)
+artifact_app = typer.Typer(help="Artifact operations", no_args_is_help=True)
+repo_app = typer.Typer(help="Serve repository templates", no_args_is_help=True)
 
-@app.command(name="create-environment")
-def create_environment(
-    name: str = typer.Option(..., help="Name of the environment (e.g. 'local'). Currently supported env: ['local']"),
-    domain_suffix: str = typer.Option(".local", help="Domain suffix for the environment (e.g., '.local')"),
-    cluster_name: str = typer.Option("kind", help="Kubernetes cluster name (must be 'kind')"),
-    namespace: str = typer.Option("serve", help="Kubernetes namespace (must be 'serve')"),
-    ft_redis_url: str = typer.Option("", help="Feature store Redis URL"),
-    workflow_url: str = typer.Option("", help="Workflow service URL"),
-    security_group: str = typer.Option("", help="AWS security group ID (optional)"),
-    subnets: Optional[str] = typer.Option(None, help="AWS subnet IDs (optional)"),
+app.add_typer(env_app, name="environment")
+app.add_typer(config_app, name="config")
+app.add_typer(artifact_app, name="artifact")
+app.add_typer(repo_app, name="repo")
+
+
+# ----------------------------
+# Environment Operations
+# ----------------------------
+
+@env_app.command("create")
+def env_create(
+    name: str = typer.Option(..., "--name", help="Environment name (e.g., darwin-local)"),
+    domain_suffix: str = typer.Option(".local", "--domain-suffix", help="Domain suffix"),
+    cluster_name: str = typer.Option("kind", "--cluster-name", help="Kubernetes cluster name"),
+    namespace: str = typer.Option("serve", "--namespace", help="Kubernetes namespace"),
+    security_group: str = typer.Option("", "--security-group", help="AWS security group ID"),
+    ft_redis_url: str = typer.Option("", "--ft-redis-url", help="Feature store Redis URL"),
+    workflow_url: str = typer.Option("", "--workflow-url", help="Workflow service URL"),
+    subnets: Optional[str] = typer.Option(None, "--subnets", help="AWS subnet IDs"),
 ):
-    """CLI command to create a new environment."""
+    """Create environment."""
     try:
-        os.environ["ENV"] = name
-        ENV = name
         asyncio.run(
             get_deployer(ENV).create_environment(
                 name=name,
@@ -63,225 +73,313 @@ def create_environment(
             )
         )
     except Exception as e:
-        print(f"Error: {e.__str__()}")
+        logger.error(f"Error: {e}")
 
 
-@app.command(name="create-serve-repo")
-def create_serve_repo(
-    template: str = typer.Option(
-        "hermes/src/templates/fastapi_template/",
-        "--template",
-        "-t",
-        help="Path to the template folder",
-    ),
-    filename: Optional[str] = typer.Option(None, "--filename", "-f", help="Path to the YAML file"),
-    output_path: Optional[str] = typer.Option(None, "--output", "-o", help="Output path for the generated project"),
-):
-    """
-    Create a new project from a template using optional YAML configuration.
-    """
+@env_app.command("get")
+def env_get(name: str = typer.Option(..., "--name", help="Environment name")):
+    """Get environment details."""
     try:
-        create_serve_repo_from_template(template, filename, output_path)
+        asyncio.run(get_deployer().get_environment(name))
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
 
 
-@app.command(name="create-serve")
-def create_serve(
-    name: Optional[str] = typer.Option(None, help="Name of the serve"),
-    type: Optional[str] = typer.Option(None, help='Type of the serve (Currently supported: ["api"])'),
-    space: Optional[str] = typer.Option(None, help="Space for the serve, eg: Serve"),
-    description: Optional[str] = typer.Option(None, help="Description of the serve"),
-    filename: Optional[str] = typer.Option(None, help="Path to the YAML file for serve configuration"),
+@env_app.command("update")
+def env_update(
+    name: str = typer.Option(..., "--name", help="Environment name"),
+    domain_suffix: Optional[str] = typer.Option(None, "--domain-suffix", help="Domain suffix"),
+    cluster_name: Optional[str] = typer.Option(None, "--cluster-name", help="Kubernetes cluster name"),
+    namespace: Optional[str] = typer.Option(None, "--namespace", help="Kubernetes namespace"),
+    security_group: Optional[str] = typer.Option(None, "--security-group", help="AWS security group ID"),
+    subnets: Optional[str] = typer.Option(None, "--subnets", help="AWS subnet IDs"),
+    ft_redis_url: Optional[str] = typer.Option(None, "--ft-redis-url", help="Feature store Redis URL"),
+    workflow_url: Optional[str] = typer.Option(None, "--workflow-url", help="Workflow service URL"),
 ):
-    """CLI command to create a new serve. All optional arguments need to be provided if Model repo isn't created via hermes CLI (Except filename)."""
+    """Update environment (partial update allowed)."""
     try:
-        if filename:
-            serve_config = read_json_file(filename)
-        else:
-            serve_config = read_json_file(".hermes/serve_config.json")
-        serve_name = name
-        serve_type = type
-        serve_space = space
-        serve_description = description
-        if serve_config and len(serve_config) > 0:
-            serve_name = name if name else serve_config["name"]
-            serve_type = type if type else serve_config["type"]
-            serve_space = space if space else serve_config["space"]
-            serve_description = description if description else serve_config["description"]
-
-        asyncio.run(get_deployer(ENV).create_serve(serve_name, serve_type, serve_space, serve_description))
-    except Exception as e:
-        print(f"Error: {e.__str__()}")
-
-
-@app.command(name="create-serve-config")
-def create_serve_config(
-    serve_name: Optional[str] = typer.Option(None, help="Name of the serve"),
-    api_config: Optional[APIServeConfig] = typer.Option(
-        None, parser=APIServeConfig.api_serve_config, help="API serve configuration"
-    ),
-    filename: Optional[str] = typer.Option(None, help="Path to the YAML file for serve configuration"),
-):
-    """CLI command to create serve infrastructure configuration. All optional arguments need to be provided if Model repo isn't created via hermes CLI (Except filename)."""
-    try:
-        env = ENV
-        serve_name = serve_name
-        if serve_name is None:
-            try:
-                if filename:
-                    serve_config = read_json_file(filename)
-                else:
-                    serve_config = read_json_file(".hermes/serve_config.json")
-                serve_name = serve_config["name"]
-            except Exception as e:
-                raise HermesException(
-                    HermesErrorCodes.MISSING_FIELD.value.code,
-                    "serve_name is required fields and it not passed or .hermes/serve_config.json is not present.",
-                )
-        deployment_config = get_deployment_config(env)
-        serve_api_config = api_config
-        if deployment_config and len(deployment_config) > 0:
-            serve_api_config = (
-                api_config
-                if api_config
-                else APIServeConfig(**deployment_config["infrastructure_config"]["api_serve_config"])
-            )
-
-        asyncio.run(get_deployer(env).create_serve_config(serve_name, env, serve_api_config))
-    except Exception as e:
-        print(f"Error: {e}")
-
-
-@app.command(name="update-serve-config")
-def update_serve_config(
-    serve_name: Optional[str] = typer.Option(None, help="Name of the serve"),
-    api_config: Optional[APIServeConfig] = typer.Option(
-        None, parser=APIServeConfig.api_serve_config, help="API serve configuration"
-    ),
-):
-    """CLI command to update serve infrastructure configuration."""
-    try:
-        env = ENV
-        serve_name = serve_name
-        if serve_name is None:
-            try:
-                serve_config = read_json_file(".hermes/serve_config.json")
-                serve_name = serve_config["name"]
-            except Exception as e:
-                raise HermesException(
-                    HermesErrorCodes.MISSING_FIELD.value.code,
-                    "serve_name is required fields and it not passed or .hermes/serve_config.json is not present.",
-                )
-        deployment_config = get_deployment_config(env)
-        serve_api_config = api_config
-        if deployment_config and len(deployment_config) > 0:
-            serve_api_config = (
-                api_config
-                if api_config
-                else APIServeConfig(**deployment_config["infrastructure_config"]["api_serve_config"])
-            )
-
-        asyncio.run(get_deployer(env).update_serve_config(serve_name, env, serve_api_config))
-    except Exception as e:
-        print(f"Error: {e}")
-
-
-@app.command(name="create-artifact")
-def create_artifact(
-    serve_name: Optional[str] = typer.Option(None, help="Name of the serve"),
-    version: str = typer.Option(..., help="Version of the artifact"),
-    github_repo_url: Optional[str] = typer.Option(None, help="GitHub repository URL"),
-    branch: Optional[str] = typer.Option(None, help="GitHub repository branch"),
-):
-    """CLI command to create a new artifact. All optional arguments need to be provided if Model repo isn't created via hermes CLI."""
-    try:
-        serve_version = version
-        serve_github_repo_url = github_repo_url
-        if serve_name is None or github_repo_url is None:
-            try:
-                serve_config = read_json_file(".hermes/serve_config.json")
-                serve_name = serve_name if serve_name else serve_config["name"]
-                serve_github_repo_url = github_repo_url if github_repo_url else serve_config["github_repo_url"]
-            except Exception as e:
-                raise HermesException(
-                    HermesErrorCodes.MISSING_FIELD.value.code,
-                    "serve_name and github_repo_url are required fields and it not passed or .hermes/serve_config.json is not present.",
-                )
-
-        asyncio.run(get_deployer().create_artifact(serve_name, serve_version, serve_github_repo_url, branch))
-    except Exception as e:
-        print(f"Error: {e}")
-
-
-@app.command(name="deploy-artifact")
-def deploy_artifact(
-    serve_name: Optional[str] = typer.Option(None, help="Name of the serve"),
-    artifact_version: Optional[str] = typer.Option(..., help="Version of the artifact"),
-    api_serve_deployment_config: Optional[APIServeDeploymentConfig] = typer.Option(
-        None,
-        parser=APIServeDeploymentConfig.api_serve_deployment_config,
-        help="API deployment configuration",
-    ),
-):
-    """CLI command to deploy an artifact."""
-    try:
-        env = ENV
-        serve_name = serve_name
-        if serve_name is None:
-            try:
-                serve_config = read_json_file(".hermes/serve_config.json")
-                serve_name = serve_config["name"]
-            except FileNotFoundError:
-                raise HermesException(
-                    HermesErrorCodes.MISSING_FIELD.value.code,
-                    "serve_name is required fields and it not passed or .hermes/serve_config.json is not present.",
-                )
-        deployment_config = get_deployment_config(env)
-        serve_artifact_version = artifact_version
-        serve_api_config = api_serve_deployment_config
-        if deployment_config and len(deployment_config) > 0:
-            serve_artifact_version = (
-                artifact_version if artifact_version else deployment_config["deployment_config"]["artifact_version"]
-            )
-            serve_api_config = (
-                api_serve_deployment_config
-                if api_serve_deployment_config
-                else APIServeDeploymentConfig(**deployment_config["deployment_config"]["api_serve_deployment_config"])
-            )
-        api_config_dict: Optional[dict] = None
-
-        if serve_api_config:
-            api_config_dict = serve_api_config.to_dict()
-
         asyncio.run(
-            get_deployer(env).deploy_artifact(
-                serve_name,
-                env,
-                serve_artifact_version,
-                api_config_dict,
+            get_deployer().update_environment(
+                env_name=name,
+                domain_suffix=domain_suffix,
+                cluster_name=cluster_name,
+                namespace=namespace,
+                security_group=security_group,
+                subnets=subnets,
+                ft_redis_url=ft_redis_url,
+                workflow_url=workflow_url,
             )
         )
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
 
 
-@app.command(name="deploy-model")
-def deploy_model(
-    serve_name: str = typer.Option(..., help="Name of the serve"),
-    artifact_version: str = typer.Option(..., help="Version label for the one-click artifact"),
-    model_uri: str = typer.Option(..., help="MLflow model URI (e.g., 's3://bucket/path/to/model')"),
-    cores: int = typer.Option(..., help="Number of CPU cores (e.g., 4)"),
-    memory: int = typer.Option(..., help="Memory in GB (e.g., 8)"),
-    node_capacity: str = typer.Option(..., help="Node capacity type (e.g., 'spot')"),
-    min_replicas: int = typer.Option(..., help="Minimum number of replicas (e.g., 1)"),
-    max_replicas: int = typer.Option(..., help="Maximum number of replicas (e.g., 1)"),
+@env_app.command("delete")
+def env_delete(name: str = typer.Option(..., "--name", help="Environment name")):
+    """Delete environment (will fail if referenced)."""
+    try:
+        asyncio.run(get_deployer().delete_environment(name))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+# ----------------------------
+# Serve Operations
+# ----------------------------
+
+@app.command("list")
+def serve_list():
+    """List serves."""
+    try:
+        asyncio.run(get_deployer().list_serves())
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+@app.command("create")
+def serve_create(
+    name: str = typer.Option(..., "--name", help="Serve name (no underscores, max 16 chars)"),
+    type: str = typer.Option(..., "--type", help="Serve type (api|workflow)"),
+    space: str = typer.Option(..., "--space", help="Serve space"),
+    description: str = typer.Option(..., "--description", help="Serve description"),
+    file: Optional[str] = typer.Option(None, "--file", help="Serve config YAML/JSON"),
 ):
-    """CLI command for one-click deploy serve with model."""
+    """Create serve (name/type/space/description)."""
+    try:
+        if file:
+            serve_config = read_file(file)
+        else:
+            serve_config = read_file(".hermes/serve_config.json")
+        serve_name = name or serve_config.get("name")
+        serve_type = type or serve_config.get("type")
+        serve_space = space or serve_config.get("space")
+        serve_description = description or serve_config.get("description")
+
+        asyncio.run(get_deployer(ENV).create_serve(serve_name, serve_type, serve_space, serve_description))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+@app.command("get")
+def serve_get(name: str = typer.Option(..., "--name", help="Serve name")):
+    """Get serve overview."""
+    try:
+        asyncio.run(get_deployer().get_serve_overview(name))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+@app.command("status")
+def serve_status(
+    name: str = typer.Option(..., "--name", help="Serve name"),
+    env: str = typer.Option(..., "--env", help="Environment"),
+):
+    """Get serve status for an environment."""
+    try:
+        asyncio.run(get_deployer().get_serve_status(name, env))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+@app.command("undeploy")
+def serve_undeploy(
+    name: str = typer.Option(..., "--name", help="Serve name"),
+    env: str = typer.Option(..., "--env", help="Environment"),
+):
+    """Undeploy serve from environment."""
+    try:
+        asyncio.run(get_deployer().undeploy_serve(name, env))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+# ----------------------------
+# Config Operations
+# ----------------------------
+
+@config_app.command("create")
+def config_create(
+    serve_name: str = typer.Option(..., "--serve-name", help="Serve name"),
+    env: str = typer.Option(..., "--env", help="Environment"),
+    backend_type: Optional[str] = typer.Option(None, "--backend-type", help="Backend type (fastapi). Required if file not given."),
+    cores: Optional[int] = typer.Option(None, "--cores",help="Required if file not given."),
+    memory: Optional[int] = typer.Option(None, "--memory",help="Required if file not given."),
+    node_capacity: Optional[str] = typer.Option(None, "--node-capacity",help="Required if file not given."),
+    min_replicas: Optional[int] = typer.Option(None, "--min-replicas",help="Required if file not given."),
+    max_replicas: Optional[int] = typer.Option(None, "--max-replicas",help="Required if file not given."),
+    file: Optional[str] = typer.Option(None, "--file", help="Infra config YAML/JSON. Required if other configs are not given."),
+):
+    """Create serve infrastructure config (API)."""
+    try:
+        if file:
+            api_config = APIServeConfig.from_file(file)
+        else:
+            api_config = APIServeConfig(
+                backend_type=backend_type,
+                cores=cores,
+                memory=memory,
+                node_capacity_type=node_capacity,
+                min_replicas=min_replicas,
+                max_replicas=max_replicas,
+            )
+
+        asyncio.run(get_deployer().create_serve_config(serve_name, env, api_config))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+@config_app.command("get")
+def config_get(
+    serve_name: str = typer.Option(..., "--serve-name", help="Serve name"),
+    env: str = typer.Option(..., "--env", help="Environment"),
+):
+    """Get serve config."""
+    try:
+        asyncio.run(get_deployer().get_serve_config(serve_name, env))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+@config_app.command("update")
+def config_update(
+    serve_name: str = typer.Option(..., "--serve-name", help="Serve name"),
+    env: str = typer.Option(..., "--env", help="Environment"),
+    backend_type: Optional[str] = typer.Option(None, "--backend-type",help="Backend type (fastapi). Required if file not given."),
+    cores: Optional[int] = typer.Option(None, "--cores", help="Required if file not given."),
+    memory: Optional[int] = typer.Option(None, "--memory", help="Required if file not given."),
+    node_capacity: Optional[str] = typer.Option(None, "--node-capacity", help="Required if file not given."),
+    min_replicas: Optional[int] = typer.Option(None, "--min-replicas", help="Required if file not given."),
+    max_replicas: Optional[int] = typer.Option(None, "--max-replicas", help="Required if file not given."),
+    file: Optional[str] = typer.Option(None, "--file",help="Infra config YAML/JSON. Required if other configs are not given."),
+):
+    """Update serve config (partial update allowed)."""
+    try:
+        if file:
+            api_config = APIServeConfig.from_file(file)
+        else:
+            api_config = APIServeConfig(
+                backend_type=backend_type,
+                cores=cores,
+                memory=memory,
+                node_capacity_type=node_capacity,
+                min_replicas=min_replicas,
+                max_replicas=max_replicas,
+            )
+
+        asyncio.run(get_deployer().update_serve_config(serve_name, env, api_config))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+# ----------------------------
+# Artifact Operations
+# ----------------------------
+
+@artifact_app.command("create")
+def artifact_create(
+    serve_name: str = typer.Option(..., "--serve-name", help="Serve name"),
+    version: str = typer.Option(..., "--version", help="Artifact version"),
+    github_repo_url: Optional[str] = typer.Option(None, "--github-repo-url", help="GitHub repo URL"),
+    branch: Optional[str] = typer.Option(None, "--branch", help="Git branch"),
+    file_path: Optional[str] = typer.Option(None, "--file-path", help="Workflow file path (for workflow serve)"),
+):
+    """Create artifact (Docker image)."""
+    try:
+        serve_version = version
+        serve_github_repo_url = github_repo_url
+        if serve_name is None or serve_github_repo_url is None:
+            try:
+                serve_config = read_file(".hermes/serve_config.json")
+                serve_name = serve_name if serve_name else serve_config["name"]
+                serve_github_repo_url = serve_github_repo_url if serve_github_repo_url else serve_config["github_repo_url"]
+            except Exception:
+                raise HermesException(
+                    HermesErrorCodes.MISSING_FIELD.value.code,
+                    "serve_name and github_repo_url are required or .hermes/serve_config.json missing.",
+                )
+
+        asyncio.run(get_deployer().create_artifact(serve_name, serve_version, serve_github_repo_url, branch, file_path))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+@artifact_app.command("list")
+def artifact_list(serve_name: str = typer.Option(..., "--serve-name", help="Serve name")):
+    """List artifacts for a serve."""
+    try:
+        asyncio.run(get_deployer().list_artifacts(serve_name))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+@artifact_app.command("jobs")
+def artifact_jobs():
+    """List artifact builder jobs."""
+    try:
+        asyncio.run(get_deployer().list_artifact_builder_jobs())
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+@artifact_app.command("status")
+def artifact_status(
+    job_id: str = typer.Option(..., "--job-id", help="Artifact builder job ID"),
+):
+    """Get artifact build status."""
+    try:
+        asyncio.run(get_deployer(ENV).get_artifact_status(job_id))
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+# ----------------------------
+# Deployment Operations
+# ----------------------------
+
+@app.command("deploy")
+def serve_deploy(
+    serve_name: str = typer.Option(..., "--serve-name", help="Serve name"),
+    file: str = typer.Option(..., "--file", help="Deployment request YAML/JSON"),
+):
+    """Deploy artifact to environment (expects a deployment request file)."""
+    try:
+        # Simple passthrough using deploy_artifact; file parsing left to deployer
+        deployment_config = read_file(file)
+        env = deployment_config.get("env")
+        artifact_version = deployment_config.get("artifact_version")
+        api_cfg = deployment_config.get("api_serve_deployment_config")
+        workflow_cfg = deployment_config.get("workflow_serve_deployment_config")
+        api_cfg_obj = APIServeDeploymentConfig(**api_cfg) if api_cfg else None
+        asyncio.run(
+            get_deployer().deploy_artifact(
+                serve_name,
+                env,
+                artifact_version,
+                api_cfg_obj.to_dict() if api_cfg_obj else None,
+                workflow_cfg,
+            )
+        )
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+
+@app.command("deploy-model")
+def serve_deploy_model(
+    serve_name: str = typer.Option(..., "--serve-name", help="Serve name (1-16 chars, no underscores)"),
+    artifact_version: str = typer.Option(..., help="Version label for the one-click artifact"),
+    model_uri: str = typer.Option(..., "--model-uri", help="MLflow model URI"),
+    env: str = typer.Option(..., "--env", help="Environment"),
+    cores: int = typer.Option(..., "--cores"),
+    memory: int = typer.Option(..., "--memory"),
+    node_capacity: str = typer.Option(..., "--node-capacity"),
+    min_replicas: int = typer.Option(..., "--min-replicas"),
+    max_replicas: int = typer.Option(..., "--max-replicas"),
+):
+    """One-click model deploy (create serve + config + artifact + deploy)."""
     try:
         asyncio.run(
-            get_deployer(ENV).deploy_model(
-                env=ENV,
+            get_deployer().deploy_model(
+                env=env,
                 serve_name=serve_name,
                 artifact_version=artifact_version,
                 model_uri=model_uri,
@@ -293,68 +391,48 @@ def deploy_model(
             )
         )
     except Exception as e:
-        print(f"Error: {e.__str__()}")
+        logger.error(f"Error: {e}")
 
 
-@app.command(name="undeploy-model")
-def undeploy_model(
-    serve_name: str = typer.Option(..., help="Name of the serve to undeploy"),
+@app.command("undeploy-model")
+def serve_undeploy_model(
+    serve_name: str = typer.Option(..., "--serve-name", help="Name of the serve to undeploy"),
+    env: str = typer.Option(..., "--env", help="Environment"),
     artifact_version: str = typer.Option(..., help="Version label for the one-click artifact"),
 ):
-    """CLI command to undeploy a model serve."""
+    """Undeploy one-click model."""
     try:
         asyncio.run(
             get_deployer(ENV).undeploy_model(
                 serve_name=serve_name,
                 artifact_version=artifact_version,
-                env=ENV,
+                env=env,
             )
         )
     except Exception as e:
-        print(f"Error: {e.__str__()}")
+        logger.error(f"Error: {e}")
 
 
-@app.command(name="get-serve-status")
-def get_serve_status(
-    serve_name: Optional[str] = typer.Option(None, help="Name of the serve"),
+# ----------------------------
+# Repository Template
+# ----------------------------
+
+@repo_app.command("create")
+def repo_create(
+    template: str = typer.Option(
+        "hermes/src/templates/fastapi_template/",
+        "--template",
+        "-t",
+        help="Path to the template folder",
+    ),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Path to YAML/JSON config. Create via interactive session if not given"),
+    output_path: Optional[str] = typer.Option(None, "--output", "-o", help="Output path"),
 ):
-    """CLI command to get serve deployment status."""
+    """Create serve repository from template (interactive or from config)."""
     try:
-        env = ENV
-        if serve_name is None:
-            try:
-                serve_config = read_json_file(".hermes/serve_config.json")
-                serve_name = serve_config["name"]
-            except FileNotFoundError:
-                raise HermesException(
-                    HermesErrorCodes.MISSING_FIELD.value.code,
-                    "serve_name is required fields and it not passed or .hermes/serve_config.json is not present.",
-                )
-        asyncio.run(
-            get_deployer(env).get_serve_status(
-                serve_name,
-                env,
-            )
-        )
+        create_serve_repo_from_template(template, file, output_path)
     except Exception as e:
-        print(f"Error: {e}")
-
-
-@app.command(name="get-artifact-status")
-def get_artifact_status(
-    job_id: str = typer.Option(..., help="Artifact builder job ID"),
-):
-    """CLI command to get artifact builder job status."""
-    try:
-        asyncio.run(get_deployer(ENV).get_artifact_status(job_id))
-    except Exception as e:
-        print(f"Error: {e}")
-
-
-@app.command(name="configure")
-def configure():
-    """CLI command to configure the user token."""
-    HermesDeployer.set_user_token()
+        logger.error(f"Error: {e}")
 
 
 def main():

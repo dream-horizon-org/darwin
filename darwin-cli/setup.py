@@ -41,7 +41,12 @@ def prepare_package():
         # Ensure workspace_model is a package
         (dest_path / "__init__.py").touch(exist_ok=True)
         dest_dirs.append(dest_dir4)
-    
+
+    dest_dir5 = "hermes"
+    src_dir5 = "../hermes-cli/hermes"
+    if not os.path.exists(dest_dir5):
+        shutil.copytree(src_dir5, dest_dir5)
+        dest_dirs.append(dest_dir5)
     return dest_dirs
 
 
@@ -71,6 +76,7 @@ if __name__ == "__main__":
                 "compute_model*",
                 "darwin_workspace*",
                 "workspace_model*",
+                "hermes*",
             ]
         ),
         package_dir={
@@ -78,6 +84,7 @@ if __name__ == "__main__":
             "compute_model": "compute_model",
             "darwin_workspace": "darwin_workspace",
             "workspace_model": "workspace_model",
+            "hermes": "hermes",
         },
     python_requires=">=3.9.7",
     install_requires=[
@@ -88,6 +95,13 @@ if __name__ == "__main__":
         "requests~=2.32.3",
         "dataclasses-json~=0.5.7",
         "typeguard~=4.4.2",
+        "cookiecutter==2.6.0",
+        "dependency-injector==4.45.0",
+        "python-slugify==8.0.4",
+        "binaryornot==0.4.4",
+        "Jinja2==3.1.5",
+        "questionary>=1.13.0",
+        "aiohttp >= 3.8.0"
     ],
     extras_require={
         "dev": [
@@ -110,6 +124,7 @@ if __name__ == "__main__":
             "compute_model": ["py.typed"],
             "darwin_workspace": ["py.typed"],
             "workspace_model": ["py.typed"],
+            "hermes": ["src/templates/*", "src/templates/**"],
         },
     zip_safe=False,
     classifiers=[
