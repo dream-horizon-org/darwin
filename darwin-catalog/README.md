@@ -1,5 +1,7 @@
 # Darwin Catalog
 
+[![CI](https://github.com/dream-horizon-org/darwin/actions/workflows/ci.yml/badge.svg)](https://github.com/dream-horizon-org/darwin/actions/workflows/ci.yml)
+
 APIs for Data Asset Management and Metric Submission
 
 ## Features
