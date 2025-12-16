@@ -4,6 +4,7 @@ tags: ["demo"]
 # Updating Runtime will restart a running cluster
 runtime: '0.0'
 terminate_after_minutes: 30
+cloud_env: 'kind-0'
 
 # Updating Head_Node will restart a running cluster
 head_node:
@@ -11,14 +12,6 @@ head_node:
     cores: 4
     memory: 8
     node_capacity_type: 'ondemand'
-#  node_type: gpu
-#  node:
-#    name: NVIDIA A100
-#    cores: 22
-#    memory: 154
-#    gpu_count: 2
-#    g_ram_memory: 80
-#    g_ram_type: HBM2
 
 worker_group:
   - node:
@@ -27,18 +20,8 @@ worker_group:
       node_capacity_type: 'spot'
     min_pods: 1
     max_pods: 1
-#  - node_type: gpu
-#    node:
-#      name: NVIDIA A100
-#      cores: 22
-#      memory: 154
-#      gpu_count: 2
-#      g_ram_memory: 80
-#      g_ram_type: HBM2
-#    min_pods: 1
-#    max_pods: 1
-# You can add more worker-groups in the following way
 
+# Auto termination policies, can be ignored as set by default
 auto_termination_policies:
   - policy_name: 'JupyterLabActivity'
   - policy_name: 'ClusterCPUUsage'
@@ -53,13 +36,10 @@ advance_config:
   log_path: ''
   init_script:
     - pip install mlflow
-    - pip install theano
   instance_role: 'darwin-ds-role'
   ray_start_params:
     object_store_memory_perc: 5
     num_cpus_on_head: 2
-
-cloud_env: 'kind-0'
 
 # Packages to be installed
 packages:
