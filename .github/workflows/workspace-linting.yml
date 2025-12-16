@@ -1,0 +1,51 @@
+name: Workspace Linting
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+    paths:
+      - 'workspace/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workspace
+
+    steps:
+      - name: Checkout repository
+        id: checkout-service
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pylint black
+
+      - name: Build Project
+        run: |
+          # Install workspace packages
+          pip install -e app-layer/. --force-reinstall
+          pip install -e core/. --force-reinstall
+          pip install urllib3==1.26.6 --force-reinstall
+
+      - name: Run Black (Code Formatting Check)
+        run: |
+          black -l 120 --check app-layer/src core/src
+
+      - name: Run Pylint
+        run: |
+          pylint --max-line-length 120 --fail-under 6.0 -ry -sy app-layer/src/workspace_app_layer core/src/workspace_core > pylint.cover
+
+      - name: Output Pylint Report
+        if: always()
+        run: |
+          sed -n '/lines have been analyzed/,$p' pylint.cover
+

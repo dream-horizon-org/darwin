@@ -1,0 +1,150 @@
+name: Workspace Service Healthcheck
+
+on:
+  push:
+    paths:
+      - 'workspace/**'
+      - '.github/workflows/workspace-healthcheck.yml'
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'workspace/**'
+      - '.github/workflows/workspace-healthcheck.yml'
+    branches-ignore:
+      - main
+      - develop
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: main
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: workspace
+        run: |
+          python -m pip install --upgrade pip
+          
+          # Install core dependencies and package first
+          pip3 install -e app-layer/. --force-reinstall
+          pip3 install -e core/. --force-reinstall
+          pip3 install urllib3==1.26.6 --force-reinstall
+
+      - name: Install MySQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client
+
+      - name: Wait for MySQL to be ready
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -u root -ppassword --silent 2>/dev/null; then
+              echo "MySQL is ready!"
+              break
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Initialize database schema
+        run: |
+          mysql -h 127.0.0.1 -u root -ppassword main < workspace/resources/db/mysql/migrations/20230627145332_CreateTables.sql
+
+      - name: Start Service and Verify Healthcheck
+        working-directory: workspace
+        env:
+          ENV: darwin-local
+          DEV: true
+          OTEL_DISABLED: true
+          DARWIN_MYSQL_HOST: 127.0.0.1
+          DARWIN_MYSQL_USERNAME: root
+          DARWIN_MYSQL_PASSWORD: password
+          DARWIN_MYSQL_DATABASE: main
+        run: |
+          # Start the service in the background
+          cd app-layer/src/workspace_app_layer
+          python -m uvicorn main:app \
+            --host 0.0.0.0 \
+            --port 8000 &
+          SERVICE_PID=$!
+          
+          # Wait for the service to be ready
+          echo "Waiting for service to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+              echo "Service is ready!"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ Service failed to start within timeout"
+              kill $SERVICE_PID 2>/dev/null || true
+              exit 1
+            fi
+            echo "Waiting for service... ($i/30)"
+            sleep 2
+          done
+          
+          # Verify healthcheck endpoint
+          echo ""
+          echo "========================================"
+          echo "Verifying healthcheck endpoint..."
+          echo "========================================"
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" http://localhost:8000/health)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "HTTP Status Code: $HTTP_CODE"
+          echo "Response Body: $BODY"
+          
+          # Cleanup the service
+          kill $SERVICE_PID 2>/dev/null || true
+          
+          # Verify HTTP status is 200
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Healthcheck failed: Expected HTTP 200, got $HTTP_CODE"
+            exit 1
+          fi
+          
+          # Verify response contains expected status
+          if echo "$BODY" | grep -q '"status":"Success"'; then
+            echo ""
+            echo "✅ Healthcheck passed: Service is healthy!"
+          else
+            echo "❌ Healthcheck failed: Unexpected response body"
+            echo "Expected: {\"status\":\"Success\"}"
+            echo "Got: $BODY"
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -f /tmp/workspace_service.pid ]; then
+            kill $(cat /tmp/workspace_service.pid) 2>/dev/null || true
+          fi
+
