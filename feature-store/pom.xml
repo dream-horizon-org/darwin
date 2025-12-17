@@ -6,7 +6,7 @@
     <groupId>com.dream11</groupId>
     <artifactId>d11-vertx-microservice-parent</artifactId>
     <version>1.0.12</version>
-    <relativePath>local-repo/com/dream11/d11-vertx-microservice-parent/1.0.12/d11-vertx-microservice-parent-1.0.12.pom</relativePath>
+    <!-- Parent POM now available from Maven Central -->
   </parent>
 
   <artifactId>darwin-ofs-v2</artifactId>
@@ -23,19 +23,7 @@
     <module>python</module>
   </modules>
 
-  <repositories>
-    <repository>
-      <id>local-repo</id>
-      <url>file://${project.basedir}/local-repo</url>
-    </repository>
-  </repositories>
-  
-  <pluginRepositories>
-    <pluginRepository>
-      <id>local-repo</id>
-      <url>file://${project.basedir}/local-repo</url>
-    </pluginRepository>
-  </pluginRepositories>
+  <!-- Dependencies now fetched from Maven Central -->
 
   <dependencyManagement>
     <dependencies>
