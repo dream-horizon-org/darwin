@@ -127,6 +127,7 @@ def update_env_variables(values, compute_request, env, rss: bool = False):
     if env == "darwin-local":
         mandatory_env.extend(
             [
+                env_variable("AWS_ENDPOINT_URL", f"{CONFIGS_MAP[env]['s3']['url']}"),
                 env_variable("AWS_ENDPOINT_URL_S3", f"{CONFIGS_MAP[env]['s3']['url']}"),
                 env_variable("AWS_DEFAULT_REGION", f"{CONFIGS_MAP[env]['s3']['region']}"),
                 env_variable("AWS_ACCESS_KEY_ID", f"{CONFIGS_MAP[env]['s3']['access_key']}"),

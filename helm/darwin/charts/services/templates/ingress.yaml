@@ -22,6 +22,9 @@ spec:
           {{- range .Values.ingress.paths }}
           - path: {{ .path }}
             pathType: ImplementationSpecific
+            {{- if .rewrite }}
+            {{- /* Use configuration snippet for custom rewrite per path */}}
+            {{- end }}
             backend:
               service:
                 name: {{ $.Release.Name }}-{{ .service }}

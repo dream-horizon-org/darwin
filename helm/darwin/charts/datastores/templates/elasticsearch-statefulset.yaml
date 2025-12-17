@@ -1,0 +1,110 @@
+{{- if .Values.elasticsearch.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-elasticsearch-workflow
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "datastores.labels" . | nindent 4 }}
+    app.kubernetes.io/component: elasticsearch-workflow
+spec:
+  serviceName: {{ .Release.Name }}-elasticsearch-workflow-headless
+  replicas: {{ .Values.elasticsearch.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "datastores.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: elasticsearch-workflow
+  template:
+    metadata:
+      labels:
+        {{- include "datastores.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: elasticsearch-workflow
+    spec:
+      containers:
+        - name: elasticsearch
+          image: docker.elastic.co/elasticsearch/elasticsearch:{{ .Values.elasticsearch.tag }}
+          env:
+            - name: discovery.type
+              value: "single-node"
+            - name: xpack.security.enabled
+              value: "false"
+            - name: ES_JAVA_OPTS
+              value: "-Xms{{ .Values.elasticsearch.javaOpts.heap }} -Xmx{{ .Values.elasticsearch.javaOpts.heap }}"
+            - name: bootstrap.memory_lock
+              value: "true"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: http
+              containerPort: 9200
+              protocol: TCP
+            - name: transport
+              containerPort: 9300
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /_cluster/health
+              port: 9200
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /_cluster/health
+              port: 9200
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.elasticsearch.resources | nindent 12 }}
+          {{- if .Values.elasticsearch.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /usr/share/elasticsearch/data
+              {{- if index .Values.global "local-k8s" }}
+              subPathExpr: $(POD_NAME)
+              {{- end }}
+          {{- end }}
+      {{- if and .Values.elasticsearch.persistence.enabled (index .Values.global "local-k8s") }}
+      initContainers:
+        - name: create-data-dir
+          image: busybox:1.36
+          command: ['sh', '-c', 'mkdir -p /data/$(POD_NAME) && chown -R 1000:1000 /data/$(POD_NAME)']
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: data
+              mountPath: /data
+        - name: increase-vm-max-map
+          image: busybox:1.36
+          command: ['sysctl', '-w', 'vm.max_map_count=262144']
+          securityContext:
+            privileged: true
+      volumes:
+        - name: data
+          hostPath:
+            path: /mnt/shared-data/elasticsearch-workflow
+            type: DirectoryOrCreate
+      {{- end }}
+  {{- if and .Values.elasticsearch.persistence.enabled (not (index .Values.global "local-k8s")) }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        {{- if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.elasticsearch.persistence.size }}
+  {{- end }}
+{{- end }}
+

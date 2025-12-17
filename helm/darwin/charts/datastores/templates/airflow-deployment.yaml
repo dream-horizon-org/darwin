@@ -19,9 +19,13 @@ spec:
         {{- include "darwin.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: airflow-webserver
     spec:
+      volumes:
+        - name: dags
+          emptyDir: {}
       initContainers:
         - name: airflow-init-db
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
           command: ['airflow', 'db', 'init']
           env:
             - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
@@ -34,8 +38,33 @@ spec:
               value: "rpc://"
             - name: AIRFLOW__CORE__FERNET_KEY
               value: "81HqDtbqAywKSOumSKKJ6HJJXBRw7LwVwF4XLrwLqsI="
+            - name: S3_LOGS_FOLDER
+              value: "s3://workflow-artifacts/workflow/airflow_artifacts/logs"
+            - name: AIRFLOW__LOGGING__REMOTE_LOGGING
+              value: "True"
+            - name: AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID
+              value: "my_conn_S3"
+            - name: AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER
+              value: "s3://workflow-artifacts/workflow/airflow_artifacts/logs"
+            - name: AIRFLOW__LOGGING__TASK_LOG_READER
+              value: "task"
+            - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
+              value: "/opt/airflow/logs"
+            - name: AWS_ENDPOINT_URL
+              value: "http://{{ .Release.Name }}-localstack:4566"
+            - name: AWS_ACCESS_KEY_ID
+              value: "test"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "test"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            - name: AIRFLOW__LOGGING__LOGGING_LEVEL
+              value: "DEBUG"
+            - name: AIRFLOW__LOGGING__FAB_LOGGING_LEVEL
+              value: "WARNING"
         - name: airflow-create-user
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
           command: 
             - airflow
             - users
@@ -43,11 +72,11 @@ spec:
             - --username
             - "{{ .Values.airflow.webserver.defaultUser.username }}"
             - --firstname
-            - "{{ .Values.airflow.webserver.defaultUser.firstName | default "Darwin" }}"
+            - {{ .Values.airflow.webserver.defaultUser.firstName | default "Darwin" }}
             - --lastname  
-            - "{{ .Values.airflow.webserver.defaultUser.lastName | default "User" }}"
+            - {{ .Values.airflow.webserver.defaultUser.lastName | default "User" }}
             - --role
-            - "{{ .Values.airflow.webserver.defaultUser.role | default "Admin" }}"
+            - {{ .Values.airflow.webserver.defaultUser.role | default "Admin" }}
             - --email
             - "{{ .Values.airflow.webserver.defaultUser.email }}"
             - --password
@@ -63,9 +92,82 @@ spec:
               value: "rpc://"
             - name: AIRFLOW__CORE__FERNET_KEY
               value: "81HqDtbqAywKSOumSKKJ6HJJXBRw7LwVwF4XLrwLqsI="
+            - name: S3_LOGS_FOLDER
+              value: "s3://workflow-artifacts/workflow/airflow_artifacts/logs"
+            - name: AIRFLOW__LOGGING__REMOTE_LOGGING
+              value: "True"
+            - name: AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID
+              value: "my_conn_S3"
+            - name: AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER
+              value: "s3://workflow-artifacts/workflow/airflow_artifacts/logs"
+            - name: AIRFLOW__LOGGING__TASK_LOG_READER
+              value: "task"
+            - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
+              value: "/opt/airflow/logs"
+            - name: AWS_ENDPOINT_URL
+              value: "http://{{ .Release.Name }}-localstack:4566"
+            - name: AWS_ACCESS_KEY_ID
+              value: "test"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "test"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            - name: AIRFLOW__LOGGING__LOGGING_LEVEL
+              value: "DEBUG"
+            - name: AIRFLOW__LOGGING__FAB_LOGGING_LEVEL
+              value: "WARNING"
+        {{- if .Values.airflow.pools }}
+        - name: airflow-create-pools
+          image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
+          command: ['sh', '-c']
+          args:
+            - |
+              echo "📦 Creating Airflow pools..."
+              {{- range .Values.airflow.pools }}
+              echo "  Creating pool '{{ .name }}' with {{ .slots }} slots..."
+              airflow pools set "{{ .name }}" {{ .slots }} "{{ .description }}" || echo "  Pool '{{ .name }}' may already exist"
+              {{- end }}
+              echo "✅ Airflow pools setup completed"
+          env:
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              value: "mysql://root:{{ .Values.global.database.mysql.rootPassword }}@{{ .Release.Name }}-mysql:3306/airflow"
+            - name: AIRFLOW__CORE__EXECUTOR
+              value: "CeleryExecutor"
+            - name: AIRFLOW__CELERY__BROKER_URL
+              value: "pyamqp://{{ .Values.airflow.rabbitmq.auth.username }}:{{ .Values.airflow.rabbitmq.auth.password }}@{{ .Release.Name }}-airflow-rabbitmq:5672//"
+            - name: AIRFLOW__CELERY__RESULT_BACKEND
+              value: "rpc://"
+            - name: AIRFLOW__CORE__FERNET_KEY
+              value: "81HqDtbqAywKSOumSKKJ6HJJXBRw7LwVwF4XLrwLqsI="
+        {{- end }}
+        - name: airflow-create-variables
+          image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
+          command: ['sh', '-c']
+          args:
+            - |
+              echo "📦 Creating Airflow variables..."
+              echo "  Creating variable 'env' with value '{{ .Values.global.environment | default "local" }}'..."
+              airflow variables set env "{{ .Values.global.environment | default "local" }}" || echo "  Variable 'env' may already exist"
+              echo "✅ Airflow variables setup completed"
+          env:
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              value: "mysql://root:{{ .Values.global.database.mysql.rootPassword }}@{{ .Release.Name }}-mysql:3306/airflow"
+            - name: AIRFLOW__CORE__EXECUTOR
+              value: "CeleryExecutor"
+            - name: AIRFLOW__CELERY__BROKER_URL
+              value: "pyamqp://{{ .Values.airflow.rabbitmq.auth.username }}:{{ .Values.airflow.rabbitmq.auth.password }}@{{ .Release.Name }}-airflow-rabbitmq:5672//"
+            - name: AIRFLOW__CELERY__RESULT_BACKEND
+              value: "rpc://"
+            - name: AIRFLOW__CORE__FERNET_KEY
+              value: "81HqDtbqAywKSOumSKKJ6HJJXBRw7LwVwF4XLrwLqsI="
+
+        
       containers:
         - name: airflow-webserver
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
           command: ['airflow', 'webserver']
           ports:
             - name: airflow-web
@@ -86,10 +188,51 @@ spec:
               value: "/opt/airflow/dags"
             - name: AIRFLOW__CORE__LOAD_EXAMPLES
               value: "false"
+            - name: AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL
+              value: "5"
+            - name: AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL
+              value: "10"
             - name: AIRFLOW__WEBSERVER__EXPOSE_CONFIG
               value: "true"
             - name: AIRFLOW__WEBSERVER__BASE_URL
               value: "http://localhost/airflow"
+            - name: AIRFLOW__API__AUTH_BACKENDS
+              value: "airflow.api.auth.backend.session,airflow.api.auth.backend.basic_auth"
+            - name: S3_LOGS_FOLDER
+              value: "s3://workflow-artifacts/workflow/airflow_artifacts/logs"
+            - name: AIRFLOW__LOGGING__REMOTE_LOGGING
+              value: "True"
+            - name: AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID
+              value: "my_conn_S3"
+            - name: AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER
+              value: "s3://workflow-artifacts/workflow/airflow_artifacts/logs"
+            - name: AIRFLOW__LOGGING__TASK_LOG_READER
+              value: "task"
+            - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
+              value: "/opt/airflow/logs"
+            - name: AWS_ENDPOINT_URL
+              value: "http://{{ .Release.Name }}-localstack:4566"
+            - name: AWS_ACCESS_KEY_ID
+              value: "test"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "test"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            - name: AIRFLOW__LOGGING__LOGGING_LEVEL
+              value: "DEBUG"
+            - name: AIRFLOW__LOGGING__FAB_LOGGING_LEVEL
+              value: "WARNING"
+            - name: ENV
+              value: "{{ .Values.global.environment | default "local" }}"
+            - name: WORKFLOW_APP_LAYER_URL
+              value: "http://{{ .Release.Name }}-workflow:8001"
+            - name: COMPUTE_SERVICE_URL
+              value: "http://{{ .Release.Name }}-compute:8000"
+            - name: COMPUTE_APP_LAYER_URL
+              value: "http://{{ .Release.Name }}-compute:8000/cluster"
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
           livenessProbe:
             tcpSocket:
               port: airflow-web
@@ -106,6 +249,39 @@ spec:
             failureThreshold: 3
           resources:
             {{- toYaml .Values.airflow.webserver.resources | nindent 12 }}
+        - name: s3-dag-sync
+          image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
+          command: ['python', '-m', 'airflow_core.utils.sync_dags']
+          env:
+            - name: ENV
+              value: "{{ .Values.global.environment | default "local" }}"
+            - name: S3_DAGS_FOLDER
+              value: "{{ .Values.airflow.dags.s3Folder | default "s3://workflow-artifacts/workflow/airflow_artifacts/dags/" }}"
+            - name: AIRFLOW_DAGS_LOCAL_PATH
+              value: "/opt/airflow/dags/"
+            - name: S3_SYNC_INTERVAL
+              value: "{{ .Values.airflow.dags.syncInterval | default "1" }}"
+            - name: AWS_ENDPOINT_URL
+              value: "http://{{ .Release.Name }}-localstack:4566"
+            - name: AWS_ENDPOINT_OVERRIDE
+              value: "http://{{ .Release.Name }}-localstack:4566"
+            - name: AWS_ACCESS_KEY_ID
+              value: "test"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "test"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
+          resources:
+            limits:
+              cpu: 100m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -127,9 +303,13 @@ spec:
         {{- include "darwin.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: airflow-scheduler
     spec:
+      volumes:
+        - name: dags
+          emptyDir: {}
       containers:
         - name: airflow-scheduler
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
           command: ['airflow', 'scheduler']
           env:
             - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
@@ -146,8 +326,82 @@ spec:
               value: "/opt/airflow/dags"
             - name: AIRFLOW__CORE__LOAD_EXAMPLES
               value: "false"
+            - name: AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL
+              value: "5"
+            - name: AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL
+              value: "10"
+            - name: AIRFLOW__SCHEDULER__PARSING_PROCESSES
+              value: "2"
+            - name: S3_LOGS_FOLDER
+              value: "s3://workflow-artifacts/workflow/airflow_artifacts/logs"
+            - name: AIRFLOW__LOGGING__REMOTE_LOGGING
+              value: "True"
+            - name: AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID
+              value: "my_conn_S3"
+            - name: AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER
+              value: "s3://workflow-artifacts/workflow/airflow_artifacts/logs"
+            - name: AIRFLOW__LOGGING__TASK_LOG_READER
+              value: "task"
+            - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
+              value: "/opt/airflow/logs"
+            - name: AWS_ENDPOINT_URL
+              value: "http://{{ .Release.Name }}-localstack:4566"
+            - name: AWS_ACCESS_KEY_ID
+              value: "test"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "test"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            - name: AIRFLOW__LOGGING__LOGGING_LEVEL
+              value: "DEBUG"
+            - name: AIRFLOW__LOGGING__FAB_LOGGING_LEVEL
+              value: "WARNING"
+            - name: ENV
+              value: "{{ .Values.global.environment | default "local" }}"
+            - name: WORKFLOW_APP_LAYER_URL
+              value: "http://{{ .Release.Name }}-workflow:8001"
+            - name: COMPUTE_SERVICE_URL
+              value: "http://{{ .Release.Name }}-compute:8000"
+            - name: COMPUTE_APP_LAYER_URL
+              value: "http://{{ .Release.Name }}-compute:8000/cluster"
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
           resources:
             {{- toYaml .Values.airflow.scheduler.resources | nindent 12 }}
+        - name: s3-dag-sync
+          image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
+          command: ['python', '-m', 'airflow_core.utils.sync_dags']
+          env:
+            - name: ENV
+              value: "{{ .Values.global.environment | default "local" }}"
+            - name: S3_DAGS_FOLDER
+              value: "{{ .Values.airflow.dags.s3Folder | default "s3://workflow-artifacts/workflow/airflow_artifacts/dags/" }}"
+            - name: AIRFLOW_DAGS_LOCAL_PATH
+              value: "/opt/airflow/dags/"
+            - name: S3_SYNC_INTERVAL
+              value: "{{ .Values.airflow.dags.syncInterval | default "1" }}"
+            - name: AWS_ENDPOINT_URL
+              value: "http://{{ .Release.Name }}-localstack:4566"
+            - name: AWS_ENDPOINT_OVERRIDE
+              value: "http://{{ .Release.Name }}-localstack:4566"
+            - name: AWS_ACCESS_KEY_ID
+              value: "test"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "test"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
+          resources:
+            limits:
+              cpu: 100m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
 ---
 {{- if .Values.airflow.workers }}
 apiVersion: apps/v1
@@ -170,9 +424,13 @@ spec:
         {{- include "darwin.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: airflow-worker
     spec:
+      volumes:
+        - name: dags
+          emptyDir: {}
       containers:
         - name: airflow-worker
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
           command: ['airflow', 'celery', 'worker']
           env:
             - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
@@ -189,7 +447,81 @@ spec:
               value: "/opt/airflow/dags"
             - name: AIRFLOW__CORE__LOAD_EXAMPLES
               value: "false"
+            - name: AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL
+              value: "5"
+            - name: AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL
+              value: "10"
+            - name: S3_LOGS_FOLDER
+              value: "s3://workflow-artifacts/workflow/airflow_artifacts/logs"
+            - name: AIRFLOW__LOGGING__REMOTE_LOGGING
+              value: "True"
+            - name: AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID
+              value: "my_conn_S3"
+            - name: AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER
+              value: "s3://workflow-artifacts/workflow/airflow_artifacts/logs"
+            - name: AIRFLOW__LOGGING__TASK_LOG_READER
+              value: "task"
+            - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
+              value: "/opt/airflow/logs"
+            - name: AWS_ENDPOINT_URL
+              value: "http://{{ .Release.Name }}-localstack:4566"
+            - name: AWS_ACCESS_KEY_ID
+              value: "test"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "test"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            - name: AIRFLOW__LOGGING__LOGGING_LEVEL
+              value: "DEBUG"
+            - name: AIRFLOW__LOGGING__FAB_LOGGING_LEVEL
+              value: "WARNING"
+            - name: ENV
+              value: "{{ .Values.global.environment | default "local" }}"
+            - name: WORKFLOW_APP_LAYER_URL
+              value: "http://{{ .Release.Name }}-workflow:8001"
+            - name: COMPUTE_SERVICE_URL
+              value: "http://{{ .Release.Name }}-compute:8000"
+            - name: COMPUTE_APP_LAYER_URL
+              value: "http://{{ .Release.Name }}-compute:8000/cluster"
+            - name: AIRFLOW_LOGS_BASE_PATH
+              value: "/opt/airflow/logs"
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
           resources:
             {{- toYaml .Values.airflow.workers.resources | nindent 12 }}
+        - name: s3-dag-sync
+          image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
+          command: ["python", "-m", "airflow_core.utils.sync_dags"]
+          env:
+            - name: ENV
+              value: "{{ .Values.global.environment | default "local" }}"
+            - name: S3_DAGS_FOLDER
+              value: "{{ .Values.airflow.dags.s3Folder | default "s3://workflow-artifacts/workflow/airflow_artifacts/dags/" }}"
+            - name: AIRFLOW_DAGS_LOCAL_PATH
+              value: "/opt/airflow/dags/"
+            - name: S3_SYNC_INTERVAL
+              value: "{{ .Values.airflow.dags.syncInterval | default "1" }}"
+            - name: AWS_ENDPOINT_URL
+              value: "http://{{ .Release.Name }}-localstack:4566"
+            - name: AWS_ENDPOINT_OVERRIDE
+              value: "http://{{ .Release.Name }}-localstack:4566"
+            - name: AWS_ACCESS_KEY_ID
+              value: "test"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "test"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
+          resources:
+            limits:
+              cpu: 100m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
 {{- end }}
 {{- end }}

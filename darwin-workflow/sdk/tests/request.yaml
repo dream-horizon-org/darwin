@@ -1,0 +1,119 @@
+env: "stag"
+clusters:
+  - name: "test-cluster-1"
+    runtime: 'Ray2.0.0-Py39-Spark3.2.0-CPU'
+    tags: 
+      - "test"
+    is_job_cluster: True
+    head_node:
+      node:
+        cores: 4
+        memory: 8
+    worker_group:
+      - node:
+          cores: 16
+          memory: 32
+        min_pods: 4
+        max_pods: 8
+    advance_config:
+      env_variables: ""
+      log_path: ''
+      init_script: 
+            - "pip3 install mlp_fct@git+https:x-oauth-basic@github.com/darwin/mlp-fct@main#egg=mlp-fct --force-reinstall"
+      instance_role: ''
+      availability_zone: ''
+      ray_start_params:
+        object_store_memory_perc: 25
+        num_cpus_on_head: 0
+
+  - name: "test-cluster-2"
+    runtime: 'Ray2.2.0-Py39-Spark3.3.1-CPU'
+    is_job_cluster: True
+    tags: "test"
+    head_node:
+      node:
+        cores: 4
+        memory: 8
+    worker_group:
+      - node:
+          cores: 16
+          memory: 32
+        min_pods: 4
+        max_pods: 8
+    advance_config:
+      env_variables: ""
+      log_path: ''
+      init_script: 
+            - "pip3 install mlp_fct@git+https:x-oauth-basic@github.com/darwin/mlp-fct@main#egg=mlp-fct --force-reinstall"
+      instance_role: ''
+      availability_zone: ''
+      ray_start_params:
+        object_store_memory_perc: 5
+        num_cpus_on_head: 0
+    
+
+workflow:
+
+     workflow_name: "test_workflow_with_job_cluster"
+     description: "Testing Compute Client"
+     created_by: "test.user@example.com"
+     schedule: "0 10 * * *"
+     retries: 0
+     notify_on: "darwin_test"
+     max_concurrent_runs: 16
+     tags:
+       - "darwin"
+       - "pypi"
+
+     tasks:
+         - task_name: "test1"
+           cluster_id: "test-cluster-1"
+           cluster_type: "job"
+           source: "test.user@example.com/Connected_Experience/affinity_to_sports"
+           source_type: "workspace"
+           file_path: 'workflow_test.py'
+           dynamic_artifact: False
+           dependent_libraries: "mlflow==1.28.0 pymysql==1.0.2"
+           input_parameters: {}
+           retries: 0
+           timeout: 36000
+           depends_on: []
+
+         - task_name: "test2"
+           cluster_id: "test-cluster-1"
+           cluster_type: "job"
+           source: "test.user@example.com/Connected_Experience/affinity_to_sports"
+           source_type: "workspace"
+           dynamic_artifact: False
+           file_path: 'workflow_test.py'
+           dependent_libraries: "mlflow==1.28.0 pymysql==1.0.2"
+           input_parameters: {}
+           retries: 0
+           timeout: 36000
+           depends_on: []
+           
+         - task_name: "test3"
+           cluster_id: "test-cluster-1"
+           cluster_type: "job"
+           source: "test.user@example.com/Connected_Experience/affinity_to_sports"
+           source_type: "workspace"
+           file_path: 'workflow_test.py'
+           dynamic_artifact: False
+           dependent_libraries: "pypika==0.48.9 lightgbm==3.3.2"
+           input_parameters: {}
+           retries: 0
+           timeout: 36000
+           depends_on: []
+
+         - task_name: "test4"
+           cluster_id: "test-cluster-1"
+           cluster_type: "job"
+           source: "test.user@example.com/Connected_Experience/affinity_to_sports"
+           source_type: "workspace"
+           dynamic_artifact: False
+           file_path: 'workflow_test.py'
+           dependent_libraries: "mlflow==1.28.0 pymysql==1.0.2"
+           input_parameters: {}
+           retries: 0
+           timeout: 36000
+           depends_on: []

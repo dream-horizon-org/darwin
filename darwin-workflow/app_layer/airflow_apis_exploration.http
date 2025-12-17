@@ -1,0 +1,19 @@
+###
+
+GET http://{{HOST}}/api/v1/dags/redshift_scrape_dag_ds_nd_scratch
+Authorization: Basic {{TOKEN}}
+
+###
+GET http://{{HOST}}/api/v1/dags/redshift_scrape_dag_ds_nd_scratch/dagRuns
+Authorization: Basic {{TOKEN}}
+
+###
+GET http://{{HOST}}/api/v1/dags/redshift_scrape_dag_ds_nd_scratch/tasks
+Authorization: Basic {{TOKEN}}
+
+###
+
+GET http://{{HOST}}/api/v1/dags/redshift_scrape_dag_ds_nd_scratch/dagRuns/scheduled__2023-06-09T04:00:00+00:00/taskInstances
+Authorization: Basic {{TOKEN}}
+
+

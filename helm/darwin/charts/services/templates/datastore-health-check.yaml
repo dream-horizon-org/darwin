@@ -353,6 +353,12 @@ spec:
               env_json="$env_json{\"name\":\"DARWIN_KAFKA_HOST\",\"value\":\"$DARWIN_KAFKA_HOST\"},"
               env_json="$env_json{\"name\":\"DARWIN_ZOOKEEPER_HOST\",\"value\":\"$DARWIN_ZOOKEEPER_HOST\"},"
               env_json="$env_json{\"name\":\"DARWIN_ELASTICSEARCH_HOST\",\"value\":\"$DARWIN_ELASTICSEARCH_HOST\"},"
+              # Use workflow-specific Elasticsearch if available, otherwise fallback to shared OpenSearch
+              if /shared/kubectl get service "{{ .Release.Name }}-elasticsearch-workflow" --namespace="$namespace" >/dev/null 2>&1; then
+                env_json="$env_json{\"name\":\"ELASTICSEARCH_URL\",\"value\":\"http://{{ .Release.Name }}-elasticsearch-workflow:9200\"},"
+              else
+                env_json="$env_json{\"name\":\"ELASTICSEARCH_URL\",\"value\":\"http://$DARWIN_ELASTICSEARCH_HOST:9200\"},"
+              fi
               env_json="$env_json{\"name\":\"SERVICE_NAME\",\"value\":\"$component_name\"},"
               env_json="$env_json{\"name\":\"AWS_ENDPOINT_OVERRIDE\",\"value\":\"$AWS_ENDPOINT_OVERRIDE\"},"
               env_json="$env_json{\"name\":\"COMPUTE_BUCKET_NAME\",\"value\":\"$COMPUTE_BUCKET_NAME\"}"
@@ -372,13 +378,13 @@ spec:
                 --namespace="$namespace" \
                 --image="$image" \
                 --restart=Never \
-                --image-pull-policy=Always \
+                --image-pull-policy=IfNotPresent \
                 --overrides="{
                   \"spec\": {
                     \"containers\": [{
                       \"name\": \"$service_name-pre-deploy\",
                       \"image\": \"$image\",
-                      \"imagePullPolicy\": \"Always\",
+                      \"imagePullPolicy\": \"IfNotPresent\",
                       \"command\": [\"bash\", \"-c\", \".odin/pre-deploy.sh\"],
                       \"env\": $env_json
                     }]
@@ -426,9 +432,9 @@ spec:
                 
                 if [ "$status" = "Succeeded" ]; then
                   echo "✅ Pre-deploy completed successfully for $component_name"
-                  # Show logs (limited output)
-                  echo "📋 Pre-deploy logs for $component_name (last 20 lines):"
-                  /shared/kubectl logs "$pod_name" --namespace="$namespace" --tail=20
+                  # Show logs (increased to 200 lines to see database migration output)
+                  echo "📋 Pre-deploy logs for $component_name (last 200 lines):"
+                  /shared/kubectl logs "$pod_name" --namespace="$namespace" --tail=200
                   
                   # Clean up the pod
                   cleanup_pre_deploy_pod "$service_name"
@@ -465,7 +471,11 @@ spec:
             check_datastore_health "{{ .Release.Name }}-cassandra" 9042 || exit 1
             check_datastore_health "{{ .Release.Name }}-kafka" 9092 || exit 1
             check_localstack_health "{{ .Release.Name }}-localstack" 4566 || exit 1
-            # Check Elasticsearch if enabled in datastores
+            # Check Elasticsearch if enabled in datastores (workflow-specific)
+            if /shared/kubectl get service "{{ .Release.Name }}-elasticsearch-workflow" --namespace="$namespace" >/dev/null 2>&1; then
+              check_datastore_health "{{ .Release.Name }}-elasticsearch-workflow" 9200 || exit 1
+            fi
+            # Check OpenSearch (shared) if enabled in datastores
             if /shared/kubectl get service "{{ .Release.Name }}-elasticsearch" --namespace="$namespace" >/dev/null 2>&1; then
               check_datastore_health "{{ .Release.Name }}-elasticsearch" 9200 || exit 1
             fi
