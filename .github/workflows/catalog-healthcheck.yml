@@ -1,0 +1,181 @@
+name: Catalog Service Healthcheck
+
+on:
+  push:
+    paths:
+      - 'darwin-catalog/**'
+      - '.github/workflows/catalog-healthcheck.yml'
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'darwin-catalog/**'
+      - '.github/workflows/catalog-healthcheck.yml'
+    branches-ignore:
+      - main
+      - develop
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: darwin_catalog
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install Maven (if not present)
+        run: |
+          if ! command -v mvn &> /dev/null; then
+            echo "Maven not found, installing..."
+            cd /tmp
+            curl -sL https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz | tar xz
+            sudo mv apache-maven-3.9.6 /opt/maven
+            echo "/opt/maven/bin" >> $GITHUB_PATH
+            export PATH="/opt/maven/bin:$PATH"
+          fi
+          mvn --version
+
+      - name: Install MySQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client
+
+      - name: Wait for MySQL to be ready
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -u root -ppassword --silent 2>/dev/null; then
+              echo "MySQL is ready!"
+              break
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Initialize database schema
+        run: |
+          mysql -h 127.0.0.1 -u root -ppassword darwin_catalog < darwin-catalog/docker/mysql-init.sql || true
+          echo "Database initialized"
+
+      - name: Build application (skip tests)
+        working-directory: darwin-catalog
+        run: |
+          mvn clean package -DskipTests -B
+          echo "Build completed successfully"
+
+      - name: Start the service
+        working-directory: darwin-catalog
+        env:
+          MYSQL_URL: jdbc:mysql://127.0.0.1:3306/darwin_catalog
+          MYSQL_USERNAME: root
+          MYSQL_PASSWORD: password
+          SPRING_PROFILES_ACTIVE: local
+          DATADOG_APP_KEY: dummy
+          DATADOG_API_KEY: dummy
+          DATADOG_MONITOR_ENABLED: false
+          DATADOG_MONITOR_ENV: test
+          DATADOG_MONITOR_ENVIRONMENT: test
+          DATADOG_MONITOR_SLACK_WEBHOOKS: ""
+          DATADOG_MONITOR_CUSTOM_WEBHOOKS: ""
+          GLUE_LISTENER_ENABLED: false
+          GLUE_LISTENER_QUEUE_LINK: ""
+          CONSUMER_TOKEN_EXPIRIES_CONTRACTCENTRAL: 30
+          CONSUMER_TOKEN_EXPIRIES_DATADOG: 30
+          CONSUMER_TOKEN_EXPIRIES_DATABEAM: 30
+          CONSUMER_TOKEN_EXPIRIES_DATAHIGHWAY: 30
+          CONSUMER_TOKEN_EXPIRIES_DATASTITCH: 30
+          CONSUMER_TOKEN_EXPIRIES_NEXUS: 30
+          CONSUMER_TOKEN_SELF: test-token
+          CONSUMER_TOKEN_NAMES_DATABEAM: databeam
+          CONSUMER_TOKEN_NAMES_DATASTITCH: datastitch
+          CONSUMER_TOKEN_NAMES_DATAHIGHWAY: datahighway
+          CONSUMER_TOKEN_NAMES_CONTRACTCENTRAL: contractcentral
+          CONSUMER_TOKEN_NAMES_NEXUS: nexus
+          REDSHIFT_USERNAME: dummy
+          REDSHIFT_PASSWORD: dummy
+        run: |
+          echo "========================================"
+          echo "Starting Darwin Catalog Service..."
+          echo "========================================"
+          
+          # Start the service in background
+          java -jar target/darwin-catalog.jar &
+          SERVICE_PID=$!
+          echo $SERVICE_PID > /tmp/catalog_service.pid
+          
+          # Wait for service to start
+          echo "Waiting for service to start..."
+          for i in {1..60}; do
+            if curl -s http://localhost:8081/healthcheck > /dev/null 2>&1; then
+              echo "Service is up!"
+              break
+            fi
+            echo "Waiting for service... ($i/60)"
+            sleep 2
+          done
+          
+          # Give it a moment to fully initialize
+          sleep 5
+
+      - name: Verify healthcheck endpoint
+        run: |
+          echo "========================================"
+          echo "Verifying healthcheck endpoint..."
+          echo "========================================"
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" http://localhost:8081/healthcheck)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "HTTP Status Code: $HTTP_CODE"
+          echo "Response Body: $BODY"
+          
+          # Cleanup the service
+          if [ -f /tmp/catalog_service.pid ]; then
+            kill $(cat /tmp/catalog_service.pid) 2>/dev/null || true
+          fi
+          
+          # Verify HTTP status is 200
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Healthcheck failed: Expected HTTP 200, got $HTTP_CODE"
+            exit 1
+          fi
+          
+          # Verify response contains expected status
+          if echo "$BODY" | grep -q "OK"; then
+            echo ""
+            echo "✅ Healthcheck passed: Service is healthy!"
+          else
+            echo "❌ Healthcheck failed: Unexpected response body"
+            echo "Expected: OK"
+            echo "Got: $BODY"
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -f /tmp/catalog_service.pid ]; then
+            kill $(cat /tmp/catalog_service.pid) 2>/dev/null || true
+          fi
