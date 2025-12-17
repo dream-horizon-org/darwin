@@ -344,3 +344,8 @@ kindkubeconfig.yaml
 *-local.yml
 *.local.yaml
 *.local.yml
+
+# ===========================
+# Generated resources
+# ===========================
+feature-store/*/src/main/resources/*
