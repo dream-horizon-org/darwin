@@ -32,6 +32,7 @@ from ml_serve_model.deployment import Deployment
 from loguru import logger
 from ml_serve_model.serve_configs import ServeConfig, WorkflowServeInfraConfig
 from ml_serve_model.enums import BackendType, ServeType, DeploymentStatus
+from datetime import datetime, timezone
 
 
 class DeploymentService:
@@ -67,8 +68,6 @@ class DeploymentService:
         return env_vars
 
     async def _update_active_deployment(self, serve: Serve, env: Environment, deployment: Deployment):
-        from datetime import datetime, timezone
-        
         active_deployment = await ActiveDeployment.get_or_none(serve=serve, environment=env)
         if not active_deployment:
             await ActiveDeployment.create(serve=serve, environment=env, deployment=deployment)
@@ -668,7 +667,6 @@ class DeploymentService:
         Raises:
             HTTPException: If environment not found, serve not found, or no active deployment
         """
-        from datetime import datetime, timezone
         
         # 1. Validate environment exists
         env = await Environment.get_or_none(name=request.env)
