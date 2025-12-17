@@ -63,7 +63,25 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-resources-plugin</artifactId>
-        <version>3.2.0</version><!-- Use the latest version -->
+        <version>3.2.0</version>
+        <configuration>
+          <!-- Exclude binary/source map files from filtering to avoid corruption -->
+          <nonFilteredFileExtensions>
+            <nonFilteredFileExtension>map</nonFilteredFileExtension>
+            <nonFilteredFileExtension>js</nonFilteredFileExtension>
+            <nonFilteredFileExtension>css</nonFilteredFileExtension>
+            <nonFilteredFileExtension>png</nonFilteredFileExtension>
+            <nonFilteredFileExtension>gif</nonFilteredFileExtension>
+            <nonFilteredFileExtension>jpg</nonFilteredFileExtension>
+            <nonFilteredFileExtension>jpeg</nonFilteredFileExtension>
+            <nonFilteredFileExtension>ico</nonFilteredFileExtension>
+            <nonFilteredFileExtension>woff</nonFilteredFileExtension>
+            <nonFilteredFileExtension>woff2</nonFilteredFileExtension>
+            <nonFilteredFileExtension>ttf</nonFilteredFileExtension>
+            <nonFilteredFileExtension>eot</nonFilteredFileExtension>
+            <nonFilteredFileExtension>svg</nonFilteredFileExtension>
+          </nonFilteredFileExtensions>
+        </configuration>
         <executions>
           <execution>
             <id>copy-resources</id>

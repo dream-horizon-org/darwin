@@ -108,7 +108,7 @@ spec:
         - name: DARWIN_KAFKA_HOST
           value: "{{ .Release.Name }}-kafka"
         - name: DARWIN_ZOOKEEPER_HOST
-          value: "{{ .Release.Name }}-zookeeper"
+          value: "{{ .Release.Name }}-zookeeper:2181"
         - name: DARWIN_LOCALSTACK_HOST
           value: "{{ .Release.Name }}-localstack"
         - name: DARWIN_ELASTICSEARCH_HOST
@@ -568,21 +568,22 @@ spec:
               for service_name in $service_list; do
                 echo "🔍 Processing application service: $service_name"
                 
-                # Check if service is enabled in values.yaml
-                if ! is_service_enabled "$service_name"; then
-                  echo "⏭️  Skipping $service_name - disabled in values.yaml (enabled: false)"
+                # Extract component-name from service labels first (this matches serviceName in values.yaml)
+                component_name=$(/shared/kubectl get service "$service_name" --namespace="$namespace" -o jsonpath='{.metadata.labels.component-name}' 2>/dev/null || echo "$service_name")
+                
+                # Check if service is enabled in values.yaml using component-name (which matches serviceName)
+                if ! is_service_enabled "$component_name"; then
+                  echo "⏭️  Skipping $service_name ($component_name) - disabled in values.yaml (enabled: false)"
                   continue
                 fi
                 
-                echo "✅ Service $service_name is enabled in values.yaml"
+                echo "✅ Service $service_name ($component_name) is enabled in values.yaml"
                 
                 # Try to find corresponding deployment
                 deployment=$(/shared/kubectl get deployment "$service_name" --namespace="$namespace" -o name 2>/dev/null || echo "")
                 if [ -n "$deployment" ]; then
                   # Extract image from deployment
                   image=$(/shared/kubectl get deployment "$service_name" --namespace="$namespace" -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "")
-                  # Extract component-name from service labels
-                  component_name=$(/shared/kubectl get service "$service_name" --namespace="$namespace" -o jsonpath='{.metadata.labels.component-name}' 2>/dev/null || echo "$service_name")
                   if [ -n "$image" ]; then
                     echo "📦 Found deployment $service_name with image: $image, component-name: $component_name"
                     
