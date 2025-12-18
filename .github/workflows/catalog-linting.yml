@@ -3,7 +3,7 @@ name: Catalog Linting
 on:
   pull_request:
     types: [opened, synchronize]
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'darwin-catalog/**'
 
