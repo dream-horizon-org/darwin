@@ -1,11 +1,20 @@
 name: Workspace Linting
 
 on:
-  pull_request:
-    types: [opened, synchronize]
-    branches: [main]
+  # Trigger on every push to any branch
+  push:
     paths:
       - 'workspace/**'
+      - '.github/workflows/workspace-linting.yml'
+  # Trigger when PR is created/updated targeting main or develop
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+      - develop
+    paths:
+      - 'workspace/**'
+      - '.github/workflows/workspace-linting.yml'
 
 jobs:
   lint:
