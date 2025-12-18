@@ -1,8 +1,0 @@
-"""Mock kafka module"""
-
-
-
-
-
-
-

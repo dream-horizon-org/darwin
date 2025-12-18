@@ -12,11 +12,7 @@ echo "🔧 Installing compute_sdk from darwin-compute submodule..."
 # Check if darwin-compute submodule exists
 if [ ! -d "$DARWIN_COMPUTE_SDK_PATH" ]; then
     echo "⚠️  darwin-compute submodule not found at $DARWIN_COMPUTE_SDK_PATH"
-    echo "   Falling back to mock compute_sdk..."
-    if [ -d "${BASE_DIR}/.local-mocks/compute_sdk" ]; then
-        pip3 install -e "${BASE_DIR}/.local-mocks/compute_sdk/" --no-deps
-        echo "✅ Mock compute_sdk installed"
-    fi
+    echo "   darwin_compute will be installed from PyPI via requirements.txt"
     exit 0
 fi
 

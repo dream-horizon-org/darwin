@@ -6,7 +6,6 @@ from airflow import DAG
 from airflow.models import Variable
 from airflow.models.baseoperator import chain
 from airflow.operators.python import PythonOperator
-from operators.pelican_operator import PelicanOperator
 from operators.darwin_operator import DarwinOperator
 from airflow.timetables.simple import (
     OnceTimetable, NullTimetable
@@ -137,29 +136,8 @@ class Artefact(ABC):
             task_def['op_kwargs']['user_email'] = dag_config['dag_args']['created_by']
             task_def['op_kwargs']['notify_on'] = dag_config['dag_args']['notify_on']
 
-            if task_type == 'pelican':
-                pelican_kwargs = task_def['op_kwargs']
-                # Get Pelican URL from environment variable via config
-                import os
-                pelican_default_url = os.getenv('PELICAN_URL', 'http://localhost:8002')
-                t = PelicanOperator(
-                    task_id=task_id,
-                    pelican_gateway_host=pelican_kwargs.get('pelican_gateway_host', pelican_default_url),
-                    artifact=pelican_kwargs['artifact'],
-                    task_name=pelican_kwargs['task_name'],
-                    poll_interval=pelican_kwargs.get('poll_interval', pelican_kwargs.get('polling_interval', 15)),
-                    timeout=pelican_kwargs.get('timeout', 3600),
-                    max_http_retries=pelican_kwargs.get('max_http_retries', 3),
-                    max_retries=pelican_kwargs.get('max_retries', retries),
-                    compute_cluster_config=pelican_kwargs.get('compute_cluster_config'),
-                    engine_config=pelican_kwargs.get('engine_config'),
-                    instance_role=pelican_kwargs.get('instance_role'),
-                    dag=self.dag,
-                    retries=retries,
-                    pool=dag_config["dag_args"]["tenant"]
-                )
-            else:
-                entry_point_cmd = task_def.get('op_kwargs', {}).get('entry_point_cmd', '')
+            # Only DarwinOperator is supported
+            entry_point_cmd = task_def.get('op_kwargs', {}).get('entry_point_cmd', '')
                 if entry_point_cmd.startswith('papermill'):
                     args = entry_point_cmd.split()
                     output_path = args[2]

@@ -187,59 +187,6 @@ def mock_workflow_service():
 
 
 @pytest.fixture
-def mock_pelican_operator():
-    """Mock PelicanOperator for testing"""
-    mock_operator = Mock()
-    mock_operator.artifact = {
-        "file": "s3://bucket/test.jar",
-        "className": "org.example.TestClass",
-        "sparkVersion": "3.5.0",
-        "args": ["10", "20"]
-    }
-    mock_operator.task_name = "test_pelican"
-    mock_operator.max_retries = 3
-    mock_operator.poll_interval = 30
-    mock_operator.timeout = 7200
-    mock_operator.compute_cluster_config = {
-        "engineType": "SPARK",
-        "engineVersion": "3.5.0"
-    }
-    mock_operator.engine_config = {
-        "type": "SPARK",
-        "configs": {
-            "spark.executor.memory": "4g",
-            "spark.executor.cores": "2"
-        }
-    }
-    mock_operator.tags = {"env": "test"}
-    
-    # Mock methods
-    mock_operator._build_create_payload.return_value = {
-        "applicationName": "test_pelican",
-        "artifact": {
-            "file": "s3://bucket/test.jar",
-            "className": "org.example.TestClass",
-            "sparkVersion": "3.5.0",
-            "args": ["10", "20"]
-        },
-        "computeClusterConfig": {
-            "engineType": "SPARK",
-            "engineVersion": "3.5.0"
-        },
-        "engineConfig": {
-            "type": "SPARK",
-            "configs": {
-                "spark.executor.memory": "4g",
-                "spark.executor.cores": "2"
-            }
-        },
-        "tags": {"env": "test"}
-    }
-    
-    return mock_operator
-
-
-@pytest.fixture
 def test_env():
     """Test environment for V3 tests"""
     return "test_env"

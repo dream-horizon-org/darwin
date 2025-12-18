@@ -197,7 +197,6 @@ def run_tests_with_coverage():
         "--cov=workflow_model.v3",
         "--cov=workflow_core.v3",
         "--cov=workflow_app_layer.v3",
-        "--cov=airflow.operators.pelican_operator",
         "--cov-report=term-missing",
         "--cov-report=html:htmlcov",
         "-v"

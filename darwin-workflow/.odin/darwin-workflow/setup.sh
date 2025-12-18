@@ -11,35 +11,18 @@ if [[ "$ENV" == "local" ]] || [[ "$ENV" == "darwin-local" ]]; then
   echo "🏠 Local development mode detected"
   echo "📦 Installing compute_sdk from darwin-compute submodule (if available)..."
   
-  # Try to install compute_sdk from darwin-compute submodule first
+  # Try to install compute_sdk from darwin-compute submodule
   DARWIN_COMPUTE_SDK_PATH="${BASE_DIR}/../darwin-compute/sdk"
   if [ -d "$DARWIN_COMPUTE_SDK_PATH" ]; then
     echo "  → Found darwin-compute submodule, installing compute_sdk..."
     bash "${BASE_DIR}/.odin/darwin-workflow/install-compute-sdk.sh" || {
-      echo "  ⚠️  Failed to install from darwin-compute, falling back to mocks..."
-      if [ -d ".local-mocks/compute_sdk" ]; then
-        pip3 install -e .local-mocks/compute_sdk/ --no-deps
-        echo "  ✅ Mock compute_sdk installed"
-      fi
+      echo "  ⚠️  Failed to install from darwin-compute submodule"
+      echo "  ℹ️  darwin_compute will be installed from PyPI via requirements.txt"
     }
   else
-    echo "  → darwin-compute submodule not found, using mock compute_sdk..."
-    if [ -d ".local-mocks/compute_sdk" ]; then
-      pip3 install -e .local-mocks/compute_sdk/ --no-deps
-      echo "  ✅ Mock compute_sdk installed"
-    else
-      echo "  ⚠️  Mock compute_sdk not found, skipping..."
-    fi
+    echo "  → darwin-compute submodule not found"
+    echo "  ℹ️  darwin_compute will be installed from PyPI via requirements.txt"
   fi
-  
-  if [ -d ".local-mocks/mlp_commons" ]; then
-    echo "  → Installing mock mlp-commons..."
-    pip3 install -e .local-mocks/mlp_commons/ --no-deps
-  else
-    echo "  ⚠️  Mock mlp_commons not found, skipping..."
-  fi
-  
-  echo "✅ Mock packages installed for local development"
   
   # Install boto3 for pre-deploy script (S3 bucket setup)
   echo "📦 Installing boto3 for pre-deploy script..."
@@ -148,4 +131,4 @@ echo ""
 echo "✅ Setup completed successfully!"
 echo ""
 echo "📋 Installed packages:"
-pip3 list | grep -E "(compute-sdk|mlp-commons|workflow)" || echo "No workflow packages found"
+pip3 list | grep -E "(darwin-compute|workflow)" || echo "No workflow packages found"
