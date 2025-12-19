@@ -5,10 +5,7 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - 'darwin-workflow/**'
-  push:
-    paths:
-      - 'darwin-workflow/**'
-
+      - '.github/workflows/darwin-workflow-lint.yml'
 jobs:
   lint:
     runs-on: ubuntu-latest
