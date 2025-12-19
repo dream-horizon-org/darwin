@@ -44,11 +44,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Install all modules in editable mode
+          # Install modules needed for healthcheck (app_layer, core, model)
+          # Skip SDK module as it requires compute-sdk which isn't needed for healthcheck
           pip install -e app_layer/.
           pip install -e core/.
           pip install -e model/.
-          pip install -e sdk/.
+          # Skip SDK installation - not needed for healthcheck and requires compute-sdk
+          # pip install -e sdk/.  # Skipped: requires darwin_compute which may not be available in CI
           if [ -f airflow/setup.py ]; then
             pip install -e airflow/.
           fi
@@ -57,7 +59,8 @@ jobs:
           pip install -r app_layer/requirements.txt
           pip install -r core/requirements.txt
           pip install -r model/requirements.txt
-          pip install -r sdk/requirements.txt || true
+          # Skip SDK requirements - not needed for healthcheck
+          # pip install -r sdk/requirements.txt || true  # Skipped: requires darwin_compute
           # Install test dependencies
           pip install pytest==7.3.1 pytest-asyncio==0.21.1 httpx==0.23.3
 
