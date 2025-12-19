@@ -1,0 +1,168 @@
+name: Darwin Workflow - Health Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'darwin-workflow/**'
+  push:
+    paths:
+      - 'darwin-workflow/**'
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: darwin-workflow
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_password
+          MYSQL_DATABASE: workflow
+          MYSQL_USER: workflow_user
+          MYSQL_PASSWORD: workflow_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Install all modules in editable mode
+          pip install -e app_layer/.
+          pip install -e core/.
+          pip install -e model/.
+          pip install -e sdk/.
+          if [ -f airflow/setup.py ]; then
+            pip install -e airflow/.
+          fi
+          # Install runtime dependencies
+          pip install -r requirements.txt || true
+          pip install -r app_layer/requirements.txt
+          pip install -r core/requirements.txt
+          pip install -r model/requirements.txt
+          pip install -r sdk/requirements.txt || true
+          # Install test dependencies
+          pip install pytest==7.3.1 pytest-asyncio==0.21.1 httpx==0.23.3
+
+      - name: Set up environment variables
+        run: |
+          echo "ENV=local" >> $GITHUB_ENV
+          echo "DEPLOYMENT_TYPE=container" >> $GITHUB_ENV
+          echo "WORKFLOW_DB_HOST=127.0.0.1" >> $GITHUB_ENV
+          echo "WORKFLOW_DB_PORT=3306" >> $GITHUB_ENV
+          echo "WORKFLOW_DB_USERNAME=workflow_user" >> $GITHUB_ENV
+          echo "WORKFLOW_DB_PASSWORD=workflow_password" >> $GITHUB_ENV
+          echo "WORKFLOW_DB_NAME=workflow" >> $GITHUB_ENV
+          echo "S3_BUCKET_NAME=test-bucket" >> $GITHUB_ENV
+          echo "S3_ARTIFACT_PREFIX=test/workflow" >> $GITHUB_ENV
+          echo "COMPUTE_SERVICE_URL=http://localhost:9000" >> $GITHUB_ENV
+          echo "LOG_DIR=/tmp/darwin-workflow" >> $GITHUB_ENV
+
+      - name: Wait for MySQL to be ready
+        run: |
+          timeout 60 bash -c 'until mysqladmin ping -h 127.0.0.1 -u workflow_user -pworkflow_password --silent; do sleep 2; done'
+        continue-on-error: true
+
+      - name: Create necessary directories
+        run: |
+          mkdir -p /tmp/darwin-workflow
+          mkdir -p app_layer/src/workflow_app_layer/static
+          mkdir -p static
+
+      - name: Start workflow service in background
+        run: |
+          cd app_layer/src/workflow_app_layer
+          nohup python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 > /tmp/workflow.log 2>&1 &
+          echo $! > /tmp/workflow.pid
+          echo "Service started with PID: $(cat /tmp/workflow.pid)"
+
+      - name: Wait for service to start
+        run: |
+          echo "Waiting for service to be ready..."
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f -s http://localhost:8001/healthcheck > /dev/null 2>&1; then
+              echo "✅ Service is ready!"
+              break
+            fi
+            echo "Attempt $((attempt+1))/$max_attempts: Service not ready yet..."
+            sleep 2
+            attempt=$((attempt+1))
+          done
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Service failed to start"
+            echo "Service logs:"
+            cat /tmp/workflow.log || true
+            ps aux | grep uvicorn || true
+            exit 1
+          fi
+
+      - name: Check service status
+        run: |
+          ps aux | grep uvicorn | grep -v grep || echo "No uvicorn process found"
+          netstat -tuln 2>/dev/null | grep 8001 || ss -tuln 2>/dev/null | grep 8001 || echo "Port 8001 not listening"
+
+      - name: Test health check endpoint
+        run: |
+          echo "Testing /healthcheck endpoint..."
+          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost:8001/healthcheck)
+          http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
+          body=$(echo "$response" | grep -v "HTTP_CODE")
+          
+          echo "HTTP Status Code: $http_code"
+          echo "Response Body: $body"
+          
+          if [ "$http_code" != "200" ]; then
+            echo "❌ Health check returned HTTP $http_code, expected 200"
+            exit 1
+          fi
+          
+          # Verify response structure (using Python for JSON parsing)
+          python3 << EOF
+          import json
+          import sys
+          
+          try:
+              data = json.loads('''$body''')
+              required_fields = ['app_layer', 'core', 'db']
+              missing_fields = [f for f in required_fields if f not in data]
+              
+              if missing_fields:
+                  print(f"❌ Missing required fields: {missing_fields}")
+                  sys.exit(1)
+              
+              print("✅ Health check response structure is valid")
+              print(f"   app_layer: {data.get('app_layer')}")
+              print(f"   core: {data.get('core')}")
+              print(f"   db: {data.get('db')}")
+          except json.JSONDecodeError as e:
+              print(f"❌ Invalid JSON response: {e}")
+              sys.exit(1)
+          EOF
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -f /tmp/workflow.pid ]; then
+            kill $(cat /tmp/workflow.pid) 2>/dev/null || true
+          fi
+          pkill -f "uvicorn main:app" || true
+

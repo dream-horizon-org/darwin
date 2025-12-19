@@ -51,10 +51,6 @@ docker push localhost:55000/darwin-airflow:latest || {
 }
 
 echo "✅ Image pushed to registry successfully"
-echo ""
-echo "=========================================="
-echo "Build Complete!"
-echo "=========================================="
 echo "Image: localhost:55000/darwin-airflow:latest"
 echo ""
 echo "To verify the image in the registry:"
