@@ -63,7 +63,6 @@ async def search_controller(request: SearchEntity, compute: Compute):
                         "active_pod": cluster_with_status["active_pods"],
                         "total_memory": total_resources["total_memory"],
                         "total_cores": total_resources["total_cores"],
-                        "jupyter_lab_link": cluster_with_status["notebook_link"],
                         "last_used_on": cluster_with_status["last_used_at"],
                         "create_by": cluster["user"],
                         "created_on": cluster["created_on"],
