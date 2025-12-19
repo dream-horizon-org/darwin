@@ -187,46 +187,22 @@ When deployed in the Darwin ecosystem:
 
 **Authentication (Required for Darwin MLflow)**
 
-```python
-import os
-import mlflow
-
-# Darwin MLflow requires authentication
-os.environ["MLFLOW_TRACKING_USERNAME"] = "your.email@company.com"
-os.environ["MLFLOW_TRACKING_PASSWORD"] = "your.email@company.com"
-
-# Set tracking URI to Darwin MLflow service
-mlflow.set_tracking_uri("http://darwin-mlflow-lib.darwin.svc.cluster.local:8080")
-```
+Darwin MLflow requires authentication. Set the following environment variables:
+- `MLFLOW_TRACKING_USERNAME`: Your email address
+- `MLFLOW_TRACKING_PASSWORD`: Your email address (or configured password)
+- Set tracking URI to: `http://darwin-mlflow-lib.darwin.svc.cluster.local:8080`
 
 **Model Logging (Darwin-Specific Pattern)**
 
-Darwin MLflow requires using `tempfile` and `log_artifacts` instead of direct model logging:
-
-```python
-import tempfile
-from mlflow.models import infer_signature
-
-with mlflow.start_run():
-    # Train your model...
-    
-    # Darwin-specific: Use tempfile + log_artifacts
-    signature = infer_signature(X_train, model.predict(X_train))
-    
-    with tempfile.TemporaryDirectory() as tmpdir:
-        local_path = os.path.join(tmpdir, "model")
-        mlflow.sklearn.save_model(model, local_path, signature=signature)
-        mlflow.log_artifacts(local_path, artifact_path="model")  # Required for Darwin
-    
-    # Get model URI for deployment
-    run_id = mlflow.active_run().info.run_id
-    experiment_id = mlflow.active_run().info.experiment_id
-    model_uri = f"mlflow-artifacts:/{experiment_id}/{run_id}/artifacts/model"
-```
+Darwin MLflow requires using `tempfile` and `log_artifacts` instead of direct model logging. The pattern involves:
+1. Creating a temporary directory
+2. Saving the model using `mlflow.sklearn.save_model()` (or appropriate flavor)
+3. Using `mlflow.log_artifacts()` to upload the model
+4. Extracting the model URI for deployment: `mlflow-artifacts:/{experiment_id}/{run_id}/artifacts/model`
 
 > **📚 For standard MLflow usage**, see [MLflow 2.12.2 Documentation](https://mlflow.org/docs/2.12.2/index.html)
 > 
-> **💡 For complete Darwin examples**, see [`examples/house-price-prediction/`](../examples/house-price-prediction/) and [`examples/iris-classification/`](../examples/iris-classification/)
+> **💡 For complete Darwin examples with full code**, see [`examples/house-price-prediction/`](../examples/house-price-prediction/) and [`examples/iris-classification/`](../examples/iris-classification/)
 
 ## 🚀 Deploying Models from MLflow to Serve
 
@@ -264,25 +240,7 @@ The simplest way to deploy an MLflow model is using the one-click deployment API
 4. The runtime fetches and loads the model at startup
 5. The model is deployed to Kubernetes and ready to serve predictions
 
-**Deployment Request**:
-
-```bash
-curl -X POST "http://localhost/ml-serve/api/v1/serve/deploy-model" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "serve_name": "house-pricing-model",
-    "artifact_version": "v1.0",
-    "model_uri": "mlflow-artifacts:/45/abc123def456789/artifacts/model",
-    "env": "local",
-    "cores": 2,
-    "memory": 4,
-    "node_capacity": "spot",
-    "min_replicas": 1,
-    "max_replicas": 3
-  }'
-```
-
-**Parameters**:
+**Deployment Parameters**:
 - `serve_name`: Name for your deployment (optional, auto-generated if omitted)
 - `artifact_version`: Version label for tracking (e.g., "v1.0", "v2.1")
 - `model_uri`: MLflow model URI (from previous step)
@@ -293,49 +251,26 @@ curl -X POST "http://localhost/ml-serve/api/v1/serve/deploy-model" \
 - `min_replicas`: Minimum number of pods (for auto-scaling)
 - `max_replicas`: Maximum number of pods (for auto-scaling)
 
+> **💡 For complete deployment examples**, see the deployment sections in [`examples/house-price-prediction/`](../examples/house-price-prediction/) and [`examples/iris-classification/`](../examples/iris-classification/)
+
 ### Using Hermes CLI
 
 The Hermes CLI provides a convenient command-line interface for deployment:
 
 **1. Configure Hermes** (one-time setup):
-```bash
-export HERMES_USER_TOKEN=admin-token-default-change-in-production
-hermes configure
-```
+- Set `HERMES_USER_TOKEN` environment variable
+- Run `hermes configure`
 
 **2. Create Environment** (if not exists):
-```bash
-hermes create-environment \
-  --name local \
-  --domain-suffix .local \
-  --cluster-name kind \
-  --namespace darwin
-```
+- Use `hermes create-environment` with appropriate flags (name, domain-suffix, cluster-name, namespace)
 
 **3. Deploy Model**:
-```bash
-hermes deploy-model \
-  --serve-name house-pricing-model \
-  --artifact-version v1.0 \
-  --model-uri "mlflow-artifacts:/45/abc123def456789/artifacts/model" \
-  --cores 2 \
-  --memory 4 \
-  --node-capacity spot \
-  --min-replicas 1 \
-  --max-replicas 3
-```
+- Use `hermes deploy-model` with your model URI and deployment parameters
 
 **4. Check Deployment Status**:
-```bash
-# List all deployments
-kubectl get deployments -n darwin
+- Use `kubectl` commands to check deployments, pods, and logs
 
-# Check pod status
-kubectl get pods -n darwin | grep house-pricing-model
-
-# View logs
-kubectl logs -n darwin deployment/house-pricing-model-local
-```
+> **💡 For complete Hermes CLI examples and commands**, see [`examples/house-price-prediction/`](../examples/house-price-prediction/) and [`examples/iris-classification/`](../examples/iris-classification/)
 
 ### Testing Deployed Models
 
@@ -346,78 +281,25 @@ Once deployed, your model is accessible via a REST API endpoint.
 - **Example**: `http://localhost/house-pricing-model-local/predict`
 
 **Making Predictions**:
-
-```python
-import requests
-import json
-
-# Prediction endpoint
-url = "http://localhost/house-pricing-model-local/predict"
-
-# Sample input (California Housing features)
-payload = {
-    "features": {
-        "MedInc": 3.5,
-        "HouseAge": 15.0,
-        "AveRooms": 5.5,
-        "AveBedrms": 1.2,
-        "Population": 1200.0,
-        "AveOccup": 3.0,
-        "Latitude": 37.5,
-        "Longitude": -122.3
-    }
-}
-
-# Send prediction request
-response = requests.post(url, json=payload)
-prediction = response.json()
-
-print(f"Predicted house price: ${prediction['prediction']:.2f} (hundred thousands)")
-```
-
-**Using curl**:
-```bash
-curl -X POST "http://localhost/house-pricing-model-local/predict" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "features": {
-      "MedInc": 3.5,
-      "HouseAge": 15.0,
-      "AveRooms": 5.5,
-      "AveBedrms": 1.2,
-      "Population": 1200.0,
-      "AveOccup": 3.0,
-      "Latitude": 37.5,
-      "Longitude": -122.3
-    }
-  }'
-```
+- Send POST requests to the prediction endpoint with your feature data
+- The request body should contain a `features` object with your model's input features
+- Response will contain the prediction result
 
 **Accessing Swagger UI**:
+- Navigate to `http://localhost/{serve-name}-{env}/docs` to access the interactive API documentation
+- Swagger UI requires your FastAPI app to use the `ROOT_PATH` environment variable (handled automatically by Darwin runtime)
 
-Navigate to `http://localhost/house-pricing-model-local/docs` to access the interactive API documentation.
-
-> **Note**: Swagger UI requires your FastAPI app to use the `ROOT_PATH` environment variable. The Darwin runtime handles this automatically.
+> **💡 For complete testing examples with sample payloads**, see [`examples/house-price-prediction/`](../examples/house-price-prediction/) and [`examples/iris-classification/`](../examples/iris-classification/)
 
 ### Undeploying Models
 
 **Using Hermes CLI**:
-```bash
-hermes undeploy-model \
-  --serve-name house-pricing-model \
-  --artifact-version v1.0
-```
+- Use `hermes undeploy-model` with the serve name and artifact version
 
 **Using API**:
-```bash
-curl -X POST "http://localhost/ml-serve/api/v1/serve/undeploy-model" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "serve_name": "house-pricing-model",
-    "artifact_version": "v1.0",
-    "env": "local"
-  }'
-```
+- Send POST request to `/api/v1/serve/undeploy-model` endpoint with serve name, artifact version, and environment
+
+> **💡 For complete undeployment examples**, see the examples in [`examples/`](../examples/) directory
 
 ## 🔄 Complete End-to-End Workflow
 
@@ -450,199 +332,35 @@ sequenceDiagram
 ### Step-by-Step Guide
 
 **Step 1: Launch Workspace Environment**
-
-```bash
-# Create or access your Jupyter workspace
-# This is typically done through the Darwin UI or Workspace API
-```
+- Create or access your Jupyter workspace through the Darwin UI or Workspace API
 
 **Step 2: Train and Track Model**
-
-In your Jupyter notebook:
-
-```python
-import os
-import mlflow
-import mlflow.sklearn
-from mlflow import set_tracking_uri, set_experiment
-from mlflow.client import MlflowClient
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.datasets import fetch_california_housing
-from sklearn.model_selection import train_test_split
-import tempfile
-
-# Configure MLflow
-os.environ["MLFLOW_TRACKING_USERNAME"] = "your.email@company.com"
-os.environ["MLFLOW_TRACKING_PASSWORD"] = "your.email@company.com"
-set_tracking_uri("http://darwin-mlflow-lib.darwin.svc.cluster.local:8080")
-set_experiment("house_pricing_production")
-
-# Load data
-data = fetch_california_housing(as_frame=True)
-X_train, X_test, y_train, y_test = train_test_split(
-    data.data, data.target, test_size=0.2, random_state=42
-)
-
-# Train and log
-with mlflow.start_run(run_name="production_model_v1"):
-    model = RandomForestRegressor(n_estimators=100, max_depth=15, random_state=42)
-    model.fit(X_train, y_train)
-    
-    # Log metrics
-    from sklearn.metrics import mean_squared_error, r2_score
-    y_pred = model.predict(X_test)
-    mlflow.log_metric("rmse", mean_squared_error(y_test, y_pred, squared=False))
-    mlflow.log_metric("r2", r2_score(y_test, y_pred))
-    
-    # Log model
-    from mlflow.models import infer_signature
-    signature = infer_signature(X_train, model.predict(X_train))
-    
-    with tempfile.TemporaryDirectory() as tmpdir:
-        local_path = os.path.join(tmpdir, "model")
-        mlflow.sklearn.save_model(
-            model, local_path, 
-            signature=signature,
-            input_example=X_test.head(1)
-        )
-        mlflow.log_artifacts(local_path, artifact_path="model")
-    
-    run_id = mlflow.active_run().info.run_id
-    experiment_id = mlflow.active_run().info.experiment_id
-    
-    print(f"✅ Model trained successfully!")
-    print(f"📋 Run ID: {run_id}")
-    print(f"📋 Experiment ID: {experiment_id}")
-```
+- Set up MLflow authentication and tracking URI
+- Load your dataset and prepare training data
+- Train your model and log parameters, metrics, and artifacts using the Darwin-specific pattern
+- Extract the model URI for deployment
 
 **Step 3: Register Model in Model Registry**
-
-```python
-# Register model
-client = MlflowClient()
-model_name = "HousePricingProduction"
-
-try:
-    client.create_registered_model(model_name)
-except:
-    pass  # Model already exists
-
-version = client.create_model_version(
-    name=model_name,
-    source=f"runs:/{run_id}/model",
-    run_id=run_id
-)
-
-print(f"✅ Model registered as {model_name} version {version.version}")
-```
+- Use MLflowClient to create a registered model
+- Create a model version from your training run
 
 **Step 4: Copy Model URI**
-
-```python
-model_uri = f"mlflow-artifacts:/{experiment_id}/{run_id}/artifacts/model"
-print(f"\n📦 Model URI for deployment:")
-print(f"   {model_uri}")
-print(f"\n💡 Copy this URI for the next step!")
-```
+- Extract the model URI in the format: `mlflow-artifacts:/{experiment_id}/{run_id}/artifacts/model`
 
 **Step 5: Deploy Model**
-
-Open a terminal and run:
-
-```bash
-hermes deploy-model \
-  --serve-name house-pricing-prod \
-  --artifact-version v1.0 \
-  --model-uri "mlflow-artifacts:/45/abc123def456789/artifacts/model" \
-  --cores 4 \
-  --memory 8 \
-  --node-capacity on-demand \
-  --min-replicas 2 \
-  --max-replicas 10
-```
+- Use Hermes CLI or the deployment API to deploy your model with the model URI
 
 **Step 6: Verify Deployment**
-
-```bash
-# Check deployment status
-kubectl get deployments -n darwin | grep house-pricing-prod
-
-# Check pods
-kubectl get pods -n darwin | grep house-pricing-prod
-
-# View logs
-kubectl logs -n darwin -l app=house-pricing-prod-local --tail=50
-```
+- Check deployment status using `kubectl` commands
+- Verify pods are running and view logs if needed
 
 **Step 7: Test the Endpoint**
+- Send prediction requests to the deployed endpoint
+- Verify predictions are returned correctly
 
-```python
-import requests
-
-url = "http://localhost/house-pricing-prod-local/predict"
-
-test_data = {
-    "features": {
-        "MedInc": 3.5,
-        "HouseAge": 15.0,
-        "AveRooms": 5.5,
-        "AveBedrms": 1.2,
-        "Population": 1200.0,
-        "AveOccup": 3.0,
-        "Latitude": 37.5,
-        "Longitude": -122.3
-    }
-}
-
-response = requests.post(url, json=test_data)
-print(f"Prediction: {response.json()}")
-```
-
-### Practical Example: House Price Prediction
-
-This example demonstrates the complete workflow using the California Housing dataset.
-
-**Training Script** (in Jupyter):
-
-See the complete example in [`examples/house-price-prediction/train_house_pricing_model.ipynb`](../examples/house-price-prediction/train_house_pricing_model.ipynb)
-
-**Deployment Command**:
-
-```bash
-hermes deploy-model \
-  --serve-name california-housing \
-  --artifact-version v1.0 \
-  --model-uri "mlflow-artifacts:/45/abc123def456789/artifacts/model" \
-  --cores 2 \
-  --memory 4 \
-  --node-capacity spot \
-  --min-replicas 1 \
-  --max-replicas 5
-```
-
-**Testing**:
-
-```python
-import requests
-
-response = requests.post(
-    "http://localhost/california-housing-local/predict",
-    json={
-        "features": {
-            "MedInc": 8.3252,
-            "HouseAge": 41.0,
-            "AveRooms": 6.98,
-            "AveBedrms": 1.02,
-            "Population": 322.0,
-            "AveOccup": 2.55,
-            "Latitude": 37.88,
-            "Longitude": -122.23
-        }
-    }
-)
-
-print(f"Predicted price: ${response.json()['prediction'] * 100000:.2f}")
-```
+> **💡 For complete step-by-step examples with full code**, see:
+> - [`examples/house-price-prediction/train_house_pricing_model.ipynb`](../examples/house-price-prediction/train_house_pricing_model.ipynb)
+> - [`examples/iris-classification/`](../examples/iris-classification/)
 
 ### Troubleshooting Common Issues
 
@@ -683,22 +401,13 @@ os.environ["MLFLOW_TRACKING_PASSWORD"] = "your.email@company.com"
 ```
 
 **2. Use `tempfile` + `log_artifacts` for Model Logging**
-```python
-# ❌ Don't use direct logging (won't work with Darwin MLflow)
-mlflow.sklearn.log_model(model, "model")
-
-# ✅ Use tempfile + log_artifacts pattern
-with tempfile.TemporaryDirectory() as tmpdir:
-    path = os.path.join(tmpdir, "model")
-    mlflow.sklearn.save_model(model, path, signature=signature)
-    mlflow.log_artifacts(path, artifact_path="model")
-```
+- Don't use direct logging like `mlflow.sklearn.log_model(model, "model")` (won't work with Darwin MLflow)
+- Use the tempfile + log_artifacts pattern: save model to a temporary directory, then use `mlflow.log_artifacts()`
 
 **3. Model URI Format for Deployment**
-```python
-# Use this format for ML Serve deployment
-model_uri = f"mlflow-artifacts:/{experiment_id}/{run_id}/artifacts/model"
-```
+- Use this format for ML Serve deployment: `mlflow-artifacts:/{experiment_id}/{run_id}/artifacts/model`
+
+> **💡 For complete code examples**, see [`examples/house-price-prediction/`](../examples/house-price-prediction/) and [`examples/iris-classification/`](../examples/iris-classification/)
 
 > **📚 For all other MLflow operations**, refer to the official [MLflow 2.12.2 Documentation](https://mlflow.org/docs/2.12.2/index.html)
 
