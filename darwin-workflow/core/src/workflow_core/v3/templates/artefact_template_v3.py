@@ -138,30 +138,30 @@ class Artefact(ABC):
 
             # Only DarwinOperator is supported
             entry_point_cmd = task_def.get('op_kwargs', {}).get('entry_point_cmd', '')
-                if entry_point_cmd.startswith('papermill'):
-                    args = entry_point_cmd.split()
-                    output_path = args[2]
+            if entry_point_cmd.startswith('papermill'):
+                args = entry_point_cmd.split()
+                output_path = args[2]
 
-                    # Split the output path into directory and filename parts
-                    output_dir, output_filename = os.path.split(output_path)
+                # Split the output path into directory and filename parts
+                output_dir, output_filename = os.path.split(output_path)
 
-                    # Modify only the filename part (keeping the directory unchanged)
-                    filename_parts = os.path.splitext(output_filename)
-                    new_output_filename = filename_parts[0] + "/" + "{{dag_run.run_id}}" + filename_parts[1]
+                # Modify only the filename part (keeping the directory unchanged)
+                filename_parts = os.path.splitext(output_filename)
+                new_output_filename = filename_parts[0] + "/" + "{{dag_run.run_id}}" + filename_parts[1]
 
-                    # Join the modified filename with the directory path
-                    new_output_path = os.path.join(output_dir, new_output_filename)
+                # Join the modified filename with the directory path
+                new_output_path = os.path.join(output_dir, new_output_filename)
 
-                    args[2] = new_output_path
-                    new_output_cmd = " ".join(args)
-                    task_def['op_kwargs']['entry_point_cmd'] = new_output_cmd
-                task_def['op_kwargs']['runtime_params'] = "{{dag_run.conf}}"
-                darwin_kwargs = task_def['op_kwargs']
-                t = DarwinOperator(
-                    task_id=task_id,
-                    cluster_id=darwin_kwargs['cluster_id'],
-                    entry_point_cmd=darwin_kwargs['entry_point_cmd'],
-                    cluster_type=darwin_kwargs.get('cluster_type', 'job'),
+                args[2] = new_output_path
+                new_output_cmd = " ".join(args)
+                task_def['op_kwargs']['entry_point_cmd'] = new_output_cmd
+            task_def['op_kwargs']['runtime_params'] = "{{dag_run.conf}}"
+            darwin_kwargs = task_def['op_kwargs']
+            t = DarwinOperator(
+                task_id=task_id,
+                cluster_id=darwin_kwargs['cluster_id'],
+                entry_point_cmd=darwin_kwargs['entry_point_cmd'],
+                cluster_type=darwin_kwargs.get('cluster_type', 'job'),
                     time_out_in_sec_for_cluster=darwin_kwargs.get('time_out_in_sec_for_cluster', 12000),
                     time_out_in_sec_for_job=darwin_kwargs.get('time_out_in_sec_for_job', 360000),
                     wait_time_for_shutdown_in_sec=darwin_kwargs.get('wait_time_for_shutdown_in_sec', 600),

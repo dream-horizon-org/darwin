@@ -31,7 +31,7 @@ class S3Artifactory(ABC):
             aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin")
             s3_config['aws_access_key_id'] = aws_access_key
             s3_config['aws_secret_access_key'] = aws_secret_key
-        
+
         self.s3 = boto3.client('s3', **s3_config)
         self.env = 'stag' if os.getenv("ENV", "stag") in ['dev', 'stag'] else os.getenv("ENV")
         self._config = Config(self.env)
