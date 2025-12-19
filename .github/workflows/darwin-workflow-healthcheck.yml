@@ -7,9 +7,10 @@ on:
       - 'darwin-workflow/**'
       - '.github/workflows/darwin-workflow-healthcheck.yml'
   push:
-    paths:
-      - 'darwin-workflow/**'
-      - '.github/workflows/darwin-workflow-healthcheck.yml'
+    # No paths filter for push - run on any push to test workflow changes
+    # Paths filter kept for PRs to avoid unnecessary runs
+  workflow_dispatch:
+    # Allow manual triggering from GitHub Actions UI
 
 jobs:
   health-check:
