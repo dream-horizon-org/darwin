@@ -335,10 +335,63 @@ sequenceDiagram
 - Create or access your Jupyter workspace through the Darwin UI or Workspace API
 
 **Step 2: Train and Track Model**
-- Set up MLflow authentication and tracking URI
-- Load your dataset and prepare training data
-- Train your model and log parameters, metrics, and artifacts using the Darwin-specific pattern
-- Extract the model URI for deployment
+
+In your Jupyter notebook:
+
+```python
+import os
+import mlflow
+import mlflow.sklearn
+from mlflow import set_tracking_uri, set_experiment
+from mlflow.client import MlflowClient
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+import tempfile
+
+# Configure MLflow
+os.environ["MLFLOW_TRACKING_USERNAME"] = "your.email@company.com"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = "your.email@company.com"
+set_tracking_uri("http://darwin-mlflow-lib.darwin.svc.cluster.local:8080")
+set_experiment("house_pricing_production")
+
+# Load data
+data = fetch_california_housing(as_frame=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, test_size=0.2, random_state=42
+)
+
+# Train and log
+with mlflow.start_run(run_name="production_model_v1"):
+    model = RandomForestRegressor(n_estimators=100, max_depth=15, random_state=42)
+    model.fit(X_train, y_train)
+    
+    # Log metrics
+    from sklearn.metrics import mean_squared_error, r2_score
+    y_pred = model.predict(X_test)
+    mlflow.log_metric("rmse", mean_squared_error(y_test, y_pred, squared=False))
+    mlflow.log_metric("r2", r2_score(y_test, y_pred))
+    
+    # Log model
+    from mlflow.models import infer_signature
+    signature = infer_signature(X_train, model.predict(X_train))
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        local_path = os.path.join(tmpdir, "model")
+        mlflow.sklearn.save_model(
+            model, local_path, 
+            signature=signature,
+            input_example=X_test.head(1)
+        )
+        mlflow.log_artifacts(local_path, artifact_path="model")
+    
+    run_id = mlflow.active_run().info.run_id
+    experiment_id = mlflow.active_run().info.experiment_id
+    
+    print(f"✅ Model trained successfully!")
+    print(f"📋 Run ID: {run_id}")
+    print(f"📋 Experiment ID: {experiment_id}")
+```
 
 **Step 3: Register Model in Model Registry**
 - Use MLflowClient to create a registered model
