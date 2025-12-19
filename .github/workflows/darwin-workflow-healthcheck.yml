@@ -47,21 +47,28 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Install modules needed for healthcheck (app_layer, core, model).
+          # Install modules in dependency order: model -> core -> app_layer
           # Skip SDK module as it requires compute-sdk which isn't needed for healthcheck
-          pip install -e app_layer/.
-          pip install -e core/.
           pip install -e model/.
+          pip install -e core/.
+          # Install core requirements (needed before app_layer since app_layer depends on core)
+          pip install -r core/requirements.txt
+          # Install app_layer in editable mode
+          pip install -e app_layer/.
+          # Install app_layer requirements, but skip relative path dependencies (already installed)
+          # Filter out lines starting with "-e ../" since those are local dependencies we've already installed
+          if [ -f app_layer/requirements.txt ]; then
+            grep -v "^-e \.\./" app_layer/requirements.txt | pip install -r /dev/stdin || true
+          fi
           # Skip SDK installation - not needed for healthcheck and requires compute-sdk
           # pip install -e sdk/.  # Skipped: requires darwin_compute which may not be available in CI
           if [ -f airflow/setup.py ]; then
             pip install -e airflow/.
           fi
-          # Install runtime dependencies
+          # Install root requirements (if any)
           pip install -r requirements.txt || true
-          pip install -r app_layer/requirements.txt
-          pip install -r core/requirements.txt
-          pip install -r model/requirements.txt
+          # Install model requirements
+          pip install -r model/requirements.txt || true
           # Skip SDK requirements - not needed for healthcheck
           # pip install -r sdk/requirements.txt || true  # Skipped: requires darwin_compute
           # Install test dependencies
