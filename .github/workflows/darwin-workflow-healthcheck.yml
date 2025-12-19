@@ -44,7 +44,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Install modules needed for healthcheck (app_layer, core, model)
+          # Install modules needed for healthcheck (app_layer, core, model).
           # Skip SDK module as it requires compute-sdk which isn't needed for healthcheck
           pip install -e app_layer/.
           pip install -e core/.
