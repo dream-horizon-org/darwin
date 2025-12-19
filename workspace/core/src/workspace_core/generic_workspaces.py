@@ -58,16 +58,6 @@ class Workspaces(ABC):
         pass
 
     @abstractmethod
-    def launch_codespace(self, codespace_id: int, cloned_from: Optional[str] = None):
-        """
-        Creates a jupyter environment in a cluster with codespace
-        :param codespace_id: id of codespace to launch
-        :param cloned_from: cloned from codespace
-        :return: obj
-        """
-        pass
-
-    @abstractmethod
     def launch_codespace_v2(self, codespace_id: int, user_id: str, cloned_from: Optional[str] = None):
         """
         Creates a jupyter environment in a cluster with codespace
@@ -107,25 +97,12 @@ class Workspaces(ABC):
         pass
 
     @abstractmethod
-    def detach_cluster(self, codespace_id: int):
-        """
-        Adds cluster to codespace
-        :param codespace_id: id of codespace
-        :return: Codespace
-        """
-        pass
-
-    @abstractmethod
     def detach_cluster_v2(self, codespace_id: int):
         """
         Adds cluster to codespace
         :param codespace_id: id of codespace
         :return: Codespace
         """
-        pass
-
-    @abstractmethod
-    def launch_imported_project(self, codespace_id: int, github_link: str):
         pass
 
     @abstractmethod
@@ -182,48 +159,11 @@ class Workspaces(ABC):
         pass
 
     @abstractmethod
-    def update_sync_location(self, codespace_id: int, sync_location: str):
-        """
-        Updates Sync Location of a codespace
-        :param codespace_id: id of codespace
-        :param sync_location: new sync location of codespace
-        :return:
-        """
-        pass
-
-    @abstractmethod
-    def update_last_sync_time(self, codespace_id: int):
-        """
-        Update Last Sync time of a codespace
-        :param codespace_id: id of codespace
-        :return: result of update query
-        """
-        pass
-
-    @abstractmethod
-    def delete_project(self, project_id: int):
-        """
-        Delete Project and all its codespaces
-        :param project_id: id of project
-        :return: SUCCESS/ERROR
-        """
-        pass
-
-    @abstractmethod
     def delete_project_v2(self, project_id: int):
         """
         Delete Project and all its codespaces
         :param project_id: id of project
         :return: SUCCESS/ERROR
-        """
-        pass
-
-    @abstractmethod
-    def delete_codespace(self, codespace_id: int):
-        """
-        Deletes Codespace from cluster, db and s3
-        :param codespace_id: id of codespace
-        :return: No. of deleted rows
         """
         pass
 
@@ -257,35 +197,12 @@ class Workspaces(ABC):
         pass
 
     @abstractmethod
-    def edit_codespace(self, codespace_id: int, codespace_name: str, user: str, project_name: str = None):
-        """
-        Edits codespace name
-        :param codespace_id: id of codespace to edit
-        :param codespace_name: new name of codespace
-        :param user: user that edited the codespace
-        :param project_name: new name of Project
-        :return: SUCCESS/ERROR
-        """
-        pass
-
-    @abstractmethod
     def edit_codespace_v2(self, codespace_id: int, codespace_name: str, user: str):
         """
         Edits codespace name
         :param codespace_id: id of codespace to edit
         :param codespace_name: new name of codespace
         :param user: user that edited the codespace
-        :return: SUCCESS/ERROR
-        """
-        pass
-
-    @abstractmethod
-    def edit_project(self, project_id: int, project_name: str, user: str):
-        """
-        Edits project name
-        :param project_id: id of project
-        :param project_name: new name of project
-        :param user: requested by user
         :return: SUCCESS/ERROR
         """
         pass

@@ -271,6 +271,116 @@ POST /api/v1/serve/deploy-model
 - `serve_name` is optional; if it is omitted, ML Serve will create (or reuse) a `<user>-one-click-deployments` serve automatically.
 - `artifact_version` is required so each one-click deployment can be tracked like a standard artifact/serve deployment. It is a deployment label for the one-click serve (not the underlying runtime image tag).
 
+#### Model Requirements for One-Click Deployment
+
+For models to work with the one-click deployment runtime, they **must be logged with MLflow Model Signatures**. This enables:
+- **Input schema discovery** via `GET /schema` endpoint
+- **Automatic input validation** for predictions
+- **Programmatic API understanding** for clients
+
+**Required: Log Models with Signatures**
+
+When training your model, use `infer_signature()` and `input_example` when logging to MLflow:
+
+```python
+from mlflow.models import infer_signature
+import mlflow.sklearn  # or mlflow.pytorch, mlflow.tensorflow, etc.
+
+# Train your model
+model.fit(X_train, y_train)
+
+# Create output with explicit column name
+y_pred_df = pd.DataFrame(model.predict(X_train), columns=["predicted_class"])
+
+# Create signature from training data
+signature = infer_signature(X_train, y_pred_df)
+
+# Log model WITH signature and input_example
+mlflow.sklearn.log_model(
+    model,
+    "model",
+    signature=signature,           # Required for /schema endpoint
+    input_example=X_train.iloc[0:1]  # Required for sample_request
+)
+```
+
+**Making Predictions**
+
+The deployed model accepts predictions in two modes:
+
+**Mode 1 - Direct Features (Recommended):**
+```bash
+POST http://localhost/{serve-name}/predict
+{
+  "features": {
+    "sepal_length": 5.1,
+    "sepal_width": 3.5,
+    "petal_length": 1.4,
+    "petal_width": 0.2
+  }
+}
+```
+
+**Mode 2 - Feature Store (OFS):**
+```bash
+POST http://localhost/{serve-name}/predict
+{
+  "feature_group": "iris_features",
+  "ofs_keys": {"sample_id": 123}
+}
+```
+
+**Discovering Model Schema**
+
+Use the `/schema` endpoint to programmatically discover what features your model expects:
+
+```bash
+GET http://localhost/{serve-name}/schema
+
+Response:
+{
+  "inputs": [
+    {"name": "sepal_length", "type": "double", "required": true},
+    {"name": "sepal_width", "type": "double", "required": true},
+    {"name": "petal_length", "type": "double", "required": true},
+    {"name": "petal_width", "type": "double", "required": true}
+  ],
+  "outputs": [
+    {"name": "prediction", "type": "long"}
+  ],
+  "sample_request": {
+    "features": {
+      "sepal_length": 5.1,
+      "sepal_width": 3.5,
+      "petal_length": 1.4,
+      "petal_width": 0.2
+    }
+  },
+  "json_schema": {
+    "type": "object",
+    "properties": {
+      "sepal_length": {"type": "number"},
+      ...
+    },
+    "required": ["sepal_length", "sepal_width", "petal_length", "petal_width"]
+  }
+}
+```
+
+The `sample_request` field provides a copy-paste ready payload for the `/predict` endpoint.
+
+**Complete Training Example**
+
+See the example notebooks in `examples/` for complete training workflows:
+- `examples/iris-classification/train_iris_model.ipynb` - Classification example
+- `examples/house-price-prediction/train_house_pricing_model.ipynb` - Regression example
+
+Both examples demonstrate:
+- Logging models with signatures
+- Using `infer_signature()` with training data
+- Providing `input_example` for sample payloads
+- Feature dictionary format for predictions
+
 ### One-Click Model Undeploy
 
 Stop and remove a model that was deployed via the one-click deployment API:

@@ -72,20 +72,8 @@ GET_CODESPACE_FROM_NAME = """
 SELECT * FROM codespaces where project_id=%(project_id)s and name=%(codespace_name)s
 """
 
-UPDATE_CODESPACE_JUPYTER_LINK_AND_SYNC_JOB = """
-UPDATE codespaces SET jupyter_link = %(jupyter_link)s, sync_job_id = %(sync_job_id)s WHERE id = %(codespace_id)s
-"""
-
 UPDATE_CODESPACE_JUPYTER_LINK = """
 UPDATE codespaces SET jupyter_link = %(jupyter_link)s WHERE id = %(codespace_id)s
-"""
-
-UPDATE_CODESPACE_SYNC_LOCATION = """
-UPDATE codespaces SET sync_location = %(sync_location)s WHERE id = %(codespace_id)s
-"""
-
-UPDATE_CODESPACE_LAST_SYNCED_TIME = """
-UPDATE codespaces SET last_synced_at = CURRENT_TIMESTAMP WHERE id = %(codespace_id)s
 """
 
 DELETE_PROJECT = """

@@ -364,7 +364,24 @@ hermes create-environment \
 ./start.sh
 ```
 
+#### Choosing Your Components
+
+During `init.sh`, you'll select which Darwin components to enable. Here's how to decide based on your workflow:
+
+| If you want to... | Enable |
+|-------------------|--------|
+| Run distributed data processing jobs or spin up short-lived compute clusters | **Compute** |
+| Work interactively with persistent code and notebooks attached to scalable clusters | **Workspace** (includes Compute) |
+| Store, version, and serve features for ML training and inference | **Feature Store** |
+| Track experiments, log metrics, and manage model versions | **MLflow** |
+| Deploy trained models as real-time inference endpoints | **Serve** (includes Artifact Builder) |
+| Discover and track lineage across datasets, models, and pipelines | **Catalog** |
+| Capture platform events and build metadata graphs | **Chronos** |
+
+> **Tip**: Dependencies are resolved automatically. For example, enabling **Workspace** will also enable **Compute**, and enabling **Serve** will include **Artifact Builder** and **MLflow**.
+
 **Access Services**:
+- Compute: `http://localhost/compute/*`
 - Feature Store: `http://localhost/feature-store/*`
 - MLflow UI: `http://localhost/mlflow/*`
 - Chronos API: `http://localhost/chronos/*`
@@ -380,7 +397,7 @@ curl --location 'http://localhost/compute/cluster' \
   --data-raw '{
     "cluster_name": "my-first-cluster",
     "tags": ["demo"],
-    "runtime": "Ray2.37.0-Py310-CPU",
+    "runtime": "0.0",
     "inactive_time": 30,
     "head_node_config": {
         "cores": 4,
@@ -396,6 +413,10 @@ curl --location 'http://localhost/compute/cluster' \
     ],
     "user": "user@example.com"
 }'
+
+# Wait for Cluster to become Active
+curl http://localhost/compute/cluster/{cluster_id}/metadata
+# Wait until the status shows active.
 
 # Response will include cluster_id
 # Get Cluster Dashboards link via below API using cluster_id
@@ -417,12 +438,12 @@ pip install -e darwin-compute/sdk
 # Create a cluster
 from darwin_compute import ComputeCluster
 
-cluster = ComputeCluster(env="local")
+cluster = ComputeCluster(env="darwin-local")
 response = cluster.create_with_yaml("examples/cluster-config.yaml")
 cluster_id = response['cluster_id']
 
-# Start the cluster
-cluster.start(cluster_id)
+# Check and wait until cluster status becomes active
+cluster.get_info(cluster_id)
 
 # Stop when done
 cluster.stop(cluster_id)
@@ -501,7 +522,7 @@ curl --location 'http://localhost/compute/cluster' \
   --data-raw '{
     "cluster_name": "housing-project",
     "tags": ["tutorial", "housing-prices"],
-    "runtime": "Ray2.37.0-Py310-CPU",
+    "runtime": "0.0",
     "inactive_time": 60,
     "head_node_config": {
         "cores": 4,
@@ -526,10 +547,10 @@ Save the `cluster_id` from the response - you'll need it for the next steps.
 Check your cluster status:
 
 ```bash
-curl http://localhost/compute/cluster/{cluster_id}/status
+curl http://localhost/compute/cluster/{cluster_id}/metadata
 ```
 
-**Wait until the compute shows READY.**
+**Wait until the status shows active.**
 
 ### 📓 3) Open Jupyter Notebook
 
@@ -550,7 +571,7 @@ In the Jupyter notebook, copy the example project: /examples/housing-prices/ in 
 Verify your trained model in the Darwin MLflow UI:
 
 ```
-http://localhost/mlflow/
+http://localhost/mlflow-app/experiments
 ```
 
 Navigate to your experiment to see the registered model with metrics and parameters.
@@ -755,7 +776,6 @@ DOCKER_REGISTRY=127.0.0.1:32768
 Customize deployments via `helm/darwin/values.yaml`:
 ```yaml
 global:
-  imageRegistry: docker.io
   namespace: darwin
   
 services:
@@ -842,6 +862,7 @@ Add new Ray runtimes by creating Dockerfiles in `darwin-compute/runtimes/`:
 ```dockerfile
 # darwin-compute/runtimes/cpu/Ray2.37_Py3.11_CustomLibs/Dockerfile
 FROM rayproject/ray:2.37.0-py311
+RUN pip install jupyterlab==4.3.0
 RUN pip install custom-library
 ```
 

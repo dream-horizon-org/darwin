@@ -275,11 +275,11 @@ class EnvironmentRequest(BaseModel):
 
 
 class ModelDeploymentRequest(BaseModel):
-    serve_name: Optional[str] = Field(
-        None,
+    serve_name: str = Field(
+        ...,
         min_length=1,
         max_length=50,
-        description="Optional serve name. When omitted, a default one-click serve will be created.",
+        description="Name of the serve to deploy to (1–50 characters). Serve will be auto-created if it doesn't exist.",
     )
     artifact_version: str = Field(
         ...,
@@ -308,7 +308,15 @@ class ModelDeploymentRequest(BaseModel):
             raise ValueError("min_replicas cannot be greater than max_replicas")
         return self
 
-    @field_validator("serve_name", "model_uri", "artifact_version", mode="before")
+    @field_validator("serve_name", mode="before")
+    def validate_serve_name(cls, value):
+        if isinstance(value, str):
+            value = value.strip().lower()
+            if "_" in value:
+                raise ValueError("serve_name cannot contain underscores")
+        return value
+
+    @field_validator("model_uri", "artifact_version", mode="before")
     def strip_whitespace(cls, value):
         if isinstance(value, str):
             return value.strip()
@@ -320,15 +328,9 @@ class ModelUndeployRequest(BaseModel):
     serve_name: str = Field(
         ..., min_length=1, max_length=50, description="Name of the serve to undeploy (1–50 characters)."
     )
-    artifact_version: str = Field(
-        ...,
-        min_length=1,
-        max_length=50,
-        description="Version label for the one-click artifact (1–50 characters).",
-    )
     env: str = Field(..., description="Environment name where the model is deployed (e.g., 'local', 'prod')")
 
-    @field_validator("serve_name", "artifact_version", mode="before")
+    @field_validator("serve_name", mode="before")
     def strip_whitespace(cls, value):
         if isinstance(value, str):
             return value.strip()

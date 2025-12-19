@@ -9,6 +9,7 @@ from ml_serve_app_layer.dtos.requests import DeploymentRequest, APIServeDeployme
     WorkflowServeDeploymentConfigRequest, ModelDeploymentRequest, ModelUndeployRequest
 from ml_serve_core.client.darwin_workflow_client import DarwinWorkflowClient
 from ml_serve_core.client.dcm_client import DCMClient
+from ml_serve_core.client.mlflow_client import MLflowClient
 from ml_serve_core.constants.constants import (
     FASTAPI_SERVE_RESOURCE_NAME,
     FASTAPI_SERVE_CHART_VERSION,
@@ -31,6 +32,7 @@ from ml_serve_model.deployment import Deployment
 from loguru import logger
 from ml_serve_model.serve_configs import ServeConfig, WorkflowServeInfraConfig
 from ml_serve_model.enums import BackendType, ServeType, DeploymentStatus
+from datetime import datetime, timezone
 
 
 class DeploymentService:
@@ -39,6 +41,7 @@ class DeploymentService:
         self.dcm_client = DCMClient()
         self.serve_config_service = ServeConfigService()
         self.workflow_client = DarwinWorkflowClient()
+        self.mlflow_client = MLflowClient()
 
     @staticmethod
     def _sanitize_identifier(value: str) -> str:
@@ -51,21 +54,11 @@ class DeploymentService:
         sanitized = self._sanitize_identifier(username) if username else "one-click"
         return sanitized or "one-click"
 
-    def _derive_serve_name(self, request: ModelDeploymentRequest, user: User) -> str:
-        if request.serve_name:
-            if "_" in request.serve_name:
-                raise HTTPException(
-                    status_code=400,
-                    detail="serve_name cannot contain underscores for one-click deployments."
-                )
-            return request.serve_name.lower()
-
-        base = self._default_space(user)
-        candidate = f"{base}-one-click-deployments"
-        return candidate[:50]
-
-    def _build_one_click_env_vars(self, model_uri: str) -> dict:
-        env_vars = {"MLFLOW_MODEL_URI": model_uri}
+    def _build_one_click_env_vars(self, model_uri: str, artifact_version: str) -> dict:
+        env_vars = {
+            "MLFLOW_MODEL_URI": model_uri,
+            "ARTIFACT_VERSION": artifact_version,
+        }
         if MLFLOW_TRACKING_URI:
             env_vars["MLFLOW_TRACKING_URI"] = MLFLOW_TRACKING_URI
         if MLFLOW_TRACKING_USERNAME:
@@ -80,7 +73,13 @@ class DeploymentService:
             await ActiveDeployment.create(serve=serve, environment=env, deployment=deployment)
             return
 
-        active_deployment.previous_deployment = await active_deployment.deployment
+        # Mark previous deployment as ENDED
+        previous = await active_deployment.deployment
+        previous.status = DeploymentStatus.ENDED.value
+        previous.ended_at = datetime.now(timezone.utc)
+        await previous.save()
+
+        active_deployment.previous_deployment = previous
         active_deployment.deployment = deployment
         await active_deployment.save()
 
@@ -511,6 +510,19 @@ class DeploymentService:
         )
 
     async def deploy_model(self, request: ModelDeploymentRequest, user: User):
+        # Validate model URI exists in MLflow before proceeding
+        is_valid, error_msg = await self.mlflow_client.validate_model_uri(request.model_uri)
+        if not is_valid:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Invalid model URI",
+                    "error": error_msg,
+                    "hint": "Please verify the model exists in MLflow and the URI is correct."
+                }
+            )
+
+        # Get environment from database
         env = await Environment.get_or_none(name=request.env)
         if not env:
             raise HTTPException(
@@ -519,7 +531,7 @@ class DeploymentService:
             )
 
         env_config = EnvConfig(**env.env_configs)
-        serve_name = self._derive_serve_name(request, user)
+        serve_name = request.serve_name  # serve_name is required
 
         serve = await Serve.get_or_none(name=serve_name)
         if serve and serve.type != ServeType.API.value:
@@ -536,6 +548,17 @@ class DeploymentService:
                 space=self._default_space(user),
                 created_by=user,
             )
+
+        # Check if this version is already actively deployed
+        active = await ActiveDeployment.get_or_none(serve=serve, environment=env)
+        if active:
+            active_deployment_obj = await active.deployment
+            active_artifact = await active_deployment_obj.artifact
+            if active_artifact.version == request.artifact_version:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Version '{request.artifact_version}' is already deployed for serve '{serve_name}'. "
+                )
 
         artifact = await Artifact.get_or_none(serve=serve, version=request.artifact_version)
         if not artifact:
@@ -575,7 +598,7 @@ class DeploymentService:
             api_infra_config.updated_by = user
             await api_infra_config.save()
 
-        environment_variables = self._build_one_click_env_vars(request.model_uri)
+        environment_variables = self._build_one_click_env_vars(request.model_uri, request.artifact_version)
 
         values_json = generate_fastapi_values_for_one_click_model_deployment(
             name=serve.name,
@@ -642,9 +665,10 @@ class DeploymentService:
             dict with status message
 
         Raises:
-            HTTPException: If environment not found or resource not running
+            HTTPException: If environment not found, serve not found, or no active deployment
         """
-        # Get environment from database
+        
+        # 1. Validate environment exists
         env = await Environment.get_or_none(name=request.env)
         if not env:
             raise HTTPException(
@@ -652,30 +676,30 @@ class DeploymentService:
                 detail=f"Environment '{request.env}' not found."
             )
 
-        env_config = EnvConfig(**env.env_configs)
+        # 2. Validate serve exists in DB
         serve_name = request.serve_name
+        serve = await Serve.get_or_none(name=serve_name)
+        if not serve:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Serve '{serve_name}' not found."
+            )
 
+        # 3. Validate active deployment exists
+        active = await ActiveDeployment.get_or_none(serve=serve, environment=env)
+        if not active:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No active deployment found for serve '{serve_name}' in environment '{request.env}'."
+            )
+
+        env_config = EnvConfig(**env.env_configs)
+        
         # For one-click deployments, resource_id is just the serve_name
         # (unlike regular serves which use {env.name}-{serve.name})
         resource_id = serve_name
 
-        # Check if the resource is running
-        try:
-            status = await self.dcm_client.get_status(
-                resource_id=resource_id,
-                kube_cluster=env_config.cluster_name,
-                kube_namespace=env_config.namespace,
-            )
-            logger.info(f"Found running resource '{resource_id}' with status: {status}")
-        except Exception as e:
-            logger.warning(f"Resource '{resource_id}' not found or not running: {e}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"No running deployment found for serve '{serve_name}' in environment '{request.env}'. "
-                       f"The model may not be deployed or was already undeployed."
-            )
-
-        # Stop the resource via DCM
+        # 4. Stop the resource via DCM
         try:
             await self.dcm_client.stop_resource(
                 resource_id=resource_id,
@@ -690,6 +714,13 @@ class DeploymentService:
                 status_code=500,
                 detail=f"Failed to undeploy model: {str(e)}"
             )
+
+        # 5. Update DB state - mark deployment ENDED and remove active pointer
+        current_deployment = await active.deployment
+        current_deployment.status = DeploymentStatus.ENDED.value
+        current_deployment.ended_at = datetime.now(timezone.utc)
+        await current_deployment.save()
+        await active.delete()
 
         return {
             "message": f"Undeploy initiated for model serve '{serve_name}' in environment '{request.env}'",

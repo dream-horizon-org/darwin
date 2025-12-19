@@ -11,7 +11,6 @@ from fastapi.staticfiles import StaticFiles
 
 from workspace_app_layer.constants.config import Config
 from workspace_app_layer.controllers.workspace import *
-from workspace_app_layer.controllers.workspace.get_datadog_metrics import datadog_metrics_controller
 
 from workspace_app_layer.controllers.workspace.get_project_id_and_codespace_id_rom_codespace_path import (
     get_project_id_and_codespace_id_from_codespace_path,
@@ -23,17 +22,14 @@ from workspace_app_layer.controllers.workspace.get_workspaces_and_codespaces imp
 from workspace_app_layer.models.workspace import *
 
 from workspace_app_layer.models.workspace.codespace_path_request import CodespacePathRequest
-from workspace_app_layer.models.workspace.datadog_query_request import DatadogQueryRequest
 from workspace_app_layer.models.workspace.get_all_cluster_request import GetAllClusterRequest
 
 from workspace_core.service.compute import Compute
-from workspace_core.service.datadog import DataDog
 from workspace_core.workspaces import WorkspacesSDK
 
 ENV = os.getenv("ENV")
 
 compute = Compute(env=ENV)
-datadog = DataDog()
 workspace = WorkspacesSDK(env=ENV)
 log_file_root = Config(env=ENV).log_file_root
 
@@ -131,16 +127,6 @@ async def create_codespace_v2(request: CreateCodespaceRequest):
     return await create_codespace_v2_controller(workspace, request, compute, ENV)
 
 
-@app.put("/update-sync-location")
-def updatesynclocation(request: UpdateSyncLocationRequest):
-    return update_sync_location(workspace, request)
-
-
-@app.put("/update-last-sync-time")
-async def updatelastsynctime(request: UpdateLastSyncTimeRequest):
-    return await update_last_sync_time(workspace, request)
-
-
 @app.post("/get-all-clusters")
 async def getallclusters(request: GetAllClusterRequest):
     return await get_all_clusters(compute, request)
@@ -189,18 +175,3 @@ def get_workspaces():
 @app.post("/folder-contents")
 def folder_contents(request: FolderContentsRequest):
     return folder_contents_controller(workspace, request)
-
-
-@app.post("/upload_to_s3")
-async def upload_to_s3(request: UploadToS3Request):
-    return await upload_to_s3_controller(workspace, request)
-
-
-@app.post("/file_content")
-async def read_json_file(request: GetFileContents):
-    return await get_file_contents_controller(workspace, request)
-
-
-@app.post("/datadog/metrics")
-async def get_datadog_metrics(request: DatadogQueryRequest):
-    return await datadog_metrics_controller(datadog, request)

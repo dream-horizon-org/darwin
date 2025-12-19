@@ -19,7 +19,6 @@ from workspace_core.utils.events_mapper import chronos_events_mapper
 from workspace_core.utils.events_utils import EventAPIClient
 from workspace_core.utils.logging_util import get_logger
 from workspace_core.utils.s3_utils import S3Utils
-from workspace_core.utils.get_file_contents import get_file_contents
 from workspace_core.utils.utils import *
 
 logger = get_logger(__name__)
@@ -148,87 +147,6 @@ class WorkspacesSDK(Workspaces):
         codespace = CodespaceResponse.from_dict(result)
         return codespace
 
-    def _create_codespace_in_cluster(
-        self, project: ProjectResponse, codespace: CodespaceResponse, cluster: dict, cloned_from: str
-    ):
-        """
-        Sends job to cluster to create codespace
-        :return: None
-        """
-        url = HTTP + self.darwin_host_internal + codespace.cluster_id + "-dashboard/" + RAY_JOB_SUBMIT_URL
-        cmd_to_run = (
-            f"python3 workspace_core/actors/create_codespace.py {project.user_id} {project.name} "
-            f"{codespace.name} {cloned_from} {self.s3_bucket}"
-        )
-        params = {
-            "entrypoint": cmd_to_run,
-            "runtime_env": {"working_dir": self.ray_job_location},
-            "metadata": {"owner": "DARWIN"},
-        }
-        try:
-            response = httpx.post(url=url, json=params)
-            self._send_event(WorkspaceState.LAUNCH_JOB_SUBMITTED, codespace, project, cluster, response.json())
-            if is_job_successful(response.json(), url):
-                self._send_event(WorkspaceState.LAUNCH_JOB_SUCCESSFUL, codespace, project, cluster)
-            else:
-                raise RuntimeError("Launch Job Failure")
-        except Exception as err:
-            logger.error(f"Error in _create_codespace_in_cluster: {err}")
-            raise err
-
-    def _update_cs_jupyter_link_and_sync_job_id(self, jupyter_link: str, codespace_id: int, sync_job_id: str):
-        data = {"jupyter_link": jupyter_link, "codespace_id": codespace_id, "sync_job_id": sync_job_id}
-        result, _ = self.dao.update(UPDATE_CODESPACE_JUPYTER_LINK_AND_SYNC_JOB, data)
-        logger.debug(f"_update_sync_job_id: {result}")
-
-    def _start_new_sync_job(self, codespace: CodespaceResponse, project: ProjectResponse, cluster, jupyter_link: str):
-        url = HTTP + self.darwin_host_internal + codespace.cluster_id + "-dashboard/" + RAY_JOB_SUBMIT_URL
-        cmd_to_run = (
-            f"python3 workspace_core/actors/sync_codespace.py {project.user_id} {project.name} "
-            f"{codespace.name} {self.s3_bucket} {self.app_layer_url} {codespace.id}"
-        )
-        params = {
-            "entrypoint": cmd_to_run,
-            "runtime_env": {"working_dir": self.ray_job_location},
-            "metadata": {"owner": "DARWIN"},
-        }
-        try:
-            if codespace.sync_job_id:
-                stop_job(url, codespace.sync_job_id)
-            sync_job_submit_response = httpx.post(url=url, json=params).json()
-            self._send_event(WorkspaceState.SYNC_JOB_SUBMITTED, codespace, project, cluster, sync_job_submit_response)
-            if not is_job_successful(sync_job_submit_response, url, is_long_running=True):
-                raise RuntimeError("Syncing Failed")
-            self._update_cs_jupyter_link_and_sync_job_id(
-                jupyter_link, codespace.id, sync_job_submit_response["submission_id"]
-            )
-        except Exception as err:
-            logger.error(f"Error in _start_new_sync_job: {err}")
-            raise err
-
-    def launch_codespace(self, codespace_id: int, cloned_from: Optional[str] = None):
-        """
-        Creates a jupyter environment in a cluster with codespace
-        :param codespace_id: id of codespace to launch
-        :param cloned_from: cloned from codespace
-        :return: obj
-        """
-        codespace = self.codespace_details(codespace_id)
-        project = self.project_details(codespace.project_id)
-        cluster = self.compute.get_cluster_details(codespace.cluster_id)
-        self._send_event(WorkspaceState.LAUNCH_CODESPACE_REQUESTED, codespace, project, cluster)
-        try:
-            self._create_codespace_in_cluster(project, codespace, cluster, cloned_from)
-            cluster_notebook_link = cluster["dashboards"]["data"]["jupyter_lab_url"]
-            jupyter_link = f"{cluster_notebook_link}{CODESPACE_URL}{project.user_id}/{project.name}/{codespace.name}"
-            self._start_new_sync_job(codespace, project, cluster, jupyter_link)
-            self._send_event(WorkspaceState.LAUNCH_CODESPACE_SUCCESSFUL, codespace, project, cluster)
-            return {"project": project, "codespace": codespace, "cluster": cluster, "jupyter_link": jupyter_link}
-        except Exception as err:
-            logger.error(f"Error in launch_codespace: {err}")
-            self._send_event(WorkspaceState.LAUNCH_CODESPACE_FAILED, codespace, project, cluster)
-            raise err
-
     def insert_last_selected_codespace(self, codespace_id: int, user_id: str):
         data = {"codespace_id": codespace_id, "user_id": user_id}
         logger.debug(f"Updating last selected codespace: {data}")
@@ -339,21 +257,6 @@ class WorkspacesSDK(Workspaces):
 
         return result
 
-    def detach_cluster(self, codespace_id: int):
-        """
-        Adds cluster to codespace
-        :param codespace_id: id of codespace
-        :return: Codespace
-        """
-        codespace = self.codespace_details(codespace_id)
-        url = f"{HTTP}{self.darwin_host_internal}{codespace.cluster_id}-dashboard/{RAY_JOB_SUBMIT_URL}"
-        stop_job(url, codespace.sync_job_id)
-
-        data = {"codespace_id": codespace_id}
-        result, _ = self.dao.update(DETACH_CLUSTER, data)
-
-        return result
-
     def detach_cluster_v2(self, codespace_id: int):
         """
         Adds cluster to codespace
@@ -365,48 +268,6 @@ class WorkspacesSDK(Workspaces):
         logger.debug(f"Detached cluster for codespace_id {codespace_id}: {result}")
 
         return result
-
-    def _import_project_in_cluster(
-        self, project: ProjectResponse, codespace: CodespaceResponse, cluster, github_link: str
-    ):
-        """
-        Sends job to import a project in the cluster
-        :return: None
-        """
-        url = f"{HTTP}{self.darwin_host_internal}{codespace.cluster_id}-dashboard/{RAY_JOB_SUBMIT_URL}"
-        cmd_to_run = (
-            f"python3 workspace_core/actors/import_project.py {project.user_id} {github_link} "
-            f"{project.name} {codespace.name}"
-        )
-        params = {
-            "entrypoint": cmd_to_run,
-            "runtime_env": {"working_dir": self.ray_job_location},
-            "metadata": {"owner": "DARWIN"},
-        }
-        try:
-            response = httpx.post(url=url, json=params)
-            self._send_event(WorkspaceState.IMPORT_JOB_SUBMITTED, codespace, project, cluster, response.json())
-            if is_job_successful(response.json(), url):
-                self._send_event(WorkspaceState.IMPORT_PROJECT_SUCCESSFUL, codespace, project, cluster)
-            else:
-                raise RuntimeError("Launch Job Failure")
-        except Exception as err:
-            logger.error(f"Error in _import_project_in_cluster: {err}")
-            raise err
-
-    def launch_imported_project(self, codespace_id: int, github_link: str):
-        codespace = self.codespace_details(codespace_id)
-        project = self.project_details(codespace.project_id)
-        cluster = self.compute.get_cluster_details(codespace.cluster_id)
-        self._send_event(WorkspaceState.IMPORT_PROJECT_REQUESTED, codespace, project, cluster)
-
-        self._import_project_in_cluster(project, codespace, cluster, github_link)
-        cluster_notebook_link = cluster["dashboards"]["data"]["jupyter_lab_url"]
-        jupyter_link = f"{cluster_notebook_link}{CODESPACE_URL}{project.user_id}/{project.name}/{codespace.name}"
-        self._start_new_sync_job(codespace, project, cluster, jupyter_link)
-        self._send_event(WorkspaceState.IMPORT_PROJECT_SUCCESSFUL, codespace, project, cluster)
-
-        return {"project": project, "codespace": codespace, "cluster": cluster, "jupyter_link": jupyter_link}
 
     def launch_imported_project_v2(self, codespace_id: int, github_link: str, user_id: str):
         codespace = self.codespace_details(codespace_id)
@@ -525,82 +386,9 @@ class WorkspacesSDK(Workspaces):
 
         return result
 
-    def update_sync_location(self, codespace_id: int, sync_location: str):
-        """
-        Updates Sync Location of a codespace
-        :param codespace_id: id of codespace
-        :param sync_location: new sync location of codespace
-        :return:
-        """
-        data = {"sync_location": sync_location, "codespace_id": codespace_id}
-        result, _ = self.dao.update(UPDATE_CODESPACE_SYNC_LOCATION, data)
-        return result
-
-    def update_last_sync_time(self, codespace_id: int):
-        """
-        Update Last Sync time of a codespace
-        :param codespace_id: id of codespace
-        :return: result of update query
-        """
-        codespace = self.codespace_details(codespace_id)
-        data = {"codespace_id": codespace_id}
-        self.dao.update(UPDATE_CODESPACE_LAST_SYNCED_TIME, data)
-
-        data = {"project_id": codespace.project_id}
-        result, _ = self.dao.update(UPDATE_PROJECT_TIME, data)
-        return result
-
-    def _delete_from_cluster(self, cluster_id: str, user_id: str, project_name: str = None, codespace_name: str = None):
-        url = f"{HTTP}{self.darwin_host_internal}{cluster_id}-dashboard/{RAY_JOB_SUBMIT_URL}"
-        cmd_to_run = f"python3 workspace_core/actors/delete_folder.py {user_id}"
-        cmd_to_run += f" {project_name}" if project_name else ""
-        cmd_to_run += f" {codespace_name}" if codespace_name else ""
-        params = {
-            "entrypoint": cmd_to_run,
-            "runtime_env": {"working_dir": self.ray_job_location},
-            "metadata": {"owner": "DARWIN"},
-        }
-        try:
-            response = httpx.post(url=url, json=params).json()
-            if not is_job_successful(response, url):
-                raise RuntimeError(response)
-        except Exception as err:
-            logger.error(f"Error while deleting folder from cluster: {err}")
-            raise err
-        return False
-
-    def delete_from_s3(self, user_id: str, project_name: str = None, codespace_name: str = None):
-        s3_bucket = self.s3_bucket.split("/")[2]
-        folder = f"Workspaces/" if self.env == "prod" else ""
-        folder += f"{user_id}"
-        folder += f"/{project_name}" if project_name else ""
-        folder += f"/{codespace_name}" if codespace_name else ""
-        delete_folder_from_s3(s3_bucket, folder)
-
     def delete_project_from_db(self, project_id: int):
         data = {"project_id": project_id}
         result, _ = self.dao.delete(DELETE_PROJECT, data)
-        return result
-
-    def delete_project(self, project_id: int):
-        """
-        Delete Project and all its codespaces
-        :param project_id: id of project
-        :return: SUCCESS/ERROR
-        """
-        project = self.project_details(project_id)
-        codespaces = self.list_codespaces(project_id)
-        for codespace in codespaces:
-            if codespace.cluster_id:
-                url = f"{HTTP}{self.darwin_host_internal}{codespace.cluster_id}-dashboard/{RAY_JOB_SUBMIT_URL}"
-                stop_job(url, codespace.sync_job_id)
-
-                self._delete_from_cluster(codespace.cluster_id, project.user_id, project.name)
-
-            self.delete_codespace_from_db(codespace.id)
-
-        self.delete_from_s3(project.user_id, project.name)
-        result = self.delete_project_from_db(project_id)
         return result
 
     def delete_project_v2(self, project_id: int):
@@ -626,25 +414,6 @@ class WorkspacesSDK(Workspaces):
 
     def _delete_from_fsx(self, user_id: str, project_name: str, codespace_name: Optional[str] = None):
         delete_folder(fsx_root=self.fsx_root, user_id=user_id, project_name=project_name, codespace_name=codespace_name)
-
-    def delete_codespace(self, codespace_id: int):
-        """
-        Deletes Codespace from cluster, db and s3
-        :param codespace_id: id of codespace
-        :return: No. of deleted rows
-        """
-        codespace = self.codespace_details(codespace_id)
-        project = self.project_details(codespace.project_id)
-
-        if codespace.cluster_id:
-            url = f"{HTTP}{self.darwin_host_internal}{codespace.cluster_id}-dashboard/{RAY_JOB_SUBMIT_URL}"
-            stop_job(url, codespace.sync_job_id)
-
-            self._delete_from_cluster(codespace.cluster_id, project.user_id, project.name, codespace.name)
-
-        self.delete_from_s3(project.user_id, project.name, codespace.name)
-        result = self.delete_codespace_from_db(codespace_id)
-        return result
 
     def delete_codespace_v2(self, codespace_id: int):
         """
@@ -689,31 +458,6 @@ class WorkspacesSDK(Workspaces):
         logger.debug(f"Playground: {result}")
         return result
 
-    def _edit_in_cluster(
-        self,
-        cluster_id: str,
-        user_id: str,
-        project_name: str = None,
-        codespace_name: str = None,
-        new_codespace_name: str = None,
-        new_project_name: str = None,
-    ):
-        url = f"{HTTP}{self.darwin_host_internal}{cluster_id}-dashboard/{RAY_JOB_SUBMIT_URL}"
-        cmd_to_run = f"python3 workspace_core/actors/edit_folder.py {user_id}"
-        cmd_to_run += f" {project_name}" if project_name else ""
-        cmd_to_run += f" {codespace_name}" if codespace_name else ""
-        cmd_to_run += f" {new_codespace_name}" if new_codespace_name else ""
-        cmd_to_run += f" {new_project_name}" if project_name else ""
-        params = {
-            "entrypoint": cmd_to_run,
-            "runtime_env": {"working_dir": self.ray_job_location},
-            "metadata": {"owner": "DARWIN"},
-        }
-        response = httpx.post(url=url, json=params).json()
-        if not is_job_successful(response, url):
-            logger.error(f"Failed to edit in cluster: {response}")
-            raise RuntimeError("Failed to edit in cluster")
-
     def _edit_codespace_in_db(self, codespace_name: str, codespace_id: int, user: str):
         data = {"codespace_id": codespace_id, "codespace_name": codespace_name, "user": user}
         result, _ = self.dao.update(UPDATE_CODESPACE_NAME, data)
@@ -741,51 +485,6 @@ class WorkspacesSDK(Workspaces):
             new_codespace_name=new_codespace_name,
         )
 
-    def edit_codespace(self, codespace_id: int, codespace_name: str, user: str, project_name: str = None):
-        """
-        Edits codespace name
-        :param codespace_id: id of codespace to edit
-        :param codespace_name: new name of codespace
-        :param user: user that edited the codespace
-        :param project_name: new name of Project
-        :return: SUCCESS/ERROR
-        """
-        codespace = self.codespace_details(codespace_id)
-        project = self.project_details(codespace.project_id)
-        cluster = None
-        if codespace.cluster_id:
-            cluster = self.compute.get_cluster_details(codespace.cluster_id)
-
-        old_project_name = project.name
-        old_codespace_name = codespace.name
-
-        if codespace.cluster_id and cluster["status"] == "active":
-            url = f"{HTTP}{self.darwin_host_internal}{codespace.cluster_id}-dashboard/{RAY_JOB_SUBMIT_URL}"
-            stop_job(url, codespace.sync_job_id)
-            self._edit_in_cluster(
-                cluster_id=codespace.cluster_id,
-                user_id=project.user_id,
-                project_name=project.name,
-                codespace_name=codespace.name,
-                new_codespace_name=codespace_name,
-                new_project_name=project_name,
-            )
-            project.name = project_name if project_name else project.name
-            codespace.name = codespace_name
-            cluster_notebook_link = cluster["dashboards"]["data"]["jupyter_lab_url"]
-            jupyter_link = f"{cluster_notebook_link}{CODESPACE_URL}{project.user_id}/{project.name}/{codespace_name}"
-            self._start_new_sync_job(codespace, project, cluster, jupyter_link)
-        elif not project_name:
-            existing_path = s3_path_generator(self.s3_bucket, project.user_id, project.name, codespace.name)
-            new_path = s3_path_generator(self.s3_bucket, project.user_id, project.name, codespace_name)
-            is_sync_path_updated = update_sync_path(existing_path, new_path)
-            if not is_sync_path_updated:
-                raise Exception("Sync failed for inactive/detached cluster")
-
-        self.delete_from_s3(project.user_id, old_project_name, old_codespace_name)
-        result = self._edit_codespace_in_db(codespace_name, codespace_id, user)
-        return result
-
     def edit_codespace_v2(self, codespace_id: int, codespace_name: str, user: str):
         """
         Edits codespace name
@@ -802,29 +501,6 @@ class WorkspacesSDK(Workspaces):
         )
 
         result = self._edit_codespace_in_db(codespace_name, codespace_id, user)
-        return result
-
-    def edit_project(self, project_id: int, project_name: str, user: str):
-        """
-        Edits project name
-        :param project_id: id of project
-        :param project_name: new name of project
-        :param user: requested by user
-        :return: SUCCESS/ERROR
-        """
-        project = self.project_details(project_id)
-
-        existing_path = s3_path_generator(self.s3_bucket, project.user_id, project.name)
-        new_path = s3_path_generator(self.s3_bucket, project.user_id, project_name)
-        is_sync_path_updated = update_sync_path(existing_path, new_path)
-
-        codespaces = self.list_codespaces(project_id)
-
-        for codespace in codespaces:
-            edit_codespace_resp = self.edit_codespace(codespace.id, codespace.name, codespace.user_id, project_name)
-
-        self.delete_from_s3(project.user_id, project.name)
-        result = self._edit_project_in_db(project_name, project_id, user)
         return result
 
     def edit_project_v2(self, project_id: int, project_name: str, user: str):
@@ -877,14 +553,6 @@ class WorkspacesSDK(Workspaces):
         :param destination_path: Destination path in S3
         """
         return self.s3_client.upload_file(source_path, s3_bucket, destination_path)
-
-    def get_file_contents(self, source_path: str):
-        """
-        Reads json file
-        :param source_path: Path of file to read
-        """
-        file_data = get_file_contents(source_path)
-        return file_data
 
     def get_project_id_and_codespace_id_from_codespace_path(self, user_id: str, project_name: str, codespace_name: str):
         """

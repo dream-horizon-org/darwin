@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, model_validator
@@ -9,6 +9,23 @@ from src.config.config import Config
 from src.feature_store.feature_store import FeatureStoreClient
 from src.model.model import Model
 from src.model.model_loader.ml_flow_model_loader import MLFlowModelLoader
+from src.schema.dynamic_model import get_schema_as_json_schema
+
+
+# Response models for schema endpoints
+class SchemaColumn(BaseModel):
+    """Schema for a single column/feature."""
+    name: str = Field(..., description="Column/feature name")
+    type: str = Field(..., description="Data type (e.g., 'double', 'integer', 'string')")
+    required: bool = Field(True, description="Whether this field is required")
+
+
+class SchemaResponse(BaseModel):
+    """Response model for /schema endpoint."""
+    inputs: List[SchemaColumn] = Field(..., description="Input feature schema")
+    outputs: List[Dict[str, Any]] = Field(..., description="Output prediction schema")
+    sample_request: Optional[Dict[str, Any]] = Field(None, description="Copy-paste ready sample request for /predict")
+    json_schema: Optional[Dict[str, Any]] = Field(None, description="JSON Schema format for validation")
 
 
 class PredictRequest(BaseModel):
@@ -110,6 +127,120 @@ async def healthcheck():
     return {"status": "healthy"}
 
 
+def _generate_sample_request(input_schema: List[Dict[str, Any]], input_example: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Generate a copy-paste ready sample request for /predict endpoint.
+    
+    Args:
+        input_schema: List of column definitions
+        input_example: Optional input example from MLflow model
+        
+    Returns:
+        Dict in the format {"features": {...}} ready for /predict
+    """
+    # Use input_example if available, otherwise generate placeholder values
+    if input_example:
+        features = input_example
+    else:
+        # Use representative example values that clearly show the expected type
+        # For float/double: use 1.5 instead of 0.0 to force JSON to display decimal point
+        type_defaults = {
+            "double": 1.5,
+            "float": 1.5,
+            "long": 0,
+            "integer": 0,
+            "string": "string",
+            "boolean": True,
+        }
+        
+        features = {}
+        for col in input_schema:
+            col_type = col.get("type", "object")
+            features[col["name"]] = type_defaults.get(col_type, None)
+    
+    return {"features": features}
+
+
+def _coerce_features_to_schema(features: Dict[str, Any], schema: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Coerce feature types to match schema expectations.
+    Handles int→float conversion for MLflow compatibility.
+    
+    Args:
+        features: Dictionary of feature names to values
+        schema: List of column definitions with 'name' and 'type'
+        
+    Returns:
+        Dictionary with coerced types
+    """
+    schema_map = {col["name"]: col["type"] for col in schema}
+    coerced = {}
+    
+    for name, value in features.items():
+        expected_type = schema_map.get(name)
+        
+        # Convert int to float for double/float fields to avoid MLflow type errors
+        if expected_type in ("double", "float") and isinstance(value, int) and not isinstance(value, bool):
+            coerced[name] = float(value)
+        else:
+            coerced[name] = value
+    
+    return coerced
+
+
+@app.get("/schema", response_model=SchemaResponse)
+async def get_schema():
+    """
+    Get the model's input/output schema.
+    
+    Returns schema information extracted from the MLflow model signature.
+    This allows API users to programmatically discover what features
+    the model expects and their data types.
+    
+    Returns:
+        SchemaResponse containing:
+        - inputs: List of input features with name, type, and required flag
+        - outputs: List of output fields
+        - sample_request: Copy-paste ready payload for POST /predict
+        - json_schema: JSON Schema format for validation
+        
+    Raises:
+        HTTPException 400: If model does not have a signature logged
+    """
+    try:
+        if not model.has_signature():
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Model does not have a signature.",
+                    "hint": "Please re-log the model with infer_signature() and input_example. "
+                            "See MLflow documentation: https://mlflow.org/docs/latest/model/signatures.html"
+                }
+            )
+        
+        full_schema = model.get_full_schema()
+        input_schema = full_schema.get("inputs", [])
+        input_example = full_schema.get("input_example")
+        
+        # Generate sample_request (copy-paste ready for /predict)
+        sample_request = _generate_sample_request(input_schema, input_example) if input_schema else None
+        
+        return SchemaResponse(
+            inputs=[SchemaColumn(**col) for col in input_schema],
+            outputs=full_schema.get("outputs", []),
+            sample_request=sample_request,
+            json_schema=get_schema_as_json_schema(input_schema)
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve schema: {str(e)}"
+        )
+
+
 @app.post("/predict", response_model=Dict[str, Any])
 async def predict(request: PredictRequest):
     """
@@ -131,7 +262,8 @@ async def predict(request: PredictRequest):
     - Bypasses feature store completely
     - Steps:
       1. Uses provided features dictionary directly
-      2. Makes a prediction using the model
+      2. Validates features against model schema (if available)
+      3. Makes a prediction using the model
     
     Args:
         request: PredictRequest containing either:
@@ -142,12 +274,34 @@ async def predict(request: PredictRequest):
         Dictionary containing the prediction result
         
     Raises:
-        HTTPException: If prediction fails or validation errors occur
+        HTTPException 422: If features do not match model schema
+        HTTPException 500: If prediction fails
     """
     try:
         # Mode 2: Direct Features Mode (bypass OFS)
         if request.features is not None:
             feature_dict = request.features
+            
+            # Validate features against model schema (strict validation)
+            if model.has_signature():
+                is_valid, validation_errors = model.validate_features(feature_dict)
+                
+                # Filter out unknown_field errors (we only fail on missing/type errors)
+                critical_errors = [
+                    e for e in validation_errors 
+                    if e.get("error_type") != "unknown_field"
+                ]
+                
+                if not is_valid and critical_errors:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "message": "Request features do not match model schema",
+                            "errors": critical_errors,
+                            "expected_schema": model.get_input_schema(),
+                            "hint": "Use GET /schema to see the expected input format"
+                        }
+                    )
         
         # Mode 1: Feature Store (OFS) Mode
         else:
@@ -170,20 +324,55 @@ async def predict(request: PredictRequest):
             # Combine fetched features with provided keys
             feature_dict = dict(zip(feature_columns, features))
 
+        # Coerce numeric types to match schema expectations (int→float for MLflow)
+        if model.has_signature():
+            feature_dict = _coerce_features_to_schema(feature_dict, model.get_input_schema())
+
         # Make prediction (same for both modes)
         result = await model.predict(feature_dict)
 
         return result
     
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is (model not loaded, validation errors, etc.)
+        raise
     except ValueError as e:
-        # Validation errors
+        # Validation errors from model or feature processing
         raise HTTPException(
             status_code=422,
-            detail=str(e)
+            detail={
+                "message": "Invalid input data",
+                "error": str(e),
+                "hint": "Use GET /schema to see the expected input format"
+            }
+        )
+    except TimeoutError as e:
+        # Prediction timeout
+        raise HTTPException(
+            status_code=504,
+            detail={
+                "message": "Prediction request timed out",
+                "hint": "The prediction took too long to complete. Please try again."
+            }
         )
     except Exception as e:
-        # Other errors
+        # Other prediction errors
+        error_detail = str(e)
+        hint = "Please verify your input data format"
+        
+        # Provide specific hints for common MLflow errors
+        if "safely convert" in error_detail.lower():
+            hint = "Type mismatch in input data. Use GET /schema to see expected types."
+        elif "missing" in error_detail.lower():
+            hint = "Required features are missing. Use GET /schema to see all required inputs."
+        elif "feature" in error_detail.lower() or "column" in error_detail.lower():
+            hint = "Feature name or count mismatch. Use GET /schema to see expected features."
+        
         raise HTTPException(
             status_code=500,
-            detail=f"Prediction failed: {str(e)}"
+            detail={
+                "message": "Prediction failed",
+                "error": error_detail,
+                "hint": hint
+            }
         )

@@ -105,7 +105,7 @@ ingress:
   enabled: true
   internal:
     enabled: true
-    ingressClassName: nginx 
+    ingressClassName: nginx
     annotations:
       nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
     hosts:
