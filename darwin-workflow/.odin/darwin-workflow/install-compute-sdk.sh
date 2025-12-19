@@ -7,7 +7,7 @@ set -e
 COMPUTE_SDK_DIR="/tmp/compute_sdk_wrapper"
 DARWIN_COMPUTE_SDK_PATH="${BASE_DIR}/../darwin-compute/sdk"
 
-echo "🔧 Installing compute_sdk from darwin-compute submodule...."
+echo "🔧 Installing compute_sdk from darwin-compute submodule..."
 
 # Check if darwin-compute submodule exists
 if [ ! -d "$DARWIN_COMPUTE_SDK_PATH" ]; then
