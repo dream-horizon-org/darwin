@@ -79,6 +79,7 @@ def update_env_variables(values, compute_request, env, rss: bool = False):
             "RAY_GRAFANA_IFRAME_HOST",
             f"http://{CONFIGS_MAP[env]['host_url']}/{compute_request.cloud_env}/{compute_request.cluster_id}-metrics",
         ),
+        env_variable("RAY_PROMETHEUS_NAME", "prometheus"),
         env_variable("ENV", env),
         env_variable("CREATED_BY", compute_request.user),
         env_variable("CLOUD", "GCP" if "gcp" in compute_request.cloud_env else "AWS"),

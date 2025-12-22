@@ -39,12 +39,13 @@ data:
       apiVersion: 1,
       datasources: [
         {
-          editable: true,
           name: prometheus,
-          orgId: 1,
           type: prometheus,
           url: http://{{ .Release.Name }}-prometheus.prometheus.svc.cluster.local:9090,
-          version: 1
+          version: 1,
+          orgId: 1,
+          editable: true,
+          isDefault: true
         }
       ]
     }
@@ -85,8 +86,8 @@ spec:
             - mountPath: /grafana-dashboard-definitions/0/darwin-default-dashboard
               name: darwin-default-dashboard
               readOnly: false
-            - mountPath: /grafana-dashboard-definitions/0/default_grafana_dashboard
-              name: default-grafana-dashboard
+            - mountPath: /grafana-dashboard-definitions/0/ray-dashboards
+              name: ray-dashboards
               readOnly: false
             - mountPath: /etc/grafana
               name: grafana-config
@@ -110,11 +111,14 @@ spec:
           configMap:
             defaultMode: 420
             name: darwin-default-dashboard
-        - name: default-grafana-dashboard
-          configMap:
+        - name: ray-dashboards
+          projected:
             defaultMode: 420
-            name: default-grafana-dashboard
-
+            sources:
+              - configMap:
+                  name: ray-dashboards
+              - configMap:
+                  name: ray-serve-dashboards
 ---
 apiVersion: v1
 kind: Service
