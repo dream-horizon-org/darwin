@@ -146,7 +146,7 @@ flowchart LR
 **1. Model Training (Workspace)**
 - Data scientists work in Jupyter notebooks within Darwin Workspace
 - MLflow SDK tracks experiments, parameters, metrics, and artifacts
-- Models are automatically versioned and stored in the artifact store
+- Models are automatically versioned and stored in the artifact store (no manual versioning commands needed)
 - Each training run gets a unique run ID and experiment ID
 
 **2. Model Storage**
@@ -176,10 +176,17 @@ flowchart LR
 
 ### Service URLs (Kubernetes)
 
-When deployed in the Darwin ecosystem:
+When deployed in the Darwin ecosystem, these service URLs are only accessible within the Kubernetes cluster:
 - **MLflow Tracking Server**: `http://darwin-mlflow-lib.darwin.svc.cluster.local:8080`
 - **MLflow App Layer**: `http://darwin-mlflow-app.darwin.svc.cluster.local:8000`
 - **ML Serve**: `http://darwin-ml-serve-app.darwin.svc.cluster.local:8000`
+
+> **Note**: These Kubernetes service URLs are not accessible from outside the cluster. To access these services externally, use port-forwarding:
+> ```bash
+> kubectl port-forward -n darwin svc/darwin-mlflow-app 8000:8000
+> kubectl port-forward -n darwin svc/darwin-mlflow-lib 8080:8080
+> ```
+> Or access via the ingress URLs configured in your environment (e.g., `http://localhost/mlflow-app/experiments`).
 
 ## 🎓 Training Models with MLflow in Workspace
 
@@ -202,7 +209,7 @@ Darwin MLflow requires using `tempfile` and `log_artifacts` instead of direct mo
 
 > **📚 For standard MLflow usage**, see [MLflow 2.12.2 Documentation](https://mlflow.org/docs/2.12.2/index.html)
 > 
-> **💡 For complete Darwin examples with full code**, see [`examples/house-price-prediction/`](../examples/house-price-prediction/) and [`examples/iris-classification/`](../examples/iris-classification/)
+> **💡 For complete Darwin examples with full code**, see [`examples/`](../examples/)
 
 ## 🚀 Deploying Models from MLflow to Serve
 
@@ -217,7 +224,7 @@ MLflow models are referenced using URIs that point to their storage location:
 **Example**: `mlflow-artifacts:/45/abc123def456789/artifacts/model`
 
 **Finding Your Model URI**:
-1. Open MLflow UI: `http://localhost/mlflow` (or your MLflow URL)
+1. Open MLflow UI: `http://localhost/mlflow-app/experiments` (or your MLflow URL)
 2. Navigate to your experiment
 3. Click on the run you want to deploy
 4. Copy the Run ID from the run details page
@@ -229,77 +236,17 @@ MLflow models are referenced using URIs that point to their storage location:
 - `models:/{model_name}/{version}` - References a registered model version
 - `mlflow-artifacts:/...` - Direct artifact store path (recommended for deployment)
 
-### One-Click Deployment
+### Deployment Integration
 
-The simplest way to deploy an MLflow model is using the one-click deployment API.
+MLflow models can be deployed to production using ML Serve. The deployment process involves:
+- Passing the model URI to ML Serve
+- ML Serve uses the pre-built `serve-md-runtime` image to load and serve the model
+- Models are deployed as Kubernetes pods and accessible via REST API
 
-**How It Works**:
-1. ML Serve uses the pre-built `serve-md-runtime` image
-2. The runtime image contains MLflow model loading capabilities
-3. Your model URI is passed as an environment variable
-4. The runtime fetches and loads the model at startup
-5. The model is deployed to Kubernetes and ready to serve predictions
-
-**Deployment Parameters**:
-- `serve_name`: Name for your deployment (optional, auto-generated if omitted)
-- `artifact_version`: Version label for tracking (e.g., "v1.0", "v2.1")
-- `model_uri`: MLflow model URI (from previous step)
-- `env`: Environment name (must exist, e.g., "local", "prod")
-- `cores`: CPU cores per pod (e.g., 2, 4, 8)
-- `memory`: Memory in GB per pod (e.g., 4, 8, 16)
-- `node_capacity`: Node type ("spot" or "on-demand")
-- `min_replicas`: Minimum number of pods (for auto-scaling)
-- `max_replicas`: Maximum number of pods (for auto-scaling)
-
-> **💡 For complete deployment examples**, see the deployment sections in [`examples/house-price-prediction/`](../examples/house-price-prediction/) and [`examples/iris-classification/`](../examples/iris-classification/)
-
-### Using Hermes CLI
-
-The Hermes CLI provides a convenient command-line interface for deployment:
-
-**1. Configure Hermes** (one-time setup):
-- Set `HERMES_USER_TOKEN` environment variable
-- Run `hermes configure`
-
-**2. Create Environment** (if not exists):
-- Use `hermes create-environment` with appropriate flags (name, domain-suffix, cluster-name, namespace)
-
-**3. Deploy Model**:
-- Use `hermes deploy-model` with your model URI and deployment parameters
-
-**4. Check Deployment Status**:
-- Use `kubectl` commands to check deployments, pods, and logs
-
-> **💡 For complete Hermes CLI examples and commands**, see [`examples/house-price-prediction/`](../examples/house-price-prediction/) and [`examples/iris-classification/`](../examples/iris-classification/)
-
-### Testing Deployed Models
-
-Once deployed, your model is accessible via a REST API endpoint.
-
-**Finding Your Endpoint URL**:
-- **Local (kind cluster)**: `http://localhost/{serve-name}-{env}/predict`
-- **Example**: `http://localhost/house-pricing-model-local/predict`
-
-**Making Predictions**:
-- Send POST requests to the prediction endpoint with your feature data
-- The request body should contain a `features` object with your model's input features
-- Response will contain the prediction result
-
-**Accessing Swagger UI**:
-- Navigate to `http://localhost/{serve-name}-{env}/docs` to access the interactive API documentation
-- Swagger UI requires your FastAPI app to use the `ROOT_PATH` environment variable (handled automatically by Darwin runtime)
-
-> **💡 For complete testing examples with sample payloads**, see [`examples/house-price-prediction/`](../examples/house-price-prediction/) and [`examples/iris-classification/`](../examples/iris-classification/)
-
-### Undeploying Models
-
-**Using Hermes CLI**:
-- Use `hermes undeploy-model` with the serve name and artifact version
-
-**Using API**:
-- Send POST request to `/api/v1/serve/undeploy-model` endpoint with serve name, artifact version, and environment
-
-> **💡 For complete undeployment examples**, see the examples in [`examples/`](../examples/) directory
+> **💡 For complete deployment documentation, examples, and CLI commands**, see:
+> - [ML Serve Documentation](../ml-serve-app/README.md)
+> - [Hermes CLI Documentation](../hermes-cli/CLI.md)
+> - [Examples](../examples/) directory
 
 ## 🔄 Complete End-to-End Workflow
 
@@ -344,49 +291,30 @@ sequenceDiagram
 - Use MLflowClient to create a registered model
 - Create a model version from your training run
 
-**Step 4: Copy Model URI**
+**Step 4: Get Model URI**
 - Extract the model URI in the format: `mlflow-artifacts:/{experiment_id}/{run_id}/artifacts/model`
+- This URI can be used to deploy the model to production
 
-**Step 5: Deploy Model**
-- Use Hermes CLI or the deployment API to deploy your model with the model URI
+> **💡 For deployment steps (Steps 5-7)**, see [ML Serve Documentation](../ml-serve-app/README.md) and [Hermes CLI Documentation](../hermes-cli/CLI.md)
 
-**Step 6: Verify Deployment**
-- Check deployment status using `kubectl` commands
-- Verify pods are running and view logs if needed
-
-**Step 7: Test the Endpoint**
-- Send prediction requests to the deployed endpoint
-- Verify predictions are returned correctly
-
-> **💡 For complete step-by-step examples with full code**, see:
-> - [`examples/house-price-prediction/train_house_pricing_model.ipynb`](../examples/house-price-prediction/train_house_pricing_model.ipynb)
-> - [`examples/iris-classification/`](../examples/iris-classification/)
+> **💡 For complete step-by-step examples with full code**, see [`examples/`](../examples/)
 
 ### Troubleshooting Common Issues
 
 **Issue: "Model URI not found"**
 - Verify the experiment ID and run ID are correct
-- Check that artifacts were logged successfully in MLflow UI
+- Check that artifacts were logged successfully in MLflow UI at `http://localhost/mlflow-app/experiments`
 - Ensure the model path is `artifacts/model` (not just `model`)
 
-**Issue: "Deployment failed - insufficient resources"**
-- Reduce `cores` or `memory` requirements
-- Check cluster capacity: `kubectl describe nodes`
+**Issue: "Authentication failed"**
+- Verify MLflow credentials are set correctly (`MLFLOW_TRACKING_USERNAME` and `MLFLOW_TRACKING_PASSWORD`)
+- Check that the tracking URI is set to the correct MLflow service URL
 
-**Issue: "Prediction endpoint returns 404"**
-- Verify the endpoint URL format: `http://localhost/{serve-name}-{env}/predict`
-- Check pod status: `kubectl get pods -n darwin`
-- View pod logs: `kubectl logs -n darwin <pod-name>`
-
-**Issue: "Model loading fails at startup"**
-- Verify MLflow credentials are set correctly
-- Check that the model URI is accessible from the pod
+**Issue: "Model logging fails"**
 - Ensure the model was saved with `mlflow.log_artifacts()` (not `mlflow.sklearn.log_model()` directly)
+- Verify you're using the Darwin-specific tempfile + log_artifacts pattern
 
-**Issue: "Input validation error"**
-- Ensure your input matches the model signature
-- Check the input example in MLflow UI for the expected format
-- Verify all required features are included in the request
+> **💡 For deployment-related troubleshooting**, see [ML Serve Documentation](../ml-serve-app/README.md)
 
 ## 📚 Darwin MLflow SDK
 
@@ -407,21 +335,13 @@ os.environ["MLFLOW_TRACKING_PASSWORD"] = "your.email@company.com"
 **3. Model URI Format for Deployment**
 - Use this format for ML Serve deployment: `mlflow-artifacts:/{experiment_id}/{run_id}/artifacts/model`
 
-> **💡 For complete code examples**, see [`examples/house-price-prediction/`](../examples/house-price-prediction/) and [`examples/iris-classification/`](../examples/iris-classification/)
+> **💡 For complete code examples**, see [`examples/`](../examples/)
 
 > **📚 For all other MLflow operations**, refer to the official [MLflow 2.12.2 Documentation](https://mlflow.org/docs/2.12.2/index.html)
 
 ## 📖 Examples
 
-For complete, working examples of MLflow integration with training and deployment workflows, see the [`examples/`](../examples/) directory:
-
-- **[House Price Prediction](../examples/house-price-prediction/)** - Random Forest regression with California Housing dataset
-- **[Iris Classification](../examples/iris-classification/)** - Multi-class classification example
-
-Each example includes:
-- Complete Jupyter notebook with MLflow tracking
-- Model training, logging, and registration
-- Deployment instructions and sample payloads
+For complete, working examples of MLflow integration with training and deployment workflows, see the [`examples/`](../examples/) directory.
 
 ## 🔧 Prerequisites
 
