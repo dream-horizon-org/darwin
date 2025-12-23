@@ -149,32 +149,27 @@ jobs:
             exit 1
           fi
 
-      - name: Create config.env
-        run: |
-          echo "📝 Creating config.env..."
-          
-          # Create config.env with required environment variables
-          cat > config.env << 'EOF'
-          KUBECONFIG=./kind/config/kindkubeconfig.yaml
-          DOCKER_REGISTRY=127.0.0.1:5001
-          ENV=local
-          EOF
-          
-          # Remove leading whitespace from the file
-          sed -i 's/^[[:space:]]*//' config.env
-          
-          echo "✅ config.env created:"
-          cat config.env
-
       - name: Step 3 - Deploy to Kubernetes (start.sh)
         run: |
           echo "🚀 Step 3: Running start.sh to deploy to Kubernetes..."
+          
+          # Create config.env with required environment variables
+          echo "📝 Creating config.env..."
+          echo "KUBECONFIG=./kind/config/kindkubeconfig.yaml" > config.env
+          echo "DOCKER_REGISTRY=127.0.0.1:5001" >> config.env
+          echo "ENV=local" >> config.env
+          
+          echo "✅ config.env created:"
+          cat config.env
+          
+          # Set KUBECONFIG
           export KUBECONFIG=./kind/config/kindkubeconfig.yaml
           
-          # Source config.env
-          set -o allexport
-          source config.env
-          set +o allexport
+          # Verify config.env exists before running start.sh
+          if [ ! -f config.env ]; then
+            echo "❌ config.env not found!"
+            exit 1
+          fi
           
           # Run start.sh (it will use the enabled-services.yaml we created)
           ./start.sh || {
