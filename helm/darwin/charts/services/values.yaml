@@ -157,25 +157,88 @@ services:
 
   # Workflow Orchestration Service
   workflow:
-    enabled: false
+    enabled: true
     replicaCount: 1
+    serviceName: darwin-workflow
     image:
-      repository: darwin-workflow
+      registry: localhost:5000
+      name: darwin-workflow
       tag: latest
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
-      port: 8081
+      port: 8001
     ingress:
-      enabled: true
-      className: nginx
-      hosts:
-        - host: darwin-workflow.local
-          paths:
-            - path: /
-              pathType: Prefix
+      enabled: false
     autoscaling:
       enabled: false
+    extraEnvVars:
+      - name: ENV
+        value: "local"
+      - name: DEPLOYMENT_TYPE
+        value: "container"
+      - name: SERVICE_NAME
+        value: "darwin-workflow"
+      # Elasticsearch Configuration
+      - name: ELASTICSEARCH_URL
+        value: "http://darwin-elasticsearch-workflow:9200"
+      - name: ELASTICSEARCH_USERNAME
+        value: ""
+      - name: ELASTICSEARCH_PASSWORD
+        value: ""
+      # Compute Service Configuration
+      - name: COMPUTE_SERVICE_URL
+        value: "http://darwin-compute:8000"
+      - name: COMPUTE_APP_LAYER_URL
+        value: "http://darwin-compute:8000/cluster"
+      # Workflow Database Configuration
+      - name: WORKFLOW_DB_HOST
+        value: "darwin-mysql"
+      - name: WORKFLOW_DB_PORT
+        value: "3306"
+      - name: WORKFLOW_DB_USERNAME
+        value: "root"
+      - name: WORKFLOW_DB_PASSWORD
+        value: "password"
+      - name: WORKFLOW_DB_NAME
+        value: "workflow"
+      # Airflow Configuration
+      - name: AIRFLOW_URL
+        value: "http://darwin-airflow:8080/airflow"
+      - name: AIRFLOW_AUTH_TOKEN
+        value: "Basic ZGFyd2luOmRhcndpbg=="  # Base64 encoded "darwin:darwin"
+      - name: AIRFLOW_MYSQL_HOST
+        value: "darwin-mysql"
+      - name: AIRFLOW_MYSQL_USERNAME
+        value: "root"
+      - name: AIRFLOW_MYSQL_PASSWORD
+        value: "password"
+      - name: AIRFLOW_MYSQL_DATABASE
+        value: "airflow"
+      - name: AIRFLOW_MYSQL_PORT
+        value: "3306"
+      - name: AIRFLOW_S3_FOLDER
+        value: "workflow/airflow_artifacts"
+      # S3 Configuration
+      - name: S3_BUCKET_NAME
+        value: "workflow-artifacts"
+      - name: AWS_ENDPOINT_URL
+        value: "http://darwin-localstack:4566"
+      - name: AWS_ENDPOINT_OVERRIDE
+        value: "http://darwin-localstack:4566"
+      - name: AWS_ACCESS_KEY_ID
+        value: "test"
+      - name: AWS_SECRET_ACCESS_KEY
+        value: "test"
+      - name: AWS_DEFAULT_REGION
+        value: "us-east-1"
+      # Workflow App URLs
+      - name: WORKFLOW_APP_LAYER_URL
+        value: "http://darwin-workflow:8001"
+      - name: WORKFLOW_APP_LAYER_PUBLIC_URL
+        value: "http://localhost/workflow"
+      - name: WORKFLOW_UI_BASE_URL
+        value: "http://localhost/workflow/workflows/"
 
   # Compute Orchestration Service
   compute:
@@ -195,6 +258,8 @@ services:
     autoscaling:
       enabled: false
     extraEnvVars:
+      - name: ENV
+        value: "darwin-local"
       - name: VAULT_SERVICE_MYSQL_USERNAME
         value: "darwin"
       - name: VAULT_SERVICE_MYSQL_PASSWORD
@@ -214,9 +279,9 @@ services:
       - name: OTEL_DISABLED
         value: "true"
       - name: AWS_ACCESS_KEY_ID
-        value: "dummy"
+        value: "test"
       - name: AWS_SECRET_ACCESS_KEY
-        value: "dummy"
+        value: "test"
       - name: AWS_DEFAULT_REGION
         value: "us-east-1"
       - name: AWS_ENDPOINT_URL_S3
@@ -653,6 +718,13 @@ ingress:
     - path: "/darwin-catalog(/|$)(.*)"
       service: "catalog"
       port: 8081
+    - path: "/workflow(/|$)(.*)"
+      service: "workflow"
+      port: 8001
+    # Note: Airflow has a separate ingress with custom rewrite to preserve /airflow prefix
+    # - path: "/airflow(/|$)(.*)"
+    #   service: "airflow"
+    #   port: 8080
 
 # Shared Storage Configuration for Services
 # This creates a shared PersistentVolume that can be used by multiple services

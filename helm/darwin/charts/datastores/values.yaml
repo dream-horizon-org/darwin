@@ -74,12 +74,12 @@ zookeeper:
 
 # Apache Airflow
 airflow:
-  enabled: false
+  enabled: true
   executor: CeleryExecutor
   image:
-    repository: apache/airflow
-    tag: "2.7.0"
-    pullPolicy: IfNotPresent
+    repository: darwin-airflow
+    tag: "latest"
+    pullPolicy: Never
   webserver:
     replicas: 1
     defaultUser:
@@ -115,11 +115,11 @@ airflow:
     replicas: 1
     resources:
       limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
         cpu: 500m
         memory: 2Gi
-      requests:
-        cpu: 200m
-        memory: 1Gi
   scheduler:
     replicas: 1
     resources:
@@ -129,6 +129,15 @@ airflow:
       requests:
         cpu: 200m
         memory: 1Gi
+  dags:
+    s3Folder: "s3://workflow-artifacts/workflow/airflow_artifacts/dags/"
+    syncInterval: "1"  # seconds
+  pools:
+    # List of pools to create automatically during Airflow initialization
+    # Format: pool_name: {slots: number, description: "string"}
+    - name: "d11"
+      slots: 128
+      description: "Default tenant pool for Darwin workflows"
 
 # LocalStack (S3 Mock)
 localstack:
@@ -151,7 +160,7 @@ localstack:
   env:
     awsEndpointOverride: "http://{{ $.Release.Name }}-localstack:4566"
 
-# OpenSearch (Elasticsearch-compatible)
+# OpenSearch (Elasticsearch-compatible) - Shared datastore
 opensearch:
   enabled: true
   clusterName: darwin-opensearch
@@ -172,3 +181,21 @@ opensearch:
   env:
     DISABLE_SECURITY_PLUGIN: "true"
     discovery.type: "single-node"
+
+# Elasticsearch (for Workflow service - separate from OpenSearch)
+elasticsearch:
+  enabled: true
+  tag: "8.6.2"
+  replicaCount: 1  # Single node for local development
+  javaOpts:
+    heap: "512m"
+  persistence:
+    enabled: true
+    size: 2Gi
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi

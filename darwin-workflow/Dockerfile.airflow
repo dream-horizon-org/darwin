@@ -1,0 +1,63 @@
+FROM apache/airflow:2.7.0
+
+USER root
+
+# Install any system dependencies if needed
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+USER airflow
+
+# Copy all workflow modules (model, core, airflow)
+COPY --chown=airflow:root model /opt/airflow/workflow_model_module/
+COPY --chown=airflow:root core /opt/airflow/workflow_core_module/
+COPY --chown=airflow:root airflow /opt/airflow/airflow_core_module/
+
+# Install workflow_model first (base dependency)
+WORKDIR /opt/airflow/workflow_model_module
+RUN pip install --no-cache-dir -e .
+
+# Install workflow_core (depends on workflow_model)
+WORKDIR /opt/airflow/workflow_core_module
+# Fix setup.cfg to remove relative path to model (already installed) and fix aiohttp version for Python 3.8
+RUN sed -i '/workflow_model = ..\/model\/src\/workflow_model/d' setup.cfg && \
+    sed -i 's/aiohttp==3.11.12/aiohttp==3.10.11/g' setup.cfg
+# Fix Python 3.8 compatibility: replace tuple with Tuple from typing
+RUN find src -name "*.py" -exec sed -i 's/Optional\[tuple\]/Optional[Tuple]/g' {} \; && \
+    find src -name "*.py" -exec sed -i '/^from typing import/s/$/\nfrom typing import Tuple/' {} \; 2>/dev/null || true
+RUN pip install --no-cache-dir -e .
+
+# Install the airflow_core module (depends on workflow_core)
+WORKDIR /opt/airflow/airflow_core_module
+RUN pip install --no-cache-dir -e .
+
+# Set back to airflow home
+WORKDIR /opt/airflow
+
+# Install additional Python dependencies
+# Install ray separately with retries due to large package size
+RUN pip install --no-cache-dir --default-timeout=300 \
+    boto3 \
+    requests \
+    pydantic \
+    typeguard \
+    elasticsearch \
+    tortoise-orm \
+    pymysql \
+    cryptography \
+    PyYAML \
+    kubernetes || true
+
+# Install ray with retry logic
+RUN pip install --no-cache-dir --default-timeout=600 ray || \
+    pip install --no-cache-dir --default-timeout=600 ray || \
+    pip install --no-cache-dir --default-timeout=600 ray
+
+# Verify installation
+RUN python -c "import workflow_model; print('workflow_model module installed successfully')"
+RUN python -c "import workflow_core; print('workflow_core module installed successfully')"
+RUN python -c "import airflow_core; print('airflow_core module installed successfully')"
+

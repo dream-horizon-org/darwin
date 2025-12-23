@@ -1,0 +1,10 @@
+requests~=2.32.3
+shortuuid~=1.0.13
+pydantic~=1.10.12
+dataclasses-json~=0.5.7
+darwin_compute~=2.0.1
+darwin-logger~=2.0.6
+typing_extensions==4.13.2
+typer~=0.15.2
+croniter~=6.0.0
+-e ../model

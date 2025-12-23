@@ -365,6 +365,44 @@ else
 fi
 
 # ============================================================================
+# BUILD AIRFLOW IMAGE (if airflow datastore is enabled)
+# ============================================================================
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "                    BUILDING AIRFLOW IMAGE"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check if airflow is enabled
+airflow_enabled=$(yq eval '.datastores.airflow' "$ENABLED_FILE")
+if [ "$airflow_enabled" = "true" ]; then
+  echo ">>> Building darwin-airflow image..."
+  
+  # Build airflow image using existing script
+  if [ -f "darwin-workflow/build-airflow-image.sh" ]; then
+    cd darwin-workflow
+    bash build-airflow-image.sh || {
+      echo "❌ Failed to build darwin-airflow image"
+      exit 1
+    }
+    cd ..
+    
+    # Load into Kind cluster (required for imagePullPolicy: Never)
+    echo ">>> Loading darwin-airflow image into Kind cluster..."
+    kind load docker-image darwin-airflow:latest || {
+      echo "❌ Failed to load darwin-airflow image into Kind"
+      exit 1
+    }
+    echo "✅ darwin-airflow image built and loaded into Kind"
+  else
+    echo "❌ darwin-workflow/build-airflow-image.sh not found"
+    exit 1
+  fi
+else
+  echo "⏭️  Skipping darwin-airflow image (airflow datastore disabled)"
+fi
+
+# ============================================================================
 # PULL/PUSH OPERATOR IMAGES TO LOCAL REGISTRY
 # ============================================================================
 echo ""

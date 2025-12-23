@@ -8,17 +8,18 @@ metadata:
     {{- include "services.labels" . | nindent 4 }}
     app.kubernetes.io/component: airflow-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/upstream-vhost: localhost
+    nginx.ingress.kubernetes.io/rewrite-target: /airflow/$2
     nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
+  {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
   rules:
-    - host: "airflow.localhost"
+    - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
-          - path: /
-            pathType: Prefix
+          - path: /airflow(/|$)(.*)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: {{ .Release.Name }}-airflow

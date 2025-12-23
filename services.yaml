@@ -145,6 +145,15 @@ applications:
     enabled: true
     env: []
 
+  - application: darwin-workflow
+    base-path: darwin-workflow
+    path: .
+    base-image: darwin/python:3.9.7-pip-bookworm-slim
+    enabled: true
+    env:
+      - name: ENV
+        value: "darwin-local"
+
   - application: darwin-catalog
     base-path: darwin-catalog
     path: .
@@ -197,6 +206,10 @@ datastores:
     image: opensearchproject/opensearch
     tag: "2.11.0"
     enabled: true
+  - name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch
+    tag: "8.6.2"
+    enabled: false
   - name: busybox
     image: busybox
     tag: "1.36"

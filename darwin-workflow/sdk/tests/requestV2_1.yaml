@@ -1,0 +1,127 @@
+variables:
+  runtime: &runtime 'spark-conect-verf4'
+  terminate_after_minutes: &terminate_after_minutes 200
+  spark_config: &spark_config
+    "spark.executor.memory": "4g"
+
+  basic-packages: &basic-packages
+   packages:
+    - pypi: {'package': 'numpy==1.24.0', }
+    - maven: {'package': 'org.apache.spark:spark-sql_2.12', 'version': '3.3.0', 'repository': 'spark', 'exclusions': ''}
+    - s3: {'path': 's3://my-bucket/libs/my-library.whl'}
+    - workspace: {'path': '/Users/my_user/libs/utils.py'}
+
+
+  advance_config1: &advance_config1
+    spark_config:
+      <<: *spark_config
+    env_variables: ''
+    init_script:
+    - pip install locust
+
+  advance_config2: &advance_config2
+      spark_config:
+        <<: *spark_config
+      env_variables: ''
+      init_script:
+      - pip install pandas
+
+      ray_start_params:
+        num_cpus_on_head: 0
+        num_gpus_on_head: 0
+        object_store_memory_perc: 25
+
+  advance_config3: &advance_config3
+      spark_config:
+        <<: *spark_config
+      env_variables: ''
+      init_script:
+      - pip install locust
+
+  head_node_config1: &head_node_config1
+      node:
+        cores: 8
+        memory: 16
+        node_capacity_type: ondemand
+
+  head_node_config2: &head_node_config2
+      node:
+        cores: 2
+        memory: 10
+        node_capacity_type: ondemand
+
+  worker_node_config2: &worker_node_config2
+      max_pods: 3
+      min_pods: 3
+      node:
+        cores: 10
+        memory: 16
+        node_capacity_type: spot
+
+  cluster_definition1: &cluster_definition1 # for reusing same definition and reduce repetitive cluster configs
+    advance_config:
+      <<: *advance_config1
+    head_node:
+      <<: *head_node_config1
+    is_job_cluster: false
+    runtime: *runtime
+    start_cluster: false
+    tags:
+    - test_tag
+    terminate_after_minutes: *terminate_after_minutes
+
+  cluster_definition2: &cluster_definition2
+    advance_config:
+      <<: *advance_config2 #reusing advance_config
+    head_node:
+      <<: *head_node_config2  #reusing head_node_config
+    is_job_cluster: true
+    runtime: *runtime
+    start_cluster: false
+    tags:
+    - environment_tag
+    terminate_after_minutes: *terminate_after_minutes
+
+clusters:
+- name: basic_cluster_1
+  <<: *cluster_definition1 #reusing variable cluster definition
+
+- name: job_cluster_2
+  <<: *cluster_definition2
+  advance_config:
+    <<: *advance_config3 #overriding advance_config for this cluster
+
+darwin:
+  base_dir: 'test.user@example.com/project/codespace'
+  created_by: 'test.user@example.com'
+  env: 'uat'
+
+
+workflows: #can also define variables for workflows, and use them for repetitive workflows fields
+- workflow_name: workflow_name_2
+  workflow_status: 'inactive'
+
+  tasks: #can also define variables for tasks, and use them for repetitive task fields
+    - task_name: start_task
+      <<: *basic-packages #use packages defined in variables
+      cluster_name: basic_cluster_1  # using cluster defined above
+      existing_cluster_id: 'id-xyz' #  existing cluster id takes precedence over cluster_name only in basic cluster
+      cluster_type: basic
+      source: streamlit_app.py
+
+    - task_name: check_status_task
+      cluster_name: job_cluster_2
+      cluster_type: job
+      <<: *basic-packages  # Merge the basic packages here
+      packages:  # override packages for this task
+        - pypi: {'package': 'pandas==1.24.0', 'path': ''}
+      dependent_libraries:
+        - 'locust'
+      depends_on:
+        - start_task
+      dynamic_artifact: true
+      input_parameters: {}
+      retries: 1
+      source: streamlit_app.py
+      source_type: workspace
+      timeout: 7200

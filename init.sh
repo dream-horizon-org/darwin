@@ -81,9 +81,10 @@ FEATURE_APPS_mlflow="darwin-mlflow darwin-mlflow-app"
 FEATURE_APPS_serve="ml-serve-app artifact-builder"
 FEATURE_APPS_catalog="darwin-catalog"
 FEATURE_APPS_chronos="chronos chronos-consumer"
+FEATURE_APPS_workflow="darwin-workflow"
 
 # List of all top-level features
-ALL_FEATURES="compute workspace feature_store mlflow serve catalog chronos"
+ALL_FEATURES="compute workspace feature_store mlflow serve catalog chronos workflow"
 
 # Service-to-service dependencies
 # Format: SERVICE_DEPS_<service>="dep1 dep2" (use underscores for hyphens in var names)
@@ -100,6 +101,7 @@ SERVICE_DEPS_darwin_workspace="darwin-compute"
 SERVICE_DEPS_ml_serve_app="artifact-builder darwin-cluster-manager darwin-mlflow-app"
 SERVICE_DEPS_artifact_builder=""
 SERVICE_DEPS_darwin_catalog=""
+SERVICE_DEPS_darwin_workflow="darwin-compute darwin-cluster-manager"
 
 # Service-to-datastore dependencies
 # Format: SERVICE_DATASTORES_<service>="ds1 ds2 ds3"
@@ -116,6 +118,7 @@ SERVICE_DATASTORES_darwin_workspace="mysql busybox"
 SERVICE_DATASTORES_ml_serve_app="mysql localstack busybox"
 SERVICE_DATASTORES_artifact_builder="mysql localstack busybox"
 SERVICE_DATASTORES_darwin_catalog="mysql localstack"
+SERVICE_DATASTORES_darwin_workflow="mysql elasticsearch localstack busybox airflow"
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -301,6 +304,7 @@ FEATURE_DESC_mlflow="MLflow"
 FEATURE_DESC_serve="Serve"
 FEATURE_DESC_catalog="Catalog"
 FEATURE_DESC_chronos="Chronos"
+FEATURE_DESC_workflow="Workflow"
 
 # Collect user selections
 SELECTED_FEATURES=""

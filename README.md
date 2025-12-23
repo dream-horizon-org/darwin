@@ -380,7 +380,7 @@ curl --location 'http://localhost/compute/cluster' \
   --data-raw '{
     "cluster_name": "my-first-cluster",
     "tags": ["demo"],
-    "runtime": "Ray2.37.0-Py310-CPU",
+    "runtime": "0.0",
     "inactive_time": 30,
     "head_node_config": {
         "cores": 4,
