@@ -69,10 +69,12 @@ jobs:
           echo "📋 Step 1: Running init.sh to configure services..."
           
           # Use init.sh with piped answers to enable only workspace feature
-          # Prompts order: compute (n), workspace (y), feature_store (n), mlflow (n), 
-          # serve (n), catalog (n), chronos (n), workflow (n), confirm (y), hermes-cli (n)
+          # Prompts order:
+          #   1. compute (n), 2. workspace (y), 3. feature_store (n), 4. mlflow (n),
+          #   5. serve (n), 6. catalog (n), 7. chronos (n), 8. workflow (n),
+          #   9. confirm (y), 10. darwin-sdk-runtime (n), 11. hermes-cli (n)
           # Note: workspace depends on compute, so compute will be auto-enabled
-          printf "n\ny\nn\nn\nn\nn\nn\nn\ny\nn\n" | ./init.sh
+          printf "n\ny\nn\nn\nn\nn\nn\nn\ny\nn\nn\n" | ./init.sh
           
           echo "✅ Configuration created by init.sh"
           cat .setup/enabled-services.yaml
@@ -80,8 +82,8 @@ jobs:
       - name: Step 2 - Build images and setup cluster (setup.sh)
         run: |
           echo "🔨 Step 2: Running setup.sh to build images and setup cluster..."
-          
-          # Run setup.sh with auto-yes flag
+          # Run setup.sh with auto-yes flag and skip-build to avoid interactive prompts
+          # But we actually want to build, so we'll answer yes to clean build
           echo "y" | ./setup.sh -y || {
             echo "⚠️  setup.sh may have failed, checking status..."
             # Continue even if setup.sh has issues - we'll check cluster status
