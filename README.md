@@ -735,6 +735,15 @@ pkill -f "port-forward.*8265"
 kubectl port-forward -n ray svc/{cluster_id}-kuberay-head-svc 8265:8265 &
 ```
 
+**Issue: Cluster not starting due to long init script**
+
+If your `init_script` in the cluster configuration is too long, the cluster may fail to start. This happens because init scripts are executed during pod startup and have timeout limitations.
+
+**Solutions:**
+- Use the **Library Installation API** to install packages instead of init scripts
+- Create a **custom runtime** with your dependencies pre-installed
+- Split long scripts into smaller, essential commands
+
 ---
 
 ## 🧪 Creating Your First Project
