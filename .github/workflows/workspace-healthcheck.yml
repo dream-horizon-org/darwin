@@ -79,12 +79,42 @@ jobs:
           echo "✅ Configuration created by init.sh"
           cat .setup/enabled-services.yaml
 
-      - name: Step 2 - Build images and setup cluster (setup.sh)
+      - name: Step 2a - Create Kind cluster manually
         run: |
-          echo "🔨 Step 2: Running setup.sh to build images and setup cluster..."
-          # Run setup.sh with auto-yes flag and skip-build to avoid interactive prompts
-          # But we actually want to build, so we'll answer yes to clean build
-          echo "y" | ./setup.sh -y || {
+          echo "🔨 Step 2a: Creating Kind cluster..."
+          
+          # Create kind config directory
+          mkdir -p ./kind/config
+          
+          # Check if kind cluster already exists
+          if kind get clusters 2>/dev/null | grep -q "kind"; then
+            echo "Kind cluster already exists, deleting..."
+            kind delete cluster --name kind
+          fi
+          
+          # Create kind cluster with config if it exists
+          if [ -f "./kind/kind-config.yaml" ]; then
+            echo "Creating kind cluster with config..."
+            kind create cluster --name kind --config ./kind/kind-config.yaml --wait 5m
+          else
+            echo "Creating kind cluster with default config..."
+            kind create cluster --name kind --wait 5m
+          fi
+          
+          # Export kubeconfig
+          kind get kubeconfig --name kind > ./kind/config/kindkubeconfig.yaml
+          export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+          
+          echo "✅ Kind cluster created"
+          kubectl get nodes
+
+      - name: Step 2b - Build images and setup (setup.sh)
+        run: |
+          echo "🔨 Step 2b: Running setup.sh to build images..."
+          export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+          
+          # Run setup.sh with auto-yes flag, skip cluster creation since we did it manually
+          echo "y" | ./setup.sh -y --skip-cluster || {
             echo "⚠️  setup.sh may have failed, checking status..."
             # Continue even if setup.sh has issues - we'll check cluster status
             true
