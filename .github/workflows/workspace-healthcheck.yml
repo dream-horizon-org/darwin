@@ -79,12 +79,13 @@ jobs:
           echo "✅ Configuration created by init.sh"
           cat .setup/enabled-services.yaml
 
-      - name: Step 2a - Create Kind cluster manually
+      - name: Step 2a - Create Kind cluster with local registry
         run: |
-          echo "🔨 Step 2a: Creating Kind cluster..."
+          echo "🔨 Step 2a: Creating Kind cluster with local registry..."
           
-          # Create kind config directory
+          # Create kind config directory and shared storage
           mkdir -p ./kind/config
+          mkdir -p ./kind/shared-storage
           
           # Check if kind cluster already exists
           if kind get clusters 2>/dev/null | grep -q "kind"; then
@@ -92,33 +93,80 @@ jobs:
             kind delete cluster --name kind
           fi
           
-          # Create kind cluster with config if it exists
-          if [ -f "./kind/kind-config.yaml" ]; then
-            echo "Creating kind cluster with config..."
-            kind create cluster --name kind --config ./kind/kind-config.yaml --wait 5m
-          else
-            echo "Creating kind cluster with default config..."
-            kind create cluster --name kind --wait 5m
-          fi
+          # Stop existing registry if any
+          docker rm -f kind-registry 2>/dev/null || true
+          
+          # Start local Docker registry
+          echo "🚀 Starting local Docker registry..."
+          docker run -d --restart=always -p 5001:5000 --name kind-registry registry:2
+          echo "✅ Started kind-registry on port 5001"
+          
+          # Verify registry is working
+          sleep 3
+          curl -s http://127.0.0.1:5001/v2/_catalog && echo " - Registry is accessible"
+          
+          # Create kind cluster with config
+          echo "Creating kind cluster with config..."
+          kind create cluster --name kind --config ./kind/kind-config.yaml --wait 5m
+          
+          # Connect registry to kind network (allows pods to pull via kind-registry:5000)
+          echo "🔗 Connecting registry to kind network..."
+          docker network connect kind kind-registry 2>/dev/null || echo "Registry already connected"
           
           # Export kubeconfig
           kind get kubeconfig --name kind > ./kind/config/kindkubeconfig.yaml
           export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+          chmod 600 ./kind/config/kindkubeconfig.yaml
           
-          echo "✅ Kind cluster created"
+          echo "✅ Kind cluster created with registry"
           kubectl get nodes
+          
+          # Install cert-manager (required for cluster)
+          echo "📦 Installing cert-manager..."
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update
+          helm install cert-manager jetstack/cert-manager \
+            --namespace cert-manager \
+            --create-namespace \
+            --set crds.enabled=true \
+            --wait --timeout 120s || echo "cert-manager may already exist"
+          
+          # Install ingress-nginx
+          echo "📦 Installing ingress-nginx..."
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml || true
+          kubectl label node kind-control-plane ingress-ready=true 2>/dev/null || true
+          
+          echo "📦 Registry status:"
+          docker ps | grep kind-registry
+          echo "📦 Registry contents:"
+          curl -s http://127.0.0.1:5001/v2/_catalog
 
       - name: Step 2b - Build images and setup (setup.sh)
         run: |
           echo "🔨 Step 2b: Running setup.sh to build images..."
           export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+          export DOCKER_REGISTRY=127.0.0.1:5001
           
-          # Run setup.sh with auto-yes flag, skip cluster creation since we did it manually
-          echo "y" | ./setup.sh -y --skip-cluster || {
+          # Write DOCKER_REGISTRY to config.env so setup.sh can find it
+          echo "KUBECONFIG=$KUBECONFIG" > config.env
+          echo "DOCKER_REGISTRY=$DOCKER_REGISTRY" >> config.env
+          echo "ENV=local" >> config.env
+          
+          # setup.sh uses bash-specific syntax ([[ ]]) but has #!/bin/sh shebang
+          # Run with bash explicitly, and answer:
+          #   - 'n' to skip cluster setup (we already created it)
+          #   - 'y' to do clean build
+          printf "n\ny\n" | bash ./setup.sh || {
             echo "⚠️  setup.sh may have failed, checking status..."
-            # Continue even if setup.sh has issues - we'll check cluster status
+            # Show what images are in the registry
+            echo "📦 Checking local registry..."
+            curl -s http://127.0.0.1:5001/v2/_catalog || echo "Registry not accessible"
+            # Continue even if setup.sh has issues
             true
           }
+          
+          echo "📦 Images in local registry:"
+          curl -s http://127.0.0.1:5001/v2/_catalog || echo "Registry not accessible"
 
       - name: Verify cluster is ready
         run: |
