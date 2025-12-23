@@ -61,7 +61,7 @@ if [ ! -f "$CONFIG_ENV" ]; then
     exit 1
 fi
 set -o allexport
-. "$CONFIG_ENV"
+. ./config.env # Only looks in the current directory and not searches through the PATH
 set +o allexport
 
 echo "🔧 Setting up KUBECONFIG: $KUBECONFIG"
