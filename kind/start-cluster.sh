@@ -5,92 +5,27 @@ CLUSTER_NAME=$CLUSTER_NAME
 KIND_CONFIG=$KIND_CONFIG
 KUBECONFIG=$KUBECONFIG
 
-# Ensure PATH includes common binary locations
-export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+# #region agent log - debug kind detection
+echo "DEBUG: Checking for kind binary..."
+echo "DEBUG: Current PATH: $PATH"
+echo "DEBUG: Which kind: $(which kind 2>&1 || echo 'not found via which')"
+echo "DEBUG: Command -v kind: $(command -v kind 2>&1 || echo 'not found via command')"
+echo "DEBUG: /usr/local/bin/kind exists: $(test -f /usr/local/bin/kind && echo 'yes' || echo 'no')"
+if [ -f /usr/local/bin/kind ]; then
+    echo "DEBUG: /usr/local/bin/kind is executable: $(test -x /usr/local/bin/kind && echo 'yes' || echo 'no')"
+fi
+# #endregion
 
 if ! command -v kind >/dev/null 2>&1; then
-    echo "⚠️  kind could not be found, attempting to install..."
-    
-    # Detect OS
-    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-    ARCH=$(uname -m)
-    
-    # Convert architecture
-    case "$ARCH" in
-        x86_64) ARCH="amd64" ;;
-        amd64) ARCH="amd64" ;;
-        arm64) ARCH="arm64" ;;
-        aarch64) ARCH="arm64" ;;
-        *) echo "❌ Unsupported architecture: $ARCH"; exit 1 ;;
-    esac
-    
-    # Try to install based on OS
-    if [ "$OS" = "linux" ]; then
-        echo "   Installing kind binary for Linux..."
-        KIND_VERSION="v0.20.0"
-        # Download to /tmp first to avoid permission issues
-        if ! curl -fLo /tmp/kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-${ARCH}"; then
-            echo "❌ Failed to download kind binary"
-            exit 1
-        fi
-        chmod +x /tmp/kind
-        
-        # Try to install to /usr/local/bin first, then /usr/bin
-        INSTALLED=false
-        if sudo mv /tmp/kind /usr/local/bin/kind 2>/dev/null; then
-            INSTALLED=true
-            echo "   Installed to /usr/local/bin/kind (with sudo)"
-        elif mv /tmp/kind /usr/local/bin/kind 2>/dev/null; then
-            INSTALLED=true
-            echo "   Installed to /usr/local/bin/kind"
-        elif sudo mv /tmp/kind /usr/bin/kind 2>/dev/null; then
-            INSTALLED=true
-            echo "   Installed to /usr/bin/kind (with sudo)"
-        elif mv /tmp/kind /usr/bin/kind 2>/dev/null; then
-            INSTALLED=true
-            echo "   Installed to /usr/bin/kind"
-        fi
-        
-        if [ "$INSTALLED" = "false" ]; then
-            echo "❌ Failed to install kind to /usr/local/bin or /usr/bin"
-            echo "   /tmp/kind exists: $([ -f /tmp/kind ] && echo 'yes' || echo 'no')"
-            exit 1
-        fi
-        
-        # Update PATH and verify
-        export PATH="/usr/local/bin:/usr/bin:$PATH"
-    elif [ "$OS" = "darwin" ] && command -v brew >/dev/null 2>&1; then
-        echo "   Installing kind via Homebrew..."
+    echo "kind could not be found, installing it"
+    if command -v brew >/dev/null 2>&1; then
         brew install kind
     else
-        echo "❌ Could not install kind automatically"
-        echo "   Please install kind manually: https://kind.sigs.k8s.io/docs/user/quick-start/#installation"
-        exit 1
+        # Install kind binary directly on Linux
+        curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+        chmod +x /tmp/kind
+        sudo mv /tmp/kind /usr/local/bin/kind
     fi
-    
-    # Verify installation (with updated PATH)
-    export PATH="/usr/local/bin:/usr/bin:$PATH"
-    if ! command -v kind >/dev/null 2>&1; then
-        echo "❌ kind installation failed - kind command not found in PATH"
-        echo "   PATH: $PATH"
-        if [ -f /usr/local/bin/kind ]; then
-            echo "   /usr/local/bin/kind exists, adding to PATH..."
-            export PATH="/usr/local/bin:$PATH"
-        elif [ -f /usr/bin/kind ]; then
-            echo "   /usr/bin/kind exists, adding to PATH..."
-            export PATH="/usr/bin:$PATH"
-        else
-            echo "   kind binary not found in /usr/local/bin or /usr/bin"
-            exit 1
-        fi
-        # Final check
-        if ! command -v kind >/dev/null 2>&1; then
-            echo "❌ kind still not found after PATH update"
-            exit 1
-        fi
-    fi
-    
-    echo "✅ kind installed successfully at $(which kind)"
 fi
 
 export KUBECONFIG=$KUBECONFIG
