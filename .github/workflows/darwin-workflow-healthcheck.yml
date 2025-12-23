@@ -68,11 +68,19 @@ jobs:
       - name: Step 2 - Build images and setup cluster (setup.sh)
         run: |
           echo "🔨 Step 2: Running setup.sh to build images and setup cluster..."
-          # Run setup.sh with auto-yes flag
-          echo "y" | ./setup.sh -y || {
-            echo "⚠️  setup.sh may have failed, checking status..."
-            # Continue even if setup.sh has issues - we'll check cluster status
-            true
+          # Ensure ENV is set to local for cluster creation
+          export ENV=local
+          # Run setup.sh with auto-yes flag (it will auto-answer yes to cluster setup and clean build)
+          ./setup.sh -y || {
+            echo "⚠️  setup.sh failed, checking status..."
+            # Check if cluster was created
+            if [ -f ./kind/config/kindkubeconfig.yaml ]; then
+              echo "✅ KUBECONFIG exists, cluster may have been created"
+              export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+            else
+              echo "❌ KUBECONFIG not found, setup.sh failed to create cluster"
+              exit 1
+            fi
           }
 
       - name: Verify cluster is ready
