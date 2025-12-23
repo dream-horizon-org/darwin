@@ -153,23 +153,32 @@ jobs:
         run: |
           echo "🚀 Step 3: Running start.sh to deploy to Kubernetes..."
           
+          # Debug: Show current directory
+          echo "📂 Current directory: $(pwd)"
+          ls -la
+          
           # Create config.env with required environment variables
           echo "📝 Creating config.env..."
-          echo "KUBECONFIG=./kind/config/kindkubeconfig.yaml" > config.env
+          echo "KUBECONFIG=$(pwd)/kind/config/kindkubeconfig.yaml" > config.env
           echo "DOCKER_REGISTRY=127.0.0.1:5001" >> config.env
           echo "ENV=local" >> config.env
           
           echo "✅ config.env created:"
           cat config.env
+          echo ""
+          echo "📂 File verification:"
+          ls -la config.env
           
           # Set KUBECONFIG
-          export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+          export KUBECONFIG=$(pwd)/kind/config/kindkubeconfig.yaml
           
           # Verify config.env exists before running start.sh
           if [ ! -f config.env ]; then
             echo "❌ config.env not found!"
             exit 1
           fi
+          
+          echo "✅ config.env exists, running start.sh..."
           
           # Run start.sh (it will use the enabled-services.yaml we created)
           ./start.sh || {
