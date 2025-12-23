@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from typing import Dict, Any, List, Optional
 
 from fastapi import FastAPI, HTTPException
@@ -6,6 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from src.api_client import APIClient
 from src.config.config import Config
+from src.config.logger import logger
 from src.feature_store.feature_store import FeatureStoreClient
 from src.model.model import Model
 from src.model.model_loader.ml_flow_model_loader import MLFlowModelLoader
@@ -105,26 +107,58 @@ class PredictResponse(BaseModel):
     """Response model for prediction endpoint"""
     prediction: Any = Field(..., description="Model prediction result")
 
+# Initialize components (before lifespan to make them available)
+config = Config()
+model_loader = MLFlowModelLoader(config=config)
+api_client = APIClient(config=config)
+feature_store_client = FeatureStoreClient(api_client=api_client, config=config)
+model = Model(model_loader=model_loader)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for FastAPI application.
+    Eagerly loads the model at startup to eliminate cold-start latency.
+    """
+    # Startup: Load model into memory
+    logger.info("Loading model into memory at startup...")
+    try:
+        model._ensure_model_loaded()
+        logger.info("Model loaded successfully and ready for inference")
+    except Exception as e:
+        logger.warning(f"Could not pre-load model: {e}. Model will be loaded on first request.")
+    
+    yield  # Application runs here
+    
+    # Shutdown: Cleanup if needed
+    logger.info("Shutting down serve runtime")
+
+
 # ROOT_PATH is used for proper OpenAPI/Swagger docs when behind a reverse proxy
 # e.g., if app is served at /my-model/, set ROOT_PATH=/my-model
 root_path = os.environ.get("ROOT_PATH", "")
-app = FastAPI(root_path=root_path)
-
-config = Config()
-
-model_loader = MLFlowModelLoader(config=config)
-
-api_client = APIClient(config=config)
-
-feature_store_client = FeatureStoreClient(api_client=api_client, config=config)
-
-model = Model(model_loader=model_loader)
+app = FastAPI(root_path=root_path, lifespan=lifespan)
 
 
 @app.get("/healthcheck")
 async def healthcheck():
-    """Health check endpoint to verify service is running"""
+    """Health check endpoint to verify service is running (liveness probe)."""
     return {"status": "healthy"}
+
+
+@app.get("/ready")
+async def readiness_check():
+    """
+    Readiness check endpoint for Kubernetes readiness probe.
+    Returns 200 only when model is loaded and ready for inference.
+    """
+    if model.model is None:
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "not_ready", "message": "Model not yet loaded"}
+        )
+    return {"status": "ready", "model_loaded": True}
 
 
 def _generate_sample_request(input_schema: List[Dict[str, Any]], input_example: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -161,31 +195,54 @@ def _generate_sample_request(input_schema: List[Dict[str, Any]], input_example: 
     return {"features": features}
 
 
-def _coerce_features_to_schema(features: Dict[str, Any], schema: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _prepare_model_input(features: Dict[str, Any], schema: List[Dict[str, Any]]):
     """
-    Coerce feature types to match schema expectations.
-    Handles int→float conversion for MLflow compatibility.
+    Convert features dict to a pandas DataFrame with dtypes matching the model schema.
+    
+    This function creates a DataFrame with correct dtypes based on the model's
+    logged signature, so users don't need to worry about type conversions.
     
     Args:
         features: Dictionary of feature names to values
         schema: List of column definitions with 'name' and 'type'
         
     Returns:
-        Dictionary with coerced types
+        pandas DataFrame with correct dtypes ready for MLflow prediction
     """
+    import pandas as pd
+    import numpy as np
+    
+    # Map MLflow schema types to numpy/pandas dtypes
+    # MLflow uses these type names in signatures:
+    #   "double" = float64 (sklearn, XGBoost default)
+    #   "float"  = float32 (PyTorch default)
+    #   "long"   = int64
+    #   "integer" = int32
+    type_map = {
+        "double": np.float64,
+        "float": np.float32,
+        "long": np.int64,
+        "integer": np.int32,
+        "boolean": bool,
+        "string": object,
+    }
+    
     schema_map = {col["name"]: col["type"] for col in schema}
-    coerced = {}
     
-    for name, value in features.items():
-        expected_type = schema_map.get(name)
-        
-        # Convert int to float for double/float fields to avoid MLflow type errors
-        if expected_type in ("double", "float") and isinstance(value, int) and not isinstance(value, bool):
-            coerced[name] = float(value)
-        else:
-            coerced[name] = value
+    # Create DataFrame with single row
+    df = pd.DataFrame([features])
     
-    return coerced
+    # Convert each column to the dtype expected by the model schema
+    for col_name in df.columns:
+        schema_type = schema_map.get(col_name)
+        if schema_type and schema_type in type_map:
+            try:
+                df[col_name] = df[col_name].astype(type_map[schema_type])
+            except (ValueError, TypeError):
+                # If conversion fails, let MLflow provide a clear error message
+                pass
+    
+    return df
 
 
 @app.get("/schema", response_model=SchemaResponse)
@@ -205,16 +262,20 @@ async def get_schema():
         - json_schema: JSON Schema format for validation
         
     Raises:
-        HTTPException 400: If model does not have a signature logged
+        HTTPException 400: If model signature is not available
     """
     try:
         if not model.has_signature():
             raise HTTPException(
                 status_code=400,
                 detail={
-                    "message": "Model does not have a signature.",
-                    "hint": "Please re-log the model with infer_signature() and input_example. "
-                            "See MLflow documentation: https://mlflow.org/docs/latest/model/signatures.html"
+                    "message": "Model schema not available.",
+                    "reasons": [
+                        "Model was not logged with a signature (missing infer_signature())",
+                        "Model cache not enabled (no local MLmodel file available)",
+                    ],
+                    "hint": "Enable model cache strategy (emptydir/pvc) and ensure model "
+                            "is logged with signature. See: https://mlflow.org/docs/latest/model/signatures.html"
                 }
             )
         
@@ -276,7 +337,20 @@ async def predict(request: PredictRequest):
     Raises:
         HTTPException 422: If features do not match model schema
         HTTPException 500: If prediction fails
+        HTTPException 503: If model is not loaded and ready
     """
+    # Check if model is ready before accepting prediction requests
+    if model.model is None:
+        logger.warning("Prediction request received but model not loaded yet")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "not_ready",
+                "message": "Model is not loaded yet. Please wait for the service to be ready.",
+                "hint": "Check /ready endpoint for readiness status"
+            }
+        )
+    
     try:
         # Mode 2: Direct Features Mode (bypass OFS)
         if request.features is not None:
@@ -324,12 +398,16 @@ async def predict(request: PredictRequest):
             # Combine fetched features with provided keys
             feature_dict = dict(zip(feature_columns, features))
 
-        # Coerce numeric types to match schema expectations (int→float for MLflow)
+        # Convert to DataFrame with correct dtypes matching model signature
+        # This handles: float64↔float32, int→float, etc.
         if model.has_signature():
-            feature_dict = _coerce_features_to_schema(feature_dict, model.get_input_schema())
+            model_input = _prepare_model_input(feature_dict, model.get_input_schema())
+        else:
+            # No signature - pass dict as-is, let MLflow handle conversion
+            model_input = feature_dict
 
         # Make prediction (same for both modes)
-        result = await model.predict(feature_dict)
+        result = await model.predict(model_input)
 
         return result
     

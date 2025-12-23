@@ -1,6 +1,7 @@
 """Extract schema information from MLflow model signatures."""
 
 from typing import Any, Dict, List, Optional
+from collections import OrderedDict
 from dataclasses import dataclass
 import pandas as pd
 
@@ -27,8 +28,12 @@ class SchemaExtractor:
     MLFLOW_TYPE_MAP = {
         "double": "double",
         "float": "float",
+        "float64": "double",
+        "float32": "float",
         "long": "long",
+        "int64": "long",
         "integer": "integer",
+        "int32": "integer",
         "int": "integer",
         "string": "string",
         "boolean": "boolean",
@@ -36,6 +41,7 @@ class SchemaExtractor:
         "binary": "binary",
         "datetime": "datetime",
         "object": "object",
+        "tensor": "tensor",
     }
     
     def __init__(self, mlflow_model: Any):
@@ -59,36 +65,20 @@ class SchemaExtractor:
             if hasattr(metadata, 'signature') and metadata.signature:
                 self._signature = metadata.signature
             
-            # Extract input example (stored in saved_input_example_info)
-            if hasattr(metadata, 'saved_input_example_info'):
-                self._input_example = self._load_input_example()
+            self._input_example = self._load_input_example()
     
     def _load_input_example(self) -> Optional[Dict[str, Any]]:
-        """Load input example from model artifacts."""
+        """Load input example from model artifacts and store feature order
+        """
+        # Try direct access to input_example attribute (MLflow 3.x)
+        # In recent MLflow versions, the PyFuncModel has input_example as a property
         try:
-            # MLflow stores input example in the model directory
-            if hasattr(self._model, '_model_meta') and self._model._model_meta:
-                example_info = self._model._model_meta.saved_input_example_info
-                if example_info:
-                    # The example is typically stored as a pandas DataFrame artifact
-                    artifact_path = example_info.get('artifact_path')
-                    if artifact_path and hasattr(self._model, '_model_impl'):
-                        # Try to load from the model's artifact path
-                        pass
-        except Exception:
-            pass
-        
-        # Fallback: try to get from metadata directly
-        try:
-            if hasattr(self._model, 'metadata'):
-                metadata = self._model.metadata
-                if hasattr(metadata, 'get_input_example'):
-                    example = metadata.get_input_example()
-                    if example is not None:
-                        if isinstance(example, pd.DataFrame):
-                            return example.iloc[0].to_dict()
-                        elif isinstance(example, dict):
-                            return example
+            if hasattr(self._model, 'input_example'):
+                example = self._model.input_example
+                if example is not None:
+                    result = self._process_example(example)
+                    if result:
+                        return result
         except Exception:
             pass
         

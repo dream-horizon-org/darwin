@@ -59,11 +59,11 @@ spec:
           - name: BACKOFF_SECONDS
             value: "{{ .Values.modelCache.backoffSeconds | default 10 }}"
           - name: MLFLOW_TRACKING_URI
-            value: "{{ .Values.modelCache.trackingUri | quote }}"
+            value: {{ .Values.modelCache.trackingUri | quote }}
           - name: MLFLOW_TRACKING_USERNAME
-            value: "{{ .Values.modelCache.trackingUsername | quote }}"
+            value: {{ .Values.modelCache.trackingUsername | quote }}
           - name: MLFLOW_TRACKING_PASSWORD
-            value: "{{ .Values.modelCache.trackingPassword | quote }}"
+            value: {{ .Values.modelCache.trackingPassword | quote }}
         resources:
           {{- toYaml .Values.modelCache.resources | nindent 10 }}
         volumeMounts:
