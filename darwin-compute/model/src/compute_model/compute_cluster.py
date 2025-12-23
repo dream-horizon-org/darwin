@@ -25,7 +25,10 @@ class ComputeClusterDefinition(DataClassJsonMixin):
     Args:
         name: Name of the compute cluster.
         tags: List of the tags
-        labels: Darwin Labels
+        labels: Darwin Labels. Supports special labels:
+            - workspace: 'shared' - Mounts workspace at /home/ray/fsx on both
+              head and worker nodes. Without this label, workspace is only mounted on
+              the head node. This enables data sharing between head and worker pods.
         runtime: Darwin Runtimes
         head_node: Head Node
         worker_group: Worker group configuration of compute
