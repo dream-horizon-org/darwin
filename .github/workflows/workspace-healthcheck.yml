@@ -180,6 +180,11 @@ jobs:
           
           echo "✅ config.env exists, running start.sh..."
           
+          # Fix: Patch start.sh to use ./config.env instead of config.env
+          # This is needed because /bin/sh (dash) doesn't search current dir for source command
+          sed -i 's/^\. config\.env$/. .\/config.env/' start.sh
+          echo "📝 Patched start.sh to use ./config.env"
+          
           # Run start.sh (it will use the enabled-services.yaml we created)
           ./start.sh || {
             echo "⚠️  start.sh may have issues, checking deployment status..."
