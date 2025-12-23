@@ -15,136 +15,275 @@ on:
     paths:
       - 'workspace/**'
       - '.github/workflows/workspace-healthcheck.yml'
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   healthcheck:
     runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: main
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+    defaults:
+      run:
+        working-directory: .
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-          cache: 'pip'
+          submodules: recursive
 
-      - name: Install dependencies
-        working-directory: workspace
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install prerequisites
         run: |
-          python -m pip install --upgrade pip
+          echo "📦 Installing prerequisites..."
           
-          # Install core dependencies and package first
-          pip3 install -e app-layer/. --force-reinstall
-          pip3 install -e core/. --force-reinstall
-          pip3 install urllib3==1.26.6 --force-reinstall
+          # Install kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          kubectl version --client
+          
+          # Install Helm
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
+          
+          # Install Kind (download to /tmp to avoid conflict with kind/ directory in repo)
+          curl -Lo /tmp/kind-binary https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x /tmp/kind-binary
+          sudo mv /tmp/kind-binary /usr/local/bin/kind
+          kind version
+          
+          # Install yq (required by init.sh)
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+          
+          echo "✅ Prerequisites installed"
 
-      - name: Install MySQL client
+      - name: Initialize submodules
         run: |
-          sudo apt-get update
-          sudo apt-get install -y mysql-client
+          git submodule sync --recursive
+          git submodule update --init --recursive --remote || true
 
-      - name: Wait for MySQL to be ready
+      - name: Step 1 - Initialize configuration (init.sh)
         run: |
-          for i in {1..30}; do
-            if mysqladmin ping -h 127.0.0.1 -u root -ppassword --silent 2>/dev/null; then
-              echo "MySQL is ready!"
+          echo "📋 Step 1: Running init.sh to configure services..."
+          
+          # Use init.sh with piped answers to enable only workspace feature
+          # Prompts order: compute (n), workspace (y), feature_store (n), mlflow (n), 
+          # serve (n), catalog (n), chronos (n), confirm (y), hermes-cli (n)
+          # Note: workspace depends on compute, so compute will be auto-enabled
+          printf "n\ny\nn\nn\nn\nn\nn\ny\nn\n" | ./init.sh
+          
+          echo "✅ Configuration created by init.sh"
+          cat .setup/enabled-services.yaml
+
+      - name: Step 2 - Build images and setup cluster (setup.sh)
+        run: |
+          echo "🔨 Step 2: Running setup.sh to build images and setup cluster..."
+          
+          # Run setup.sh with auto-yes flag
+          echo "y" | ./setup.sh -y || {
+            echo "⚠️  setup.sh may have failed, checking status..."
+            # Continue even if setup.sh has issues - we'll check cluster status
+            true
+          }
+
+      - name: Verify cluster is ready
+        run: |
+          echo "🔍 Verifying cluster status..."
+          export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+          
+          if [ ! -f "$KUBECONFIG" ]; then
+            echo "❌ KUBECONFIG not found, cluster may not be ready"
+            exit 1
+          fi
+          
+          # Wait for cluster to be ready
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if kubectl get nodes >/dev/null 2>&1; then
+              echo "✅ Cluster is accessible"
+              kubectl get nodes
               break
             fi
-            echo "Waiting for MySQL... ($i/30)"
-            sleep 2
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for cluster..."
+            sleep 5
+            attempt=$((attempt+1))
           done
-
-      - name: Initialize database schema
-        run: |
-          mysql -h 127.0.0.1 -u root -ppassword main < workspace/resources/db/mysql/migrations/20230627145332_CreateTables.sql
-
-      - name: Start Service and Verify Healthcheck
-        working-directory: workspace
-        env:
-          ENV: darwin-local
-          DEV: true
-          OTEL_DISABLED: true
-          DARWIN_MYSQL_HOST: 127.0.0.1
-          DARWIN_MYSQL_USERNAME: root
-          DARWIN_MYSQL_PASSWORD: password
-          DARWIN_MYSQL_DATABASE: main
-        run: |
-          # Start the service in the background
-          cd app-layer/src/workspace_app_layer
-          python -m uvicorn main:app \
-            --host 0.0.0.0 \
-            --port 8000 &
-          SERVICE_PID=$!
           
-          # Wait for the service to be ready
-          echo "Waiting for service to start..."
-          for i in {1..30}; do
-            if curl -s http://localhost:8000/health > /dev/null 2>&1; then
-              echo "Service is ready!"
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Cluster is not accessible"
+            exit 1
+          fi
+
+      - name: Step 3 - Deploy to Kubernetes (start.sh)
+        run: |
+          echo "🚀 Step 3: Running start.sh to deploy to Kubernetes..."
+          export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+          
+          # Source config.env if it exists
+          if [ -f config.env ]; then
+            set -o allexport
+            source config.env
+            set +o allexport
+          fi
+          
+          # Run start.sh (it will use the enabled-services.yaml we created)
+          ./start.sh || {
+            echo "⚠️  start.sh may have issues, checking deployment status..."
+            # Check if deployment exists
+            helm list -n darwin || true
+            kubectl get pods -n darwin || true
+            # Continue to health check even if start.sh had issues
+            true
+          }
+
+      - name: Wait for darwin-workspace pod to be ready
+        run: |
+          echo "⏳ Waiting for darwin-workspace pod to be ready..."
+          export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+          
+          max_attempts=60
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            # Check if pod exists and is ready
+            if kubectl get pods -n darwin -l app.kubernetes.io/name=darwin-workspace 2>/dev/null | grep -q "Running\|1/1\|2/2"; then
+              echo "✅ darwin-workspace pod is ready"
+              kubectl get pods -n darwin -l app.kubernetes.io/name=darwin-workspace
               break
             fi
-            if [ $i -eq 30 ]; then
-              echo "❌ Service failed to start within timeout"
-              kill $SERVICE_PID 2>/dev/null || true
-              exit 1
-            fi
-            echo "Waiting for service... ($i/30)"
-            sleep 2
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for pod..."
+            kubectl get pods -n darwin -l app.kubernetes.io/name=darwin-workspace 2>/dev/null || true
+            sleep 5
+            attempt=$((attempt+1))
           done
           
-          # Verify healthcheck endpoint
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ darwin-workspace pod did not become ready"
+            echo "Pod status:"
+            kubectl get pods -n darwin -l app.kubernetes.io/name=darwin-workspace || true
+            echo "Pod logs:"
+            kubectl logs -n darwin -l app.kubernetes.io/name=darwin-workspace --tail=50 || true
+            exit 1
+          fi
+
+      - name: Verify Services Are Healthy
+        run: |
+          echo "✅ Verifying services are healthy..."
+          export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+          
+          # Check all pods are running (as per README: kubectl get pods -n darwin)
+          echo "📦 Checking all pods are running:"
+          kubectl get pods -n darwin
+          
+          # Wait for ingress to be ready (if available)
+          echo "⏳ Waiting for ingress controller to be ready..."
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if kubectl get pods -n ingress-nginx 2>/dev/null | grep -q "Running"; then
+              echo "✅ Ingress controller is ready"
+              break
+            fi
+            sleep 2
+            attempt=$((attempt+1))
+          done
+          
+          # Start port-forward in background for workspace service
+          echo "🏥 Testing health check via port-forward..."
+          kubectl port-forward svc/darwin-workspace -n darwin 8000:8000 > /tmp/port-forward.log 2>&1 &
+          PORT_FORWARD_PID=$!
+          echo "Port-forward started with PID: $PORT_FORWARD_PID"
+          
+          # Wait for port-forward to be ready
+          sleep 5
+          
+          # Test health check endpoint
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f -s http://localhost:8000/health > /dev/null 2>&1; then
+              echo "✅ Health check endpoint is accessible"
+              break
+            fi
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for health check endpoint..."
+            sleep 2
+            attempt=$((attempt+1))
+          done
+          
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Health check endpoint not accessible"
+            echo "Port-forward logs:"
+            cat /tmp/port-forward.log || true
+            kill $PORT_FORWARD_PID 2>/dev/null || true
+            exit 1
+          fi
+          
+          # Test health check endpoint and verify response
           echo ""
           echo "========================================"
-          echo "Verifying healthcheck endpoint..."
+          echo "Testing /health endpoint..."
           echo "========================================"
           
-          RESPONSE=$(curl -s -w "\n%{http_code}" http://localhost:8000/health)
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
+          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost:8000/health)
+          http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
+          body=$(echo "$response" | grep -v "HTTP_CODE")
           
-          echo "HTTP Status Code: $HTTP_CODE"
-          echo "Response Body: $BODY"
+          echo "HTTP Status Code: $http_code"
+          echo "Response Body: $body"
           
-          # Cleanup the service
-          kill $SERVICE_PID 2>/dev/null || true
-          
-          # Verify HTTP status is 200
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Healthcheck failed: Expected HTTP 200, got $HTTP_CODE"
+          if [ "$http_code" != "200" ]; then
+            echo "❌ Health check returned HTTP $http_code, expected 200"
+            kill $PORT_FORWARD_PID 2>/dev/null || true
             exit 1
           fi
           
-          # Verify response contains expected status
-          if echo "$BODY" | grep -q '"status":"Success"'; then
-            echo ""
-            echo "✅ Healthcheck passed: Service is healthy!"
-          else
-            echo "❌ Healthcheck failed: Unexpected response body"
-            echo "Expected: {\"status\":\"Success\"}"
-            echo "Got: $BODY"
-            exit 1
-          fi
+          # Verify response structure
+          python3 << EOF
+          import json
+          import sys
+          
+          try:
+              data = json.loads('''$body''')
+              
+              # Check for expected 'status' field
+              if 'status' not in data:
+                  print("❌ Missing required field: 'status'")
+                  sys.exit(1)
+              
+              status = data.get('status')
+              
+              if status == 'Success':
+                  print("✅ Health check response is valid")
+                  print(f"   status: {status}")
+                  print("\n✅ Health check passed! Workspace Service is healthy.")
+              else:
+                  print(f"❌ Unexpected status value: '{status}', expected 'Success'")
+                  sys.exit(1)
+                  
+          except json.JSONDecodeError as e:
+              print(f"❌ Invalid JSON response: {e}")
+              sys.exit(1)
+          EOF
+          
+          # Cleanup port-forward
+          kill $PORT_FORWARD_PID 2>/dev/null || true
 
       - name: Cleanup
         if: always()
         run: |
-          if [ -f /tmp/workspace_service.pid ]; then
-            kill $(cat /tmp/workspace_service.pid) 2>/dev/null || true
+          echo "🧹 Cleaning up..."
+          export KUBECONFIG=./kind/config/kindkubeconfig.yaml || true
+          
+          # Kill any port-forwards
+          pkill -f "kubectl port-forward" || true
+          
+          # Delete kind cluster if it exists
+          if kind get clusters 2>/dev/null | grep -q kind; then
+            echo "Deleting kind cluster..."
+            kind delete cluster --name kind || true
           fi
-
+          
+          # Cleanup Docker resources
+          docker system prune -f || true
