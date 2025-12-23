@@ -70,9 +70,9 @@ jobs:
           
           # Use init.sh with piped answers to enable only workspace feature
           # Prompts order: compute (n), workspace (y), feature_store (n), mlflow (n), 
-          # serve (n), catalog (n), chronos (n), confirm (y), hermes-cli (n)
+          # serve (n), catalog (n), chronos (n), workflow (n), confirm (y), hermes-cli (n)
           # Note: workspace depends on compute, so compute will be auto-enabled
-          printf "n\ny\nn\nn\nn\nn\nn\ny\nn\n" | ./init.sh
+          printf "n\ny\nn\nn\nn\nn\nn\nn\ny\nn\n" | ./init.sh
           
           echo "✅ Configuration created by init.sh"
           cat .setup/enabled-services.yaml
