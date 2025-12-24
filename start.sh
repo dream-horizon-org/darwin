@@ -93,6 +93,7 @@ get_helm_path() {
     "ml-serve-app") echo "services.services.ml-serve-app.enabled" ;;
     "artifact-builder") echo "services.services.artifact-builder.enabled" ;;
     "darwin-catalog") echo "services.services.catalog.enabled" ;;
+    "darwin-workflow") echo "services.services.workflow.enabled" ;;
     *) echo "" ;;
   esac
 }
