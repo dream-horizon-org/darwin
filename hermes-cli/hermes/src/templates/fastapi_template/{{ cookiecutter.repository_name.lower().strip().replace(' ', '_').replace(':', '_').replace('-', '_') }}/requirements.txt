@@ -10,7 +10,7 @@ aioredis>=2.0.0
 ddtrace==1.15.1
 numpy==1.26.4
 {%- if cookiecutter.repository_inference_type in ['online', 'both'] %}
-mlflow==2.22.2
+mlflow==2.12.2
 {%- endif %}
 loguru>=0.7.0
 python-multipart>=0.0.5

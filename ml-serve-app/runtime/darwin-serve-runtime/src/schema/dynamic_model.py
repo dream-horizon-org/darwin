@@ -1,22 +1,9 @@
 """Dynamic Pydantic model generation from MLflow schema."""
 
 from typing import Any, Dict, List, Optional, Type
-from datetime import datetime
 from pydantic import BaseModel, Field, create_model
 
-
-# Map MLflow types to Python types
-MLFLOW_TO_PYTHON_TYPE = {
-    "double": float,
-    "float": float,
-    "long": int,
-    "integer": int,
-    "string": str,
-    "boolean": bool,
-    "binary": bytes,
-    "datetime": datetime,
-    "object": Any,
-}
+from src.config.constants import MLFLOW_TO_PYTHON_TYPE_MAP, MLFLOW_TO_JSON_SCHEMA_TYPE_MAP
 
 
 def create_dynamic_features_model(
@@ -53,7 +40,7 @@ def create_dynamic_features_model(
         is_required = col.get("required", True)
         
         # Get Python type
-        python_type = MLFLOW_TO_PYTHON_TYPE.get(field_type_str, Any)
+        python_type = MLFLOW_TO_PYTHON_TYPE_MAP.get(field_type_str, Any)
         
         # Create field with description
         if is_required:
@@ -109,18 +96,6 @@ def get_schema_as_json_schema(input_schema: List[Dict[str, Any]]) -> Dict[str, A
     if not input_schema:
         return {"type": "object", "properties": {}}
     
-    json_type_map = {
-        "double": "number",
-        "float": "number",
-        "long": "integer",
-        "integer": "integer",
-        "string": "string",
-        "boolean": "boolean",
-        "binary": "string",  # Base64 encoded
-        "datetime": "string",  # ISO format
-        "object": "object",
-    }
-    
     properties = {}
     required = []
     
@@ -130,7 +105,7 @@ def get_schema_as_json_schema(input_schema: List[Dict[str, Any]]) -> Dict[str, A
         is_required = col.get("required", True)
         
         properties[field_name] = {
-            "type": json_type_map.get(field_type, "string"),
+            "type": MLFLOW_TO_JSON_SCHEMA_TYPE_MAP.get(field_type, "string"),
             "description": f"Feature: {field_name}"
         }
         

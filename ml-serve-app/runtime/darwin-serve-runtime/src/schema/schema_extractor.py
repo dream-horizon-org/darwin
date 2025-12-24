@@ -1,9 +1,10 @@
 """Extract schema information from MLflow model signatures."""
 
 from typing import Any, Dict, List, Optional
-from collections import OrderedDict
 from dataclasses import dataclass
 import pandas as pd
+
+from src.config.constants import MLFLOW_TYPE_NORMALIZATION_MAP
 
 
 @dataclass
@@ -23,26 +24,6 @@ class ColumnSchema:
 
 class SchemaExtractor:
     """Extract and parse schema from MLflow model metadata."""
-    
-    # Map MLflow types to human-readable types
-    MLFLOW_TYPE_MAP = {
-        "double": "double",
-        "float": "float",
-        "float64": "double",
-        "float32": "float",
-        "long": "long",
-        "int64": "long",
-        "integer": "integer",
-        "int32": "integer",
-        "int": "integer",
-        "string": "string",
-        "boolean": "boolean",
-        "bool": "boolean",
-        "binary": "binary",
-        "datetime": "datetime",
-        "object": "object",
-        "tensor": "tensor",
-    }
     
     def __init__(self, mlflow_model: Any):
         """
@@ -119,7 +100,7 @@ class SchemaExtractor:
                     
                     columns.append(ColumnSchema(
                         name=col.get('name', 'unknown'),
-                        type=self.MLFLOW_TYPE_MAP.get(str(col_type), str(col_type)),
+                        type=MLFLOW_TYPE_NORMALIZATION_MAP.get(str(col_type), str(col_type)),
                         required=col.get('required', True)
                     ).to_dict())
         elif hasattr(schema, 'input_names'):
@@ -128,7 +109,7 @@ class SchemaExtractor:
                 col_type = schema.input_types().get(name, 'object')
                 columns.append(ColumnSchema(
                     name=name,
-                    type=self.MLFLOW_TYPE_MAP.get(str(col_type), str(col_type)),
+                    type=MLFLOW_TYPE_NORMALIZATION_MAP.get(str(col_type), str(col_type)),
                     required=True
                 ).to_dict())
         
@@ -157,13 +138,13 @@ class SchemaExtractor:
                     
                     columns.append({
                         "name": col.get('name', 'prediction'),
-                        "type": self.MLFLOW_TYPE_MAP.get(str(col_type), str(col_type))
+                        "type": MLFLOW_TYPE_NORMALIZATION_MAP.get(str(col_type), str(col_type))
                     })
             else:
                 # Single output type
                 columns.append({
                     "name": "prediction",
-                    "type": self.MLFLOW_TYPE_MAP.get(str(schema_dict), str(schema_dict))
+                    "type": MLFLOW_TYPE_NORMALIZATION_MAP.get(str(schema_dict), str(schema_dict))
                 })
         
         return columns

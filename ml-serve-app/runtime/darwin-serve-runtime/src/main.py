@@ -12,6 +12,7 @@ from src.feature_store.feature_store import FeatureStoreClient
 from src.model.model import Model
 from src.model.model_loader.ml_flow_model_loader import MLFlowModelLoader
 from src.schema.dynamic_model import get_schema_as_json_schema
+from src.utils.data_utils import prepare_model_input_dataframe
 
 
 # Response models for schema endpoints
@@ -195,54 +196,6 @@ def _generate_sample_request(input_schema: List[Dict[str, Any]], input_example: 
     return {"features": features}
 
 
-def _prepare_model_input(features: Dict[str, Any], schema: List[Dict[str, Any]]):
-    """
-    Convert features dict to a pandas DataFrame with dtypes matching the model schema.
-    
-    This function creates a DataFrame with correct dtypes based on the model's
-    logged signature, so users don't need to worry about type conversions.
-    
-    Args:
-        features: Dictionary of feature names to values
-        schema: List of column definitions with 'name' and 'type'
-        
-    Returns:
-        pandas DataFrame with correct dtypes ready for MLflow prediction
-    """
-    import pandas as pd
-    import numpy as np
-    
-    # Map MLflow schema types to numpy/pandas dtypes
-    # MLflow uses these type names in signatures:
-    #   "double" = float64 (sklearn, XGBoost default)
-    #   "float"  = float32 (PyTorch default)
-    #   "long"   = int64
-    #   "integer" = int32
-    type_map = {
-        "double": np.float64,
-        "float": np.float32,
-        "long": np.int64,
-        "integer": np.int32,
-        "boolean": bool,
-        "string": object,
-    }
-    
-    schema_map = {col["name"]: col["type"] for col in schema}
-    
-    # Create DataFrame with single row
-    df = pd.DataFrame([features])
-    
-    # Convert each column to the dtype expected by the model schema
-    for col_name in df.columns:
-        schema_type = schema_map.get(col_name)
-        if schema_type and schema_type in type_map:
-            try:
-                df[col_name] = df[col_name].astype(type_map[schema_type])
-            except (ValueError, TypeError):
-                # If conversion fails, let MLflow provide a clear error message
-                pass
-    
-    return df
 
 
 @app.get("/schema", response_model=SchemaResponse)
@@ -262,12 +215,12 @@ async def get_schema():
         - json_schema: JSON Schema format for validation
         
     Raises:
-        HTTPException 400: If model signature is not available
+        HTTPException 404: If model signature is not available
     """
     try:
         if not model.has_signature():
             raise HTTPException(
-                status_code=400,
+                status_code=404,
                 detail={
                     "message": "Model schema not available.",
                     "reasons": [
@@ -401,7 +354,7 @@ async def predict(request: PredictRequest):
         # Convert to DataFrame with correct dtypes matching model signature
         # This handles: float64↔float32, int→float, etc.
         if model.has_signature():
-            model_input = _prepare_model_input(feature_dict, model.get_input_schema())
+            model_input = prepare_model_input_dataframe(feature_dict, model.get_input_schema())
         else:
             # No signature - pass dict as-is, let MLflow handle conversion
             model_input = feature_dict
