@@ -44,7 +44,8 @@ jobs:
             exit 1
           fi
           
-          echo "PR Author: $PR_AUTHOR" >> $GITHUB_OUTPUT
+          # Output format must be key=value (no spaces, lowercase key)
+          echo "pr-author=$PR_AUTHOR" >> $GITHUB_OUTPUT
       
       - name: Display access decision
         run: |
