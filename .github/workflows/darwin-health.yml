@@ -1,0 +1,95 @@
+name: Darwin Health
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate-pr-author:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'pull_request' && 
+       github.event.pull_request.user.login == 'mohitd11')
+    outputs:
+      is-internal: ${{ steps.check.outputs.is-internal }}
+      pr-author: ${{ steps.check.outputs.pr-author }}
+      runner-type: ${{ steps.check.outputs.runner-type }}
+    steps:
+      - name: Check if PR author is mohitd11
+        id: check
+        run: |
+          # Only mohitd11 is allowed
+          ALLOWED_USER="mohitd11"
+          
+          # Get PR author (empty if not a PR event)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          else
+            PR_AUTHOR="${{ github.actor }}"
+          fi
+          
+          echo "🔍 Checking access for: $PR_AUTHOR"
+          echo "Event type: ${{ github.event_name }}"
+          echo "Allowed user: $ALLOWED_USER"
+          
+          # Check if author is mohitd11
+          if [ "$PR_AUTHOR" = "$ALLOWED_USER" ]; then
+            echo "✅ $PR_AUTHOR is authorized (mohitd11)"
+            echo "is-internal=true" >> $GITHUB_OUTPUT
+            echo "runner-type=self-hosted" >> $GITHUB_OUTPUT
+          else
+            echo "❌ $PR_AUTHOR is NOT authorized. Only mohitd11 can trigger this workflow."
+            echo "is-internal=false" >> $GITHUB_OUTPUT
+            echo "runner-type=ubuntu-latest" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "PR Author: $PR_AUTHOR" >> $GITHUB_OUTPUT
+      
+      - name: Display access decision
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📋 ACCESS CONTROL DECISION"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "PR Author: ${{ steps.check.outputs.pr-author }}"
+          echo "Is Internal: ${{ steps.check.outputs.is-internal }}"
+          echo "Runner Type: ${{ steps.check.outputs.runner-type }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  health-check:
+    needs: validate-pr-author
+    runs-on: ${{ needs.validate-pr-author.outputs.runner-type }}
+    if: needs.validate-pr-author.outputs.is-internal == 'true'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Display runner information
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🖥️  RUNNER INFORMATION"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Runner OS: $(uname -s)"
+          echo "Runner Arch: $(uname -m)"
+          echo "Runner Hostname: $(hostname)"
+          echo "Runner Type: ${{ needs.validate-pr-author.outputs.runner-type }}"
+          echo "Is Internal: ${{ needs.validate-pr-author.outputs.is-internal }}"
+          echo "PR Author: ${{ needs.validate-pr-author.outputs.pr-author }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      
+      - name: Simple health check
+        run: |
+          echo "✅ Health check passed!"
+          echo "This job is running on: ${{ needs.validate-pr-author.outputs.runner-type }}"
+          echo "Only internal team members can trigger self-hosted runners"
+      
+      - name: Test runner capabilities
+        run: |
+          echo "Testing runner capabilities..."
+          echo "Current directory: $(pwd)"
+          echo "Python version: $(python3 --version 2>&1 || echo 'Python not available')"
+          echo "Node version: $(node --version 2>&1 || echo 'Node not available')"
+          echo "Git version: $(git --version)"
+
+
