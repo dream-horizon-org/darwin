@@ -30,8 +30,17 @@ jobs:
       - name: Install prerequisites
         run: |
           # Install kubectl
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+          echo "Installing kubectl version: $KUBECTL_VERSION"
+          curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          # Verify the download is actually a binary (not an error page)
+          if ! file kubectl | grep -q "ELF\|executable"; then
+            echo "❌ Downloaded file is not a binary, retrying with direct URL..."
+            rm -f kubectl
+            curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          fi
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
           kubectl version --client
 
           # Install Helm
@@ -71,17 +80,8 @@ jobs:
           # Ensure ENV is set to local for cluster creation
           export ENV=local
           # Run setup.sh with auto-yes flag (it will auto-answer yes to cluster setup and clean build)
-          ./setup.sh -y || {
-            echo "⚠️  setup.sh failed, checking status..."
-            # Check if cluster was created
-            if [ -f ./kind/config/kindkubeconfig.yaml ]; then
-              echo "✅ KUBECONFIG exists, cluster may have been created"
-              export KUBECONFIG=./kind/config/kindkubeconfig.yaml
-            else
-              echo "❌ KUBECONFIG not found, setup.sh failed to create cluster"
-              exit 1
-            fi
-          }
+          # setup.sh will handle errors gracefully - if cluster creation fails but KUBECONFIG exists, it will continue
+          ./setup.sh -y
 
       - name: Verify cluster is ready
         run: |
@@ -124,15 +124,42 @@ jobs:
             set +o allexport
           fi
           
-          # Run start.sh (it will use the enabled-services.yaml we created)
-          ./start.sh || {
-            echo "⚠️  start.sh may have issues, checking deployment status..."
-            # Check if deployment exists
+          # Verify cluster is accessible before deployment
+          echo "🔍 Verifying cluster connectivity..."
+          if ! kubectl get nodes >/dev/null 2>&1; then
+            echo "❌ Cluster is not accessible"
+            exit 1
+          fi
+          
+          # Run start.sh - it should fail if deployment fails
+          if ! ./start.sh; then
+            echo "❌ start.sh failed, checking deployment status..."
+            echo ""
+            echo "Helm releases:"
             helm list -n darwin || true
+            echo ""
+            echo "All pods in darwin namespace:"
             kubectl get pods -n darwin || true
-            # Continue to health check even if start.sh had issues
-            true
-          }
+            echo ""
+            echo "All resources in darwin namespace:"
+            kubectl get all -n darwin || true
+            echo ""
+            echo "Helm release status:"
+            helm status darwin -n darwin || true
+            echo ""
+            echo "Helm release history:"
+            helm history darwin -n darwin || true
+            exit 1
+          fi
+          
+          # Verify deployment was successful
+          echo "🔍 Verifying deployment..."
+          if ! helm list -n darwin | grep -q darwin; then
+            echo "❌ Helm release 'darwin' not found after start.sh completed"
+            exit 1
+          fi
+          
+          echo "✅ Deployment completed successfully"
 
       - name: Wait for darwin-workflow pod to be ready
         run: |

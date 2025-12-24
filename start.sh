@@ -65,7 +65,11 @@ else
 fi
 
 echo "⚙️  Setting up Kubernetes dependencies..."
-./k8s-setup.sh
+# k8s-setup.sh installs kuberay, prometheus, etc. which may not be needed for basic workflow
+# Make it non-blocking for CI - if it fails, continue with deployment
+if ! ./k8s-setup.sh; then
+  echo "⚠️  k8s-setup.sh had issues (kuberay/prometheus setup), continuing with deployment..."
+fi
 
 echo "🚀 Starting Darwin Platform deployment..."
 

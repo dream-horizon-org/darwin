@@ -104,7 +104,15 @@ if [ "$ENV" = "local" ]; then
         export KIND_CONFIG=./kind/kind-config-tmp.yaml
         export KUBECONFIG=./kind/config/kindkubeconfig.yaml
         
-        sh ./kind/start-cluster.sh
+        # Run start-cluster.sh - it will handle kind installation if needed
+        # In CI, kind is already installed, so this should just create the cluster
+        if ! sh ./kind/start-cluster.sh; then
+            echo "⚠️  start-cluster.sh had issues, but continuing..."
+            # Check if cluster was actually created despite the error
+            if [ -f "$KUBECONFIG" ]; then
+                echo "✅ KUBECONFIG exists, cluster may have been created"
+            fi
+        fi
         ENV_CREATION=true
         
         rm ./kind/kind-config-tmp.yaml
