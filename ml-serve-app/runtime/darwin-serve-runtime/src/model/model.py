@@ -1,9 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 from .model_loader.model_loader_interface import ModelLoaderInterface
 from src.schema.schema_validator import SchemaValidator
-from src.config.logger import logger
-import pandas as pd
-import numpy as np
+
 
 class Model:
     def __init__(self, model_loader: ModelLoaderInterface):

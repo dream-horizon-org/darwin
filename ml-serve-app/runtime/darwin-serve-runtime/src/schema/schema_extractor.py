@@ -2,9 +2,6 @@
 
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
-import pandas as pd
-
-from src.config.constants import MLFLOW_TYPE_NORMALIZATION_MAP
 
 
 @dataclass
@@ -100,7 +97,7 @@ class SchemaExtractor:
                     
                     columns.append(ColumnSchema(
                         name=col.get('name', 'unknown'),
-                        type=MLFLOW_TYPE_NORMALIZATION_MAP.get(str(col_type), str(col_type)),
+                        type=str(col_type),
                         required=col.get('required', True)
                     ).to_dict())
         elif hasattr(schema, 'input_names'):
@@ -109,7 +106,7 @@ class SchemaExtractor:
                 col_type = schema.input_types().get(name, 'object')
                 columns.append(ColumnSchema(
                     name=name,
-                    type=MLFLOW_TYPE_NORMALIZATION_MAP.get(str(col_type), str(col_type)),
+                    type=str(col_type),
                     required=True
                 ).to_dict())
         
@@ -138,13 +135,13 @@ class SchemaExtractor:
                     
                     columns.append({
                         "name": col.get('name', 'prediction'),
-                        "type": MLFLOW_TYPE_NORMALIZATION_MAP.get(str(col_type), str(col_type))
+                        "type": str(col_type)
                     })
             else:
                 # Single output type
                 columns.append({
                     "name": "prediction",
-                    "type": MLFLOW_TYPE_NORMALIZATION_MAP.get(str(schema_dict), str(schema_dict))
+                    "type": str(schema_dict)
                 })
         
         return columns

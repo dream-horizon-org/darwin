@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional, Type
 from pydantic import BaseModel, Field, create_model
 
-from src.config.constants import MLFLOW_TO_PYTHON_TYPE_MAP, MLFLOW_TO_JSON_SCHEMA_TYPE_MAP
+from src.config.constants import MLFLOW_TO_PYTHON_TYPE_MAP
 
 
 def create_dynamic_features_model(
@@ -39,7 +39,8 @@ def create_dynamic_features_model(
         field_type_str = col.get("type", "object")
         is_required = col.get("required", True)
         
-        # Get Python type
+        # Get Python type from MLflow type name
+        # Python doesn't understand "double", "long", etc. - these are MLflow names
         python_type = MLFLOW_TO_PYTHON_TYPE_MAP.get(field_type_str, Any)
         
         # Create field with description
@@ -87,6 +88,8 @@ def get_schema_as_json_schema(input_schema: List[Dict[str, Any]]) -> Dict[str, A
     """
     Convert input schema to JSON Schema format for OpenAPI docs.
     
+    Uses Pydantic's built-in JSON schema generation for consistency.
+    
     Args:
         input_schema: List of column definitions
         
@@ -96,29 +99,6 @@ def get_schema_as_json_schema(input_schema: List[Dict[str, Any]]) -> Dict[str, A
     if not input_schema:
         return {"type": "object", "properties": {}}
     
-    properties = {}
-    required = []
-    
-    for col in input_schema:
-        field_name = col.get("name")
-        field_type = col.get("type", "object")
-        is_required = col.get("required", True)
-        
-        properties[field_name] = {
-            "type": MLFLOW_TO_JSON_SCHEMA_TYPE_MAP.get(field_type, "string"),
-            "description": f"Feature: {field_name}"
-        }
-        
-        if is_required:
-            required.append(field_name)
-    
-    schema = {
-        "type": "object",
-        "properties": properties,
-    }
-    
-    if required:
-        schema["required"] = required
-    
-    return schema
-
+    # Create dynamic Pydantic model and use its built-in JSON schema generation
+    DynamicModel = create_dynamic_features_model(input_schema, "Features")
+    return DynamicModel.model_json_schema()
