@@ -19,7 +19,7 @@ RUN JAVA_FILE_VERSION=$(echo "$JAVA_VERSION" | sed 's/+/_/g') \
            echo "Unsupported arch: $TARGETARCH" && exit 1; \
        fi \
     && echo "Downloading Java from $JAVA_URL" \
-    && curl -fsSL "$JAVA_URL" -o /tmp/java.tar.gz \
+    && curl -fsSL --connect-timeout 30 --max-time 600 --retry 3 --retry-delay 5 "$JAVA_URL" -o /tmp/java.tar.gz \
     && mkdir -p /opt/java \
     && tar -C /opt/java -xzf /tmp/java.tar.gz --strip-components=1 \
     && rm -f /tmp/java.tar.gz
@@ -30,9 +30,28 @@ ENV PATH="/opt/java/bin:$PATH"
 ENV MAVEN_VERSION=3.9.1
 ENV MAVEN_HOME=/opt/maven
 
-RUN MAVEN_URL="https://archive.apache.org/dist/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz" \
-    && echo "Downloading Maven from $MAVEN_URL" \
-    && curl -fsSL "$MAVEN_URL" -o /tmp/maven.tar.gz \
+# Download Maven with retry logic and fallback mirrors (sh-compatible)
+RUN MAVEN_FILENAME="apache-maven-$MAVEN_VERSION-bin.tar.gz" \
+    && ( \
+        echo "Attempting to download Maven from archive.apache.org..." \
+        && curl -fsSL --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 \
+            "https://archive.apache.org/dist/maven/maven-3/$MAVEN_VERSION/binaries/$MAVEN_FILENAME" \
+            -o /tmp/maven.tar.gz \
+    ) || ( \
+        echo "archive.apache.org failed, trying dlcdn.apache.org..." \
+        && curl -fsSL --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 \
+            "https://dlcdn.apache.org/maven/maven-3/$MAVEN_VERSION/binaries/$MAVEN_FILENAME" \
+            -o /tmp/maven.tar.gz \
+    ) || ( \
+        echo "dlcdn.apache.org failed, trying mirrors.ocf.berkeley.edu..." \
+        && curl -fsSL --connect-timeout 30 --max-time 300 --retry 3 --retry-delay 5 \
+            "https://mirrors.ocf.berkeley.edu/apache/maven/maven-3/$MAVEN_VERSION/binaries/$MAVEN_FILENAME" \
+            -o /tmp/maven.tar.gz \
+    ) \
+    && if [ ! -f /tmp/maven.tar.gz ]; then \
+        echo "❌ Failed to download Maven from all mirrors" && exit 1; \
+    fi \
+    && echo "✅ Successfully downloaded Maven" \
     && mkdir -p /opt/maven \
     && tar -C /opt/maven -xzf /tmp/maven.tar.gz --strip-components=1 \
     && rm -f /tmp/maven.tar.gz
