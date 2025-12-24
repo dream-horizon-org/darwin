@@ -13,7 +13,7 @@ on:
 
 jobs:
   health-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4-cores
     defaults:
       run:
         working-directory: .
