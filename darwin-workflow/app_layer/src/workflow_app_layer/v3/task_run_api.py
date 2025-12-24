@@ -9,7 +9,7 @@ logger = get_logger(__name__)
 
 def setup_v3_task_runs_router(v3_tr_service):
     """
-    Setup function to inject dependencies into the V3 router.
+    Setup function to inject dependencies into the V3 router..
     This allows us to access the global objects from main.py
     """
     global task_run_service
