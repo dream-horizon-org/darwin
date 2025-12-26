@@ -117,6 +117,36 @@ def load_input_example_from_file(
         return None
 
 
+def infer_mlflow_type(value: Any) -> str:
+    """
+    Infer MLflow schema type from a Python value.
+    
+    Maps Python types to MLflow type names:
+    - float -> "double"
+    - int -> "long"
+    - bool -> "boolean"
+    - str -> "string"
+    - other -> "double" (default for numeric)
+    
+    Args:
+        value: Python value to infer type from
+        
+    Returns:
+        MLflow type name string
+    """
+    if isinstance(value, float):
+        return "double"
+    elif isinstance(value, bool):
+        # Note: bool check must come before int (bool is subclass of int)
+        return "boolean"
+    elif isinstance(value, int):
+        return "long"
+    elif isinstance(value, str):
+        return "string"
+    else:
+        return "double"  # Default to double for numeric
+
+
 def is_tensor_spec_schema(inputs: List[Dict]) -> bool:
     """
     Check if the input schema is a TensorSpec (tensor-based) schema.
@@ -182,21 +212,9 @@ def expand_tensor_schema(input_example: Dict[str, Any]) -> Tuple[List[Dict[str, 
     feature_order = list(input_example.keys())
     
     for name, value in input_example.items():
-        # Infer type from the example value
-        if isinstance(value, float):
-            col_type = "double"
-        elif isinstance(value, int):
-            col_type = "long"
-        elif isinstance(value, bool):
-            col_type = "boolean"
-        elif isinstance(value, str):
-            col_type = "string"
-        else:
-            col_type = "double"  # Default to double for numeric
-        
         columns.append({
             "name": name,
-            "type": col_type,
+            "type": infer_mlflow_type(value),
             "required": True
         })
     

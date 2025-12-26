@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from src.utils.schema_utils import is_tensor_spec_schema
+from src.utils.schema_utils import is_tensor_spec_schema, infer_mlflow_type
 
 
 @dataclass
@@ -133,21 +133,9 @@ class SchemaExtractor:
                 if self._input_example and self._feature_order:
                     for name in self._feature_order:
                         value = self._input_example.get(name)
-                        # Infer type from the example value
-                        if isinstance(value, float):
-                            col_type = "double"
-                        elif isinstance(value, int):
-                            col_type = "long"
-                        elif isinstance(value, bool):
-                            col_type = "boolean"
-                        elif isinstance(value, str):
-                            col_type = "string"
-                        else:
-                            col_type = "double"  # Default to double for numeric
-                        
                         columns.append(ColumnSchema(
                             name=name,
-                            type=col_type,
+                            type=infer_mlflow_type(value),
                             required=True
                         ).to_dict())
                     return columns
