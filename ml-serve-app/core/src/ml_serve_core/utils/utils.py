@@ -1,4 +1,10 @@
 from ml_serve_core.dtos.dtos import EnvConfig
+from ml_serve_core.constants.constants import (
+    CONTAINER_REGISTRY,
+    DEFAULT_FLAVOR,
+    RUNTIME_REPOSITORY,
+    VALID_IMAGE_CATEGORIES,
+)
 
 import os
 import secrets
@@ -11,6 +17,26 @@ ENV = os.getenv("ENV", "local")
 
 # Namespace where serves are deployed in local environment
 LOCAL_SERVE_NAMESPACE = os.getenv("LOCAL_SERVE_NAMESPACE", "serve")
+
+
+def get_runtime_for_flavor(flavor: str) -> str:
+    """
+    Get the runtime image for a specific model flavor.
+    
+    Constructs the full image URL based on registry, repository, and flavor.
+    Falls back to DEFAULT_FLAVOR (lightest) if flavor is invalid.
+    
+    Args:
+        flavor: Model flavor category ('sklearn', 'boosting', 'pytorch', 'tensorflow')
+        
+    Returns:
+        Full image URL for the flavor (e.g., 'localhost:5000/serve-md-runtime:sklearn')
+    """
+    # Validate flavor against known categories
+    if flavor not in VALID_IMAGE_CATEGORIES:
+        flavor = DEFAULT_FLAVOR
+    
+    return f"{CONTAINER_REGISTRY}/{RUNTIME_REPOSITORY}:{flavor}"
 
 
 def get_host_name(name: str, env: str, env_config: EnvConfig, is_environment_protected: bool):

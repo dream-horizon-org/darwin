@@ -58,6 +58,7 @@ async def determine_storage_strategy(
     user_strategy: str,
     model_uri: str,
     mlflow_client: MLflowClient,
+    model_size_bytes: Optional[int] = None,
 ) -> str:
     """
     Determine the storage strategy for a model deployment.
@@ -66,6 +67,8 @@ async def determine_storage_strategy(
         user_strategy: One of "auto", "emptydir", or "pvc".
         model_uri: MLflow model URI to evaluate.
         mlflow_client: Initialized MLflowClient to use for size detection.
+        model_size_bytes: Pre-calculated model size in bytes. If provided,
+            skips the HTTP call to MLflow for size detection.
 
     Returns:
         Either "emptydir" or "pvc".
@@ -75,7 +78,9 @@ async def determine_storage_strategy(
     """
     selector = StrategySelector()
     if user_strategy == "auto":
-        model_size_bytes = await mlflow_client.get_model_size(model_uri)
+        # Use pre-calculated size if provided, otherwise fetch from MLflow
+        if model_size_bytes is None:
+            model_size_bytes = await mlflow_client.get_model_size(model_uri)
         storage_strategy = selector.select(model_size_bytes)
         model_size_str = selector.format_size(model_size_bytes) if model_size_bytes else "unknown"
         logger.info(f"Model size {model_size_str} recommends strategy: {storage_strategy}")

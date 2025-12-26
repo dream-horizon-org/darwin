@@ -13,6 +13,7 @@ import yaml
 from .model_loader_interface import ModelLoaderInterface
 from src.config.config import Config
 from src.config.constants import (
+    DEFAULT_FLAVOR,
     FLAVOR_TO_LOADER,
     FLAVOR_TO_IMAGE_CATEGORY,
     FLAVOR_PRIORITY_ORDER,
@@ -96,17 +97,17 @@ class ModelLoaderFactory:
             return SklearnNativeLoader(config)
         
         elif flavor == "xgboost":
-            from .native.xgboost_loader import XGBoostNativeLoader
+            from .native.boosting_loader import XGBoostNativeLoader
             logger.info("Creating XGBoostNativeLoader")
             return XGBoostNativeLoader(config)
         
         elif flavor == "lightgbm":
-            from .native.xgboost_loader import LightGBMNativeLoader
+            from .native.boosting_loader import LightGBMNativeLoader
             logger.info("Creating LightGBMNativeLoader")
             return LightGBMNativeLoader(config)
         
         elif flavor == "catboost":
-            from .native.xgboost_loader import CatBoostNativeLoader
+            from .native.boosting_loader import CatBoostNativeLoader
             logger.info("Creating CatBoostNativeLoader")
             return CatBoostNativeLoader(config)
         
@@ -174,7 +175,7 @@ class ModelLoaderFactory:
         """
         Get the category (image type) for a given flavor.    
         """
-        return FLAVOR_TO_IMAGE_CATEGORY.get(flavor, "sklearn")
+        return FLAVOR_TO_IMAGE_CATEGORY.get(flavor, DEFAULT_FLAVOR)
     
     @classmethod
     def get_supported_flavors(cls) -> List[str]:

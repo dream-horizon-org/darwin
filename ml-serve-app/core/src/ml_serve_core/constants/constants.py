@@ -3,6 +3,12 @@ from typing import Dict
 
 ENV_ENVIRONMENT_VARIABLE = "ENV"
 
+# Default flavor used when detection fails (sklearn is lightest)
+DEFAULT_FLAVOR = "sklearn"
+
+# Valid image categories for one-click deployments
+VALID_IMAGE_CATEGORIES = frozenset({"sklearn", "boosting", "pytorch", "tensorflow"})
+
 # Model Flavor to Image Category Mapping
 # Maps MLflow model flavors to Docker image categories for one-click deployments.
 # This is used by mlflow_client.py for flavor detection.
@@ -25,7 +31,7 @@ FLAVOR_TO_IMAGE_CATEGORY: Dict[str, str] = {
     "tf": "tensorflow",
     
     # Default fallback (sklearn image is lightest)
-    "python_function": "sklearn",
+    "python_function": DEFAULT_FLAVOR,
 }
 
 CONFIGS_MAP = {
@@ -71,35 +77,15 @@ CONTAINER_REGISTRY = os.getenv("CONTAINER_REGISTRY", "localhost:5000")
 IMAGE_REPOSITORY = os.getenv("IMAGE_REPOSITORY", "serve-app")
 IMAGE_TAG = os.getenv("IMAGE_TAG", "latest")
 
-# RUNTIME_REPOSITORY is used for one-click MLflow model deployments (e.g., serve-md-runtime:sklearn)
+# RUNTIME_REPOSITORY is used for one-click MLflow model deployments
 RUNTIME_REPOSITORY = os.getenv("RUNTIME_REPOSITORY", "serve-md-runtime")
-RUNTIME_TAG = os.getenv("RUNTIME_TAG", "sklearn")  # Default to sklearn (lightest)
 
-# Default runtime (used when no flavor detection is available)
-DEFAULT_RUNTIME = os.getenv("DEFAULT_RUNTIME", f"{CONTAINER_REGISTRY}/{RUNTIME_REPOSITORY}:{RUNTIME_TAG}")
-
-# Flavor-specific runtime images
-# Format: {registry}/{repository}:{flavor}
-RUNTIME_IMAGE_TEMPLATE = os.getenv(
-    "RUNTIME_IMAGE_TEMPLATE",
-    f"{CONTAINER_REGISTRY}/{RUNTIME_REPOSITORY}:{{flavor}}"
+# DEFAULT_RUNTIME is used for model downloader init containers
+# Format: {registry}/{runtime_repository}:sklearn (lightest default)
+DEFAULT_RUNTIME = os.getenv(
+    "DEFAULT_RUNTIME",
+    f"{CONTAINER_REGISTRY}/{RUNTIME_REPOSITORY}:sklearn"
 )
-
-
-def get_runtime_for_flavor(flavor: str) -> str:
-    """
-    Get the runtime image for a specific model flavor.
-    
-    Args:
-        flavor: Model flavor category ('sklearn', 'boosting', 'pytorch', 'tensorflow')
-        
-    Returns:
-        Full image URL for the flavor
-    """
-    valid_flavors = {"sklearn", "boosting", "pytorch", "tensorflow"}
-    if flavor not in valid_flavors:
-        flavor = "sklearn"  # Default to sklearn as it's the lightest
-    return RUNTIME_IMAGE_TEMPLATE.format(flavor=flavor)
 
 
 # Workflow serve configuration (only needed if using workflow serves)

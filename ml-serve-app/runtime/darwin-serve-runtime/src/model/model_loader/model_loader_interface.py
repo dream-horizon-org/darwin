@@ -56,22 +56,6 @@ class ModelLoaderInterface(ABC):
         """Get the input example if available."""
         return None
     
-    def get_feature_order(self) -> Optional[List[str]]:
-        """
-        Get the ordered list of feature names for TensorSpec models.
-        
-        This is used to convert feature dictionaries to ordered arrays
-        for models that expect tensor input (like TensorFlow).
-        
-        Returns:
-            List of feature names in order, or None if not available
-        """
-        return None
-    
-    def is_tensor_spec(self) -> bool:
-        """Check if the model uses TensorSpec signature."""
-        return False
-    
     def get_full_schema(self) -> Dict[str, Any]:
         """Get the complete schema information."""
         return {"inputs": [], "outputs": [], "input_example": None}

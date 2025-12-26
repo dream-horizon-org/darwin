@@ -63,11 +63,13 @@ class Model:
         Returns:
             List of feature names in order, or None if not available
         """
-        return self._model_loader.get_feature_order()
+        return getattr(self._model_loader, 'get_feature_order', lambda: None)()
     
     def is_tensor_spec(self) -> bool:
-        """Check if the model uses TensorSpec signature."""
-        return self._model_loader.is_tensor_spec()
+        """
+        Check if the model uses TensorSpec signature.
+        """
+        return getattr(self._model_loader, 'is_tensor_spec', lambda: False)()
     
     def validate_features(self, features: Dict[str, Any]) -> Tuple[bool, List[Dict[str, Any]]]:
         """

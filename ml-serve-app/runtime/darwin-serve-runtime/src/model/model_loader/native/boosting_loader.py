@@ -1,5 +1,5 @@
 """
-Native XGBoost/LightGBM/CatBoost model loaders.
+Native boosting model loaders for XGBoost, LightGBM, and CatBoost.
 
 These loaders directly load boosting models using their native APIs,
 bypassing the MLflow pyfunc wrapper for better performance.

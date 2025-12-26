@@ -22,6 +22,9 @@ MLFLOW_TO_PYTHON_TYPE_MAP = {
     "object": Any,
 }
 
+# Default flavor used when detection fails
+DEFAULT_FLAVOR = "sklearn"
+
 # Model Flavor to Image Category Mapping
 # This is the single source of truth for flavor categorization.
 # Used by both cluster-manager (for image selection) and runtime (for loader selection).
@@ -49,7 +52,7 @@ FLAVOR_TO_IMAGE_CATEGORY: Dict[str, str] = {
     "tf": "tensorflow",
     
     # Default fallback (sklearn image is lightest)
-    "python_function": "sklearn",
+    "python_function": DEFAULT_FLAVOR,
 }
 
 # Flavor to Loader Type Mapping

@@ -14,8 +14,8 @@ from ml_serve_core.constants.constants import (
     FASTAPI_SERVE_RESOURCE_NAME,
     FASTAPI_SERVE_CHART_VERSION,
     JOB_CLUSTER_RUNTIME,
-    get_runtime_for_flavor,
 )
+from ml_serve_core.utils.utils import get_runtime_for_flavor
 from ml_serve_core.config.configs import Config
 from ml_serve_core.dtos.dtos import EnvConfig
 from ml_serve_core.service.serve_config_service import ServeConfigService
@@ -510,8 +510,16 @@ class DeploymentService:
         )
 
     async def deploy_model(self, request: ModelDeploymentRequest, user: User):
-        # Validate model URI exists in MLflow before proceeding
-        is_valid, error_msg = await self.mlflow_client.validate_model_uri(request.model_uri)
+        # Fetch all model metadata in a single pass (reduces HTTP calls)
+        metadata = await self.mlflow_client.get_model_metadata(request.model_uri)
+        
+        # Validate model URI using pre-resolved values
+        is_valid, error_msg = await self.mlflow_client.validate_model_uri(
+            request.model_uri,
+            resolved_run_id=metadata.run_id if metadata.run_id else None,
+            resolved_artifact_path=metadata.artifact_path,
+            resolved_experiment_id=metadata.experiment_id,
+        )
         if not is_valid:
             raise HTTPException(
                 status_code=400,
@@ -522,10 +530,9 @@ class DeploymentService:
                 }
             )
 
-        # Detect model flavor from MLmodel file and get appropriate runtime image
-        model_flavor = await self.mlflow_client.get_model_flavor(request.model_uri)
-        runtime_image = get_runtime_for_flavor(model_flavor)
-        logger.info(f"Selected runtime image '{runtime_image}' for model flavor '{model_flavor}'")
+        # Use pre-fetched flavor from metadata
+        runtime_image = get_runtime_for_flavor(metadata.flavor)
+        logger.info(f"Selected runtime image '{runtime_image}' for model flavor '{metadata.flavor}'")
 
         # Get environment from database
         env = await Environment.get_or_none(name=request.env)
@@ -605,12 +612,13 @@ class DeploymentService:
 
         environment_variables = self._build_one_click_env_vars(request.model_uri, request.artifact_version)
 
-        # Determine optimal storage strategy for model caching
+        # Determine optimal storage strategy for model caching (uses pre-fetched size)
         try:
             storage_strategy = await determine_storage_strategy(
                 user_strategy=request.storage_strategy or "auto",
                 model_uri=request.model_uri,
                 mlflow_client=self.mlflow_client,
+                model_size_bytes=metadata.size_bytes,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
