@@ -1,6 +1,32 @@
 import os
+from typing import Dict
 
 ENV_ENVIRONMENT_VARIABLE = "ENV"
+
+# Model Flavor to Image Category Mapping
+# Maps MLflow model flavors to Docker image categories for one-click deployments.
+# This is used by mlflow_client.py for flavor detection.
+FLAVOR_TO_IMAGE_CATEGORY: Dict[str, str] = {
+    # Scikit-learn
+    "sklearn": "sklearn",
+    
+    # Boosting models
+    "xgboost": "boosting",
+    "lightgbm": "boosting",
+    "catboost": "boosting",
+    
+    # Deep learning - PyTorch
+    "pytorch": "pytorch",
+    "torch": "pytorch",
+    
+    # Deep learning - TensorFlow/Keras
+    "tensorflow": "tensorflow",
+    "keras": "tensorflow",
+    "tf": "tensorflow",
+    
+    # Default fallback (sklearn image is lightest)
+    "python_function": "sklearn",
+}
 
 CONFIGS_MAP = {
     "local": {
@@ -39,11 +65,42 @@ ALB_LOGS_PREFIX = os.getenv("ALB_LOGS_PREFIX", "alb-logs")
 
 ORGANIZATION_NAME = os.getenv("ORGANIZATION_NAME", "my-org")
 
-CONTAINER_REGISTRY = os.getenv("CONTAINER_REGISTRY", "docker.io")
-IMAGE_REPOSITORY = os.getenv("IMAGE_REPOSITORY", "darwin")
+CONTAINER_REGISTRY = os.getenv("CONTAINER_REGISTRY", "localhost:5000")
+
+# IMAGE_REPOSITORY is used for artifact-builder custom builds (e.g., serve-app:my-model_v1)
+IMAGE_REPOSITORY = os.getenv("IMAGE_REPOSITORY", "serve-app")
 IMAGE_TAG = os.getenv("IMAGE_TAG", "latest")
 
-DEFAULT_RUNTIME = os.getenv("DEFAULT_RUNTIME", f"{CONTAINER_REGISTRY}/{IMAGE_REPOSITORY}:{IMAGE_TAG}")
+# RUNTIME_REPOSITORY is used for one-click MLflow model deployments (e.g., serve-md-runtime:sklearn)
+RUNTIME_REPOSITORY = os.getenv("RUNTIME_REPOSITORY", "serve-md-runtime")
+RUNTIME_TAG = os.getenv("RUNTIME_TAG", "sklearn")  # Default to sklearn (lightest)
+
+# Default runtime (used when no flavor detection is available)
+DEFAULT_RUNTIME = os.getenv("DEFAULT_RUNTIME", f"{CONTAINER_REGISTRY}/{RUNTIME_REPOSITORY}:{RUNTIME_TAG}")
+
+# Flavor-specific runtime images
+# Format: {registry}/{repository}:{flavor}
+RUNTIME_IMAGE_TEMPLATE = os.getenv(
+    "RUNTIME_IMAGE_TEMPLATE",
+    f"{CONTAINER_REGISTRY}/{RUNTIME_REPOSITORY}:{{flavor}}"
+)
+
+
+def get_runtime_for_flavor(flavor: str) -> str:
+    """
+    Get the runtime image for a specific model flavor.
+    
+    Args:
+        flavor: Model flavor category ('sklearn', 'boosting', 'pytorch', 'tensorflow')
+        
+    Returns:
+        Full image URL for the flavor
+    """
+    valid_flavors = {"sklearn", "boosting", "pytorch", "tensorflow"}
+    if flavor not in valid_flavors:
+        flavor = "sklearn"  # Default to sklearn as it's the lightest
+    return RUNTIME_IMAGE_TEMPLATE.format(flavor=flavor)
+
 
 # Workflow serve configuration (only needed if using workflow serves)
 JOB_CLUSTER_RUNTIME = os.getenv("JOB_CLUSTER_RUNTIME", "")

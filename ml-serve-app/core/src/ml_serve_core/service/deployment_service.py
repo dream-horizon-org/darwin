@@ -14,7 +14,7 @@ from ml_serve_core.constants.constants import (
     FASTAPI_SERVE_RESOURCE_NAME,
     FASTAPI_SERVE_CHART_VERSION,
     JOB_CLUSTER_RUNTIME,
-    DEFAULT_RUNTIME,
+    get_runtime_for_flavor,
 )
 from ml_serve_core.config.configs import Config
 from ml_serve_core.dtos.dtos import EnvConfig
@@ -522,6 +522,11 @@ class DeploymentService:
                 }
             )
 
+        # Detect model flavor from MLmodel file and get appropriate runtime image
+        model_flavor = await self.mlflow_client.get_model_flavor(request.model_uri)
+        runtime_image = get_runtime_for_flavor(model_flavor)
+        logger.info(f"Selected runtime image '{runtime_image}' for model flavor '{model_flavor}'")
+
         # Get environment from database
         env = await Environment.get_or_none(name=request.env)
         if not env:
@@ -566,12 +571,12 @@ class DeploymentService:
                 serve=serve,
                 version=request.artifact_version,
                 github_repo_url=request.model_uri,
-                image_url=DEFAULT_RUNTIME,
+                image_url=runtime_image,
                 created_by=user,
             )
         else:
             artifact.github_repo_url = request.model_uri
-            artifact.image_url = DEFAULT_RUNTIME
+            artifact.image_url = runtime_image
             await artifact.save()
 
         fast_api_config = {
@@ -613,7 +618,7 @@ class DeploymentService:
         values_json = generate_fastapi_values_for_one_click_model_deployment(
             name=serve.name,
             env=request.env,
-            runtime=DEFAULT_RUNTIME,
+            runtime=runtime_image,
             env_config=env_config,
             user_email=user.username,
             environment_variables=environment_variables,
@@ -624,7 +629,7 @@ class DeploymentService:
             node_capacity_type=request.node_capacity,
             storage_strategy=storage_strategy,
             model_uri=request.model_uri,
-            model_downloader_image=self.config.model_downloader_image,
+            model_downloader_image=runtime_image,
             model_cache_pvc_name=self.config.model_cache_pvc_name,
             model_cache_path=self.config.model_cache_path,
             tracking_uri=self.config.mlflow_tracking_uri,

@@ -1,13 +1,15 @@
-"""MLflow client for validating model URIs."""
+"""MLflow client for validating model URIs and detecting model flavors."""
 
 import re
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict, Any
 from urllib.parse import quote
 
 import aiohttp
+import yaml
 from loguru import logger
 
 from ml_serve_core.config.configs import Config
+from ml_serve_core.constants.constants import FLAVOR_TO_IMAGE_CATEGORY
 
 
 class MLflowClient:
@@ -346,3 +348,110 @@ class MLflowClient:
                     logger.warning(f"Error listing artifacts at {current_path}: {e}")
                             
         return total_size
+
+    async def get_model_flavor(self, model_uri: str) -> str:
+        """
+        Detect the model flavor from the MLmodel file.
+        
+        Args:
+            model_uri: MLflow model URI
+            
+        Returns:
+            Image category name: 'sklearn', 'boosting', 'pytorch', 'tensorflow'
+            Returns 'sklearn' as default if detection fails.
+        """
+        if not self.tracking_uri:
+            logger.warning("MLFLOW_TRACKING_URI not configured, defaulting to sklearn image")
+            return "sklearn"
+        
+        try:
+            run_id, artifact_path = await self._resolve_run_and_path(model_uri)
+            if not run_id or artifact_path is None:
+                logger.warning(f"Could not resolve run/path for {model_uri}, defaulting to sklearn")
+                return "sklearn"
+            
+            mlmodel_content = await self._fetch_mlmodel_file(run_id, artifact_path)
+            if not mlmodel_content:
+                logger.warning(f"Could not fetch MLmodel for {model_uri}, defaulting to sklearn")
+                return "sklearn"
+            
+            flavors = mlmodel_content.get("flavors", {})
+            detected_flavor = self._detect_primary_flavor(flavors)
+            image_category = FLAVOR_TO_IMAGE_CATEGORY.get(detected_flavor, "sklearn")
+            
+            logger.info(f"Detected flavor '{detected_flavor}' -> image category '{image_category}' for {model_uri}")
+            return image_category
+            
+        except Exception as e:
+            logger.error(f"Error detecting model flavor for {model_uri}: {e}, defaulting to sklearn")
+            return "sklearn"
+    
+    async def _fetch_mlmodel_file(self, run_id: str, artifact_path: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetch and parse the MLmodel file content from MLflow.
+        
+        Args:
+            run_id: MLflow run ID
+            artifact_path: Path to model artifact (e.g., "model")
+            
+        Returns:
+            Parsed MLmodel dict or None if not found/failed
+        """
+        headers = self._get_auth_headers()
+        mlmodel_path = f"{artifact_path}/MLmodel" if artifact_path else "MLmodel"
+        
+        # Use MLflow artifact download API
+        url = f"{self.tracking_uri}/get-artifact"
+        params = {"run_id": run_id, "path": mlmodel_path}
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params, headers=headers) as response:
+                if response.status != 200:
+                    logger.debug(f"Failed to fetch MLmodel file: {response.status}")
+                    return None
+                
+                content = await response.text()
+                try:
+                    return yaml.safe_load(content)
+                except yaml.YAMLError as e:
+                    logger.warning(f"Failed to parse MLmodel YAML: {e}")
+                    return None
+    
+    def _detect_primary_flavor(self, flavors: Dict[str, Any]) -> str:
+        """
+        Detect the primary model flavor from the flavors dict.
+        
+        Priority order:
+        1. Specific ML framework flavors (sklearn, xgboost, etc.)
+        2. Deep learning frameworks (pytorch, tensorflow)
+        3. Fallback to python_function
+        
+        Args:
+            flavors: Dict of flavors from MLmodel file
+            
+        Returns:
+            Primary flavor name
+        """
+        if not flavors:
+            return "python_function"
+        
+        # Priority order for detection
+        priority_flavors = [
+            # Boosting models (check first as they're specific)
+            "xgboost", "lightgbm", "catboost",
+            # Traditional ML
+            "sklearn",
+            # Deep learning
+            "pytorch", "torch", "tensorflow", "keras",
+        ]
+        
+        for flavor in priority_flavors:
+            if flavor in flavors:
+                return flavor
+        
+        # Fallback to python_function if present
+        if "python_function" in flavors:
+            return "python_function"
+        
+        # Return first available flavor
+        return next(iter(flavors.keys()), "python_function")

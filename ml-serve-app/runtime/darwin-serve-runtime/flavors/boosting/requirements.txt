@@ -1,0 +1,27 @@
+# Darwin Serve Runtime - Boosting Models
+# Image: serve-md-runtime:boosting
+
+# Web framework
+fastapi>=0.68.0
+uvicorn>=0.15.0
+pydantic>=1.8.0
+aiohttp>=3.8.0
+typeguard>=4.4.0
+typing_extensions>=4.10.0
+loguru>=0.7.0
+
+# MLflow
+mlflow==2.12.2
+
+# Data processing
+pandas>=1.5.0
+numpy>=1.21.0
+pyyaml>=6.0
+scipy>=1.9.0
+
+# Boosting frameworks
+xgboost>=1.7.0
+lightgbm>=3.3.0
+catboost>=1.1.0
+
+
