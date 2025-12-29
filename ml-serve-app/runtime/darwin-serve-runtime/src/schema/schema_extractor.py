@@ -2,7 +2,6 @@
 
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
-import pandas as pd
 
 
 @dataclass
@@ -22,21 +21,6 @@ class ColumnSchema:
 
 class SchemaExtractor:
     """Extract and parse schema from MLflow model metadata."""
-    
-    # Map MLflow types to human-readable types
-    MLFLOW_TYPE_MAP = {
-        "double": "double",
-        "float": "float",
-        "long": "long",
-        "integer": "integer",
-        "int": "integer",
-        "string": "string",
-        "boolean": "boolean",
-        "bool": "boolean",
-        "binary": "binary",
-        "datetime": "datetime",
-        "object": "object",
-    }
     
     def __init__(self, mlflow_model: Any):
         """
@@ -59,36 +43,20 @@ class SchemaExtractor:
             if hasattr(metadata, 'signature') and metadata.signature:
                 self._signature = metadata.signature
             
-            # Extract input example (stored in saved_input_example_info)
-            if hasattr(metadata, 'saved_input_example_info'):
-                self._input_example = self._load_input_example()
+            self._input_example = self._load_input_example()
     
     def _load_input_example(self) -> Optional[Dict[str, Any]]:
-        """Load input example from model artifacts."""
+        """Load input example from model artifacts and store feature order
+        """
+        # Try direct access to input_example attribute (MLflow 3.x)
+        # In recent MLflow versions, the PyFuncModel has input_example as a property
         try:
-            # MLflow stores input example in the model directory
-            if hasattr(self._model, '_model_meta') and self._model._model_meta:
-                example_info = self._model._model_meta.saved_input_example_info
-                if example_info:
-                    # The example is typically stored as a pandas DataFrame artifact
-                    artifact_path = example_info.get('artifact_path')
-                    if artifact_path and hasattr(self._model, '_model_impl'):
-                        # Try to load from the model's artifact path
-                        pass
-        except Exception:
-            pass
-        
-        # Fallback: try to get from metadata directly
-        try:
-            if hasattr(self._model, 'metadata'):
-                metadata = self._model.metadata
-                if hasattr(metadata, 'get_input_example'):
-                    example = metadata.get_input_example()
-                    if example is not None:
-                        if isinstance(example, pd.DataFrame):
-                            return example.iloc[0].to_dict()
-                        elif isinstance(example, dict):
-                            return example
+            if hasattr(self._model, 'input_example'):
+                example = self._model.input_example
+                if example is not None:
+                    result = self._process_example(example)
+                    if result:
+                        return result
         except Exception:
             pass
         
@@ -129,7 +97,7 @@ class SchemaExtractor:
                     
                     columns.append(ColumnSchema(
                         name=col.get('name', 'unknown'),
-                        type=self.MLFLOW_TYPE_MAP.get(str(col_type), str(col_type)),
+                        type=str(col_type),
                         required=col.get('required', True)
                     ).to_dict())
         elif hasattr(schema, 'input_names'):
@@ -138,7 +106,7 @@ class SchemaExtractor:
                 col_type = schema.input_types().get(name, 'object')
                 columns.append(ColumnSchema(
                     name=name,
-                    type=self.MLFLOW_TYPE_MAP.get(str(col_type), str(col_type)),
+                    type=str(col_type),
                     required=True
                 ).to_dict())
         
@@ -167,13 +135,13 @@ class SchemaExtractor:
                     
                     columns.append({
                         "name": col.get('name', 'prediction'),
-                        "type": self.MLFLOW_TYPE_MAP.get(str(col_type), str(col_type))
+                        "type": str(col_type)
                     })
             else:
                 # Single output type
                 columns.append({
                     "name": "prediction",
-                    "type": self.MLFLOW_TYPE_MAP.get(str(schema_dict), str(schema_dict))
+                    "type": str(schema_dict)
                 })
         
         return columns

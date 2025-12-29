@@ -18,28 +18,33 @@ class Model:
                 self._validator = SchemaValidator(input_schema)
 
     def has_signature(self) -> bool:
-        """Check if the model has a signature."""
-        self._ensure_model_loaded()
+        """
+        Check if the model has a signature available from the MLmodel file.
+        """
         return self._model_loader.has_signature()
     
     def get_input_schema(self) -> List[Dict[str, Any]]:
-        """Get the input schema of the model."""
-        self._ensure_model_loaded()
+        """
+        Get the input schema from the MLmodel file.
+        """
         return self._model_loader.get_input_schema()
     
     def get_output_schema(self) -> List[Dict[str, Any]]:
-        """Get the output schema of the model."""
-        self._ensure_model_loaded()
+        """
+        Get the output schema from the MLmodel file.
+        """
         return self._model_loader.get_output_schema()
     
     def get_input_example(self) -> Optional[Dict[str, Any]]:
-        """Get the input example if available."""
-        self._ensure_model_loaded()
+        """
+        Get the input example from the MLmodel file.
+        """
         return self._model_loader.get_input_example()
     
     def get_full_schema(self) -> Dict[str, Any]:
-        """Get the complete schema information."""
-        self._ensure_model_loaded()
+        """
+        Get the complete schema from the MLmodel file.
+        """
         return self._model_loader.get_full_schema()
     
     def validate_features(self, features: Dict[str, Any]) -> Tuple[bool, List[Dict[str, Any]]]:

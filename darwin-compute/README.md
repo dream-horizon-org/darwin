@@ -102,6 +102,28 @@ It interacts with MySQL for storing metadata and Elasticsearch for storing detai
    Envfile: Add a envfile pointing to local.env.
    ```
 
+## Special Labels
+
+Darwin Compute supports special labels that modify cluster behavior:
+
+| Label | Value | Description |
+|-------|-------|-------------|
+| `workspace` | `shared` | Mounts workspace at `/home/ray/fsx` on both head and worker nodes. Without this label, workspace is only mounted on the head node. |
+
+### Shared Workspace Example
+
+To enable shared workspace across all nodes in your cluster, add the `workspace: shared` label:
+
+```yaml
+labels:
+  workspace: 'shared'  # Enables EFS/FSX mount on worker nodes
+```
+
+**Use cases for shared workspace:**
+- Sharing datasets between head and worker nodes
+- Distributed training with shared model checkpoints
+- Collaborative workloads requiring common file access
+
 ## FAQ / Troubleshooting
 
 ### Cluster not starting due to long init script
