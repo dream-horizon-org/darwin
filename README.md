@@ -1095,6 +1095,15 @@ API documentation available at `<service-url>/docs` (Swagger UI).
 
 ## 🧩 Extensibility
 
+### Available Runtimes
+
+Darwin provides pre-built Ray runtimes for cluster creation. The **Runtime Name** is what you pass to the API when creating clusters (e.g., `"runtime": "0.1"`).
+
+| Runtime Name | Image | Ray Version | Python | Class | Type |
+|--------------|-------|-------------|--------|-------|------|
+| 0.0 | ray:2.37.0 | 2.37.0 | 3.10 | CPU | Ray Only |
+| 0.1 | ray:2.53.0 | 2.53.0 | 3.10 | CPU | Ray Only |
+
 ### Custom Runtimes
 Add new Ray runtimes by creating Dockerfiles in `darwin-compute/runtimes/`:
 ```dockerfile
