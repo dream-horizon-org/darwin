@@ -69,7 +69,7 @@ Load: 08-troubleshooting.md → (relevant component prompt)
 | `services.yaml` | Application registry - defines available services, datastores, operators |
 | `setup.sh` | Creates cluster & builds all images |
 | `start.sh` | Deploys platform via Helm with config overrides |
-| `config.env` | Runtime configuration (generated) |
+| `.setup/config.env` | Runtime configuration (generated) |
 | `helm/darwin/` | Main Helm umbrella chart |
 | `kind/` | Local Kubernetes cluster config |
 
@@ -81,7 +81,7 @@ Load: 08-troubleshooting.md → (relevant component prompt)
 2. **Load prompts on-demand** - Only read prompts relevant to the current task
 3. **Check `.setup/enabled-services.yaml`** - This is the source of truth for which services are enabled
 4. **Check `services.yaml`** - Defines available applications, datastores, and operators
-5. **Check `config.env`** - Contains current KUBECONFIG and DOCKER_REGISTRY
+5. **Check `.setup/config.env`** - Contains current KUBECONFIG and DOCKER_REGISTRY
 6. **Respect `.odin/` conventions** - Each submodule must have build.sh, setup.sh, start.sh
 
 When in doubt, start with `.prompts/00-overview.md` for full context.

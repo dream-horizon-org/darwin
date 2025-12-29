@@ -45,11 +45,11 @@ if docker ps | grep -q "kind-registry"; then
   echo "✅ kind-registry is already running"
 
   REGISTRY_PORT=$(docker port kind-registry 5000/tcp | cut -d: -f2)
-  echo "DOCKER_REGISTRY=127.0.0.1:$REGISTRY_PORT" >> config.env
+  echo "DOCKER_REGISTRY=127.0.0.1:$REGISTRY_PORT" >> .setup/config.env
 else
   echo "🚀 Starting kind-registry..."
   docker run -d --restart=always -p 0:5000 --network $CLUSTER_NAME --name kind-registry registry:2
   
   REGISTRY_PORT=$(docker port kind-registry 5000/tcp | cut -d: -f2)
-  echo "DOCKER_REGISTRY=127.0.0.1:$REGISTRY_PORT" >> config.env
+  echo "DOCKER_REGISTRY=127.0.0.1:$REGISTRY_PORT" >> .setup/config.env
 fi

@@ -50,7 +50,7 @@ fi
 
 # Source the config.env file
 set -o allexport
-. config.env
+. .setup/config.env
 set +o allexport
 
 echo "🔧 Setting up KUBECONFIG: $KUBECONFIG"

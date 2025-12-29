@@ -201,7 +201,7 @@ This automatically:
 - Creates a kind cluster with `kind-registry`
 - Builds the `artifact-builder` image and pushes it to the registry
 - Deploys with Docker socket mounted for building images
-- Configures `LOCAL_REGISTRY` to point to the kind-registry using `DOCKER_REGISTRY` value from `config.env`.
+- Configures `LOCAL_REGISTRY` to point to the kind-registry using `DOCKER_REGISTRY` value from `.setup/config.env`.
 
 ### 2. Access the API
 
@@ -243,7 +243,7 @@ localhost:5000/serve-app:v1.0.0
 When running in the Darwin ecosystem, a local container registry (`kind-registry`) is automatically created during `setup.sh`. This registry:
 
 - Runs as a Docker container on the host machine
-- Is accessible at a dynamically assigned port (stored in `config.env`)
+- Is accessible at a dynamically assigned port (stored in `.setup/config.env`)
 - Is connected to the kind cluster's network
 - Stores images that Kubernetes pods can pull
 
@@ -581,7 +581,7 @@ artifact-builder:
 
 2. **Cannot push to local registry**
    - Verify kind-registry is running: `docker ps | grep kind-registry`
-   - Check the registry port in `config.env`
+   - Check the registry port in `.setup/config.env`
    - Ensure `LOCAL_REGISTRY` env var matches the actual registry port
 
 3. **Database connection failed**

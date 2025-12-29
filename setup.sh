@@ -10,10 +10,6 @@ if [ ! -f "$ENABLED_SERVICES_FILE" ]; then
 fi
 echo "✅ Found configuration: $ENABLED_SERVICES_FILE"
 
-# Mark local config files as assume-unchanged to prevent accidental commits
-git update-index --assume-unchanged config.env 2>/dev/null || true
-git update-index --assume-unchanged kind/config/kindkubeconfig.yaml 2>/dev/null || true
-
 # Parse command line arguments
 AUTO_YES=false
 while [ $# -gt 0 ]; do
@@ -30,7 +26,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-echo '' > config.env
+echo '' > .setup/config.env
 
 extract_max_supported_api_version() {
     printf "%s\n" "$1" | sed -n 's/.*Maximum supported API version is \([0-9.]*\).*/\1/p' | head -n 1
@@ -74,6 +70,33 @@ ENV_CREATION=false
 
 ensure_docker_api_version
 
+# Function to clean up existing Kind cluster and shared storage
+clean_kind_setup() {
+    echo "🧹 Cleaning up existing Kind setup..."
+    
+    # Delete Kind cluster if it exists
+    if kind get clusters 2>/dev/null | grep -q "^kind$"; then
+        echo "🛑 Deleting existing kind cluster..."
+        kind delete cluster --name kind
+        echo "✅ Kind cluster deleted"
+    fi
+    
+    # Delete shared-storage folder
+    if [ -d "kind/shared-storage" ]; then
+        echo "🧹 Deleting kind/shared-storage/..."
+        rm -rf kind/shared-storage
+        echo "✅ Shared storage deleted"
+    fi
+    
+    # Delete kubeconfig
+    if [ -f ".setup/kindkubeconfig.yaml" ]; then
+        rm -f .setup/kindkubeconfig.yaml
+        echo "✅ Kubeconfig deleted"
+    fi
+    
+    echo "✅ Clean up complete"
+}
+
 # Check if ENV environment variable equals "local"
 if [ "$ENV" = "local" ]; then
     echo "ENV is set to 'local'"
@@ -86,20 +109,33 @@ if [ "$ENV" = "local" ]; then
     fi
     if [[ $REPLY =~ ^[Yy]$ ]]
     then
-        echo "\nStarting kind cluster..."
+        # Ask if user wants a clean setup
+        if [ "$AUTO_YES" = "true" ]; then
+            CLEAN_REPLY="n"
+            echo "Auto-answering 'no' to clean setup (use existing data)"
+        else
+            echo ""
+            read -p "Do you want a clean setup? (deletes existing cluster and data) (y/n) " -n 1 -r CLEAN_REPLY
+        fi
+        if [[ $CLEAN_REPLY =~ ^[Yy]$ ]]; then
+            echo ""
+            clean_kind_setup
+        fi
+        
+        echo -e "\n🚀 Starting kind cluster..."
 
         envsubst < ./kind/kind-config.yaml > ./kind/kind-config-tmp.yaml
         export CLUSTER_NAME=kind
         export KIND_CONFIG=./kind/kind-config-tmp.yaml
-        export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+        export KUBECONFIG=./.setup/kindkubeconfig.yaml
         
         sh ./kind/start-cluster.sh
         ENV_CREATION=true
         
         rm ./kind/kind-config-tmp.yaml
     else
-        echo "\nSkipping kind cluster setup"
-        echo "DOCKER_REGISTRY=docker.io" >> config.env
+        echo -e "\n🔄 Skipping kind cluster setup"
+        echo "DOCKER_REGISTRY=docker.io" >> .setup/config.env
     fi
 else
     echo "ENV is not set to 'local' (current value: '$ENV'), skipping local k8s cluster setup"
@@ -107,11 +143,11 @@ fi
 
 # check if kube config file exists and is reachable
 if [ ! -f "$KUBECONFIG" ]; then
-    echo "KUBECONFIG file does not exist"
+    echo "❌ KUBECONFIG file does not exist"
     exit 1
 else
-    echo "KUBECONFIG=$KUBECONFIG" >> config.env
-    source config.env
+    echo "KUBECONFIG=$KUBECONFIG" >> .setup/config.env
+    source .setup/config.env
 fi
 
 if kubectl version >/dev/null 2>&1; then
@@ -129,7 +165,7 @@ else
 fi
 if [[ ! $REPLY =~ ^[Yy]$ ]]
 then
-    echo "\nSkipping build. Exiting."
+    echo -e "\n🔄 Skipping build. Exiting."
     exit 0
 fi
 echo

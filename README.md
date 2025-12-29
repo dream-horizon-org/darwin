@@ -1004,9 +1004,9 @@ Interactive wizard to select platform components:
 Generates `.setup/enabled-services.yaml` with user selections.
 
 ### Environment Variables
-Key configuration via `config.env` (auto-generated):
+Key configuration via `.setup/config.env` (auto-generated):
 ```bash
-KUBECONFIG=./kind/config/kindkubeconfig.yaml
+KUBECONFIG=./.setup/kindkubeconfig.yaml
 DOCKER_REGISTRY=127.0.0.1:32768
 ```
 
