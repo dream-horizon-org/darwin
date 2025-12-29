@@ -235,6 +235,7 @@ local.properties
 # Visual Studio Code
 # ===========================
 .vscode/*
+pyrightconfig.json
 
 # Local History for Visual Studio Code
 .history/

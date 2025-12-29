@@ -1,7 +1,8 @@
 import copy
+from random import randint
 
 from compute_app_layer.models.log_central_pod_config import LogCentralPodConfig
-from compute_core.constant.constants import KubeCluster
+from compute_core.constant.constants import KubeCluster, WORKSPACE_MOUNT_PATH
 from compute_core.dto.pod_label_dto import PodLabel
 from compute_core.dto.remote_command_dto import RemoteCommandDto
 from compute_core.util.utils import (
@@ -19,6 +20,7 @@ from compute_core.util.yaml_generator import (
     add_ondemand_resource,
     update_karpenter_node_selector,
     add_annotation,
+    add_volume_mount,
     update_worker_group_ray_start_params,
     add_spot_resource,
 )
@@ -119,6 +121,10 @@ class WorkerNodeUpdateHandler(ConfigHandler):
             else:
                 add_spot_resource(worker_group)
 
+        if compute_request.labels.get("workspace") == "shared":
+            workspace_claim_name = f"fsx-claim-{randint(0, 19)}"
+            add_volume_mount("persistent-storage", workspace_claim_name, WORKSPACE_MOUNT_PATH, worker_group)
+        
         # add_log_central_worker_pod_annotation(worker_group, compute_request)
         # add_pod_affinity(worker_group, compute_request)
 

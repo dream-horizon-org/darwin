@@ -6,6 +6,15 @@ runtime: '0.0'
 terminate_after_minutes: 30
 cloud_env: 'kind-0'
 
+# Labels for the cluster
+# Special labels:
+#   workspace: 'shared' - Mounts workspace at /home/ray/fsx on both head and worker nodes
+#                         Without this label, workspace is only mounted on the head node
+labels:
+  project: 'darwin'
+  team: 'data-science'
+  # workspace: 'shared'  # Uncomment to enable shared workspace on worker nodes
+
 # Updating Head_Node will restart a running cluster
 head_node:
   node:
