@@ -124,6 +124,17 @@ labels:
 - Distributed training with shared model checkpoints
 - Collaborative workloads requiring common file access
 
+## FAQ / Troubleshooting
+
+### Cluster not starting due to long init script
+
+If your `init_script` in the cluster configuration is too long, the cluster may fail to start. This happens because init scripts are executed during pod startup and have timeout limitations.
+
+**Solutions:**
+- Use the **Library Installation API** to install packages instead of putting them in init scripts
+- Create a **custom runtime** with your dependencies pre-installed
+- Split long scripts into smaller, essential commands only
+
 ## Other Instructions
 
 1. Folder Level Readme for each module can be found in the respective folders.
