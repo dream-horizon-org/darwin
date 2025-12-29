@@ -401,6 +401,49 @@ if [ "$sdk_defined" = "true" ]; then
 fi
 
 # ============================================================================
+# RAY RUNTIMES (select specific runtimes when darwin-compute is enabled)
+# ============================================================================
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "                       RAY RUNTIMES"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+ENABLED_RAY_IMAGES=""
+
+ray_count=$(yq eval '.ray-images | length' "$YAML_FILE")
+if [ "$ray_count" = "0" ] || [ "$ray_count" = "null" ]; then
+  echo "  ⏭️  No Ray runtimes defined in services.yaml"
+elif list_contains "$ENABLED_SERVICES" "darwin-compute"; then
+  echo "Select which Ray runtimes to enable:"
+  echo ""
+  
+  i=0
+  while [ $i -lt $ray_count ]; do
+    image_name=$(yq eval ".ray-images[$i].image-name" "$YAML_FILE")
+    
+    if [ "$ALL_YES" = "true" ]; then
+      ENABLED_RAY_IMAGES=$(list_add "$ENABLED_RAY_IMAGES" "$image_name")
+    else
+      prompt_yn "  Enable $image_name?" "y"
+      if [ "$PROMPT_RESULT" = "true" ]; then
+        ENABLED_RAY_IMAGES=$(list_add "$ENABLED_RAY_IMAGES" "$image_name")
+      fi
+    fi
+    
+    i=$((i + 1))
+  done
+  
+  if [ -z "$ENABLED_RAY_IMAGES" ]; then
+    echo ""
+    echo "  ⚠️  No Ray runtimes selected. Enabling ray:2.37.0 as default."
+    ENABLED_RAY_IMAGES="ray:2.37.0"
+  fi
+else
+  echo "  ⏭️  Ray runtimes skipped (requires darwin-compute)"
+fi
+
+# ============================================================================
 # CLI TOOLS
 # ============================================================================
 echo ""
@@ -489,8 +532,8 @@ else
   while [ $i -lt $ray_count ]; do
     image_name=$(yq eval ".ray-images[$i].image-name" "$YAML_FILE")
     
-    if [ "$COMPUTE_ENABLED" = "true" ]; then
-      echo "  \"$image_name\": true  # (auto-enabled with darwin-compute)" >> "$OUTPUT_FILE"
+    if list_contains "$ENABLED_RAY_IMAGES" "$image_name"; then
+      echo "  \"$image_name\": true  # (selected)" >> "$OUTPUT_FILE"
     else
       echo "  \"$image_name\": false" >> "$OUTPUT_FILE"
     fi
@@ -584,11 +627,17 @@ else
   echo "   (none)"
 fi
 
-# Show ray images only if compute is enabled
-if [ "$COMPUTE_ENABLED" = "true" ]; then
+# Show ray images if any are enabled
+if [ -n "$ENABLED_RAY_IMAGES" ]; then
   echo ""
-  echo "🔷 Ray Images (auto-enabled with darwin-compute):"
-  yq eval '.ray-images | to_entries | .[] | select(.value == true) | "   ✓ " + .key' "$OUTPUT_FILE" 2>/dev/null || echo "   (none)"
+  echo "🔷 Ray Images (selected):"
+  for img in $ENABLED_RAY_IMAGES; do
+    echo "   ✓ $img"
+  done
+elif [ "$COMPUTE_ENABLED" = "true" ]; then
+  echo ""
+  echo "🔷 Ray Images:"
+  echo "   (none selected)"
 fi
 
 # Show serve images only if ml-serve-app is enabled
