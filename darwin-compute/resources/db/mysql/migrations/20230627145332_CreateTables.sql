@@ -199,7 +199,8 @@ CREATE TABLE IF NOT EXISTS `default_runtimes_v2`
 );
 
 INSERT IGNORE INTO `runtimes_v2` (`runtime`, `class`, `type`, `image`, `created_by`, `last_updated_by`, `spark_auto_init`)
-VALUES ('0.0', 'CPU', 'Ray Only', 'localhost:5000/ray:2.37.0', 'Darwin', 'Darwin', FALSE);
+VALUES ('0.0', 'CPU', 'Ray Only', 'localhost:5000/ray:2.37.0', 'Darwin', 'Darwin', FALSE),
+       ('0.1', 'CPU', 'Ray Only', 'localhost:5000/ray:2.53.0', 'Darwin', 'Darwin', FALSE);
 
 INSERT IGNORE INTO `default_runtimes_v2` (`class`, `runtime_id`)
 VALUES ('CPU', 1),
