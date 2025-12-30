@@ -86,7 +86,7 @@ jobs:
 
       - name: Wait for platform to be ready
         run: |
-          source config.env
+          source .setup/config.env
           echo "Waiting for Darwin platform to be ready..."
           
           # Wait for compute service
@@ -106,7 +106,7 @@ jobs:
 
       - name: Deploy Ray test cluster
         run: |
-          source config.env
+          source .setup/config.env
           
           echo "Deploying Ray test cluster..."
           helm install ray-test ./darwin-cluster-manager/charts/ray-cluster \
@@ -120,7 +120,7 @@ jobs:
 
       - name: Wait for Ray cluster to be ready
         run: |
-          source config.env
+          source .setup/config.env
           
           echo "Waiting for Ray head node..."
           kubectl wait --for=condition=ready pod -l ray.io/node-type=head,ray.io/cluster=ray-test -n darwin --timeout=300s
@@ -133,7 +133,7 @@ jobs:
 
       - name: Setup port-forward for Ray cluster
         run: |
-          source config.env
+          source .setup/config.env
           
           # Get Ray head pod name
           RAY_HEAD_POD=$(kubectl get pods -n darwin -l ray.io/node-type=head,ray.io/cluster=ray-test -o jsonpath='{.items[0].metadata.name}')
@@ -271,7 +271,7 @@ jobs:
       - name: Show Ray cluster logs on failure
         if: failure()
         run: |
-          source config.env || true
+          source .setup/config.env || true
           echo "=== Ray Head Pod Logs ==="
           kubectl logs -n darwin -l ray.io/node-type=head,ray.io/cluster=ray-test --tail=100 || true
           echo ""
@@ -281,7 +281,7 @@ jobs:
       - name: Show platform status on failure
         if: failure()
         run: |
-          source config.env || true
+          source .setup/config.env || true
           echo "=== Pods Status ==="
           kubectl get pods -A || true
           echo ""
@@ -310,7 +310,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Ray Cluster Status" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          source config.env || true
+          source .setup/config.env || true
           kubectl get pods -n darwin -l ray.io/cluster=ray-test 2>&1 || echo "Could not get Ray cluster status" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 

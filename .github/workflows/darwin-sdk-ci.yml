@@ -19,7 +19,7 @@ on:
 env:
   ENV: LOCAL
   CLUSTER_ID: ray-test
-  KUBECONFIG: ./kind/config/kindkubeconfig.yaml
+  KUBECONFIG: ./.setup/kindkubeconfig.yaml
 
 jobs:
   unit-tests:
