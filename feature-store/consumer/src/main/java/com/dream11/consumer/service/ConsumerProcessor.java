@@ -60,6 +60,9 @@ import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+// TODO: This class is ~580 lines - split into MessageParser, BatchProcessor, DlqHandler for better testability.
+// TODO: SDK version handling (V1 vs V2) has duplicated parsing logic - extract to VersionedMessageHandler interface.
+// TODO: Retry logic uses Math.pow(2, counter) - extract to configurable exponential backoff utility.
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ConsumerProcessor {
@@ -71,9 +74,7 @@ public class ConsumerProcessor {
   private final ApplicationConfig applicationConfig;
   private final ConsumerMetricService consumerMetricService;
 
-  // bad pattern,
-  // should have been in constructor but using DI wont let partial constructors and im too lazy
-  // init it post startup
+  // TODO: consumerId initialization via setter is fragile - refactor to use factory pattern or builder.
   @Setter @Getter private String consumerId = null;
 
   private Boolean paused = false;
@@ -410,6 +411,9 @@ public class ConsumerProcessor {
                     .build());
   }
 
+  // TODO: Feature ordering depends on Map iteration order - use LinkedHashMap or explicit ordering for determinism.
+  // TODO: No schema validation during parsing - malformed messages will fail at write time instead of parse time.
+  // TODO: throws Throwable is too broad - use specific exception types for better error handling.
   private static CassandraFeatureData parseFeatures(ObjectMapper objectMapper, String message)
       throws Throwable {
     Map<String, Object> map = objectMapper.readValue(message, new TypeReference<>() {});
@@ -444,6 +448,8 @@ public class ConsumerProcessor {
             });
   }
 
+  // TODO: Hardcoded retry count (3) and backoff base (2) should be configurable.
+  // TODO: onErrorResumeNext converts all errors to failed batches - distinguish retryable vs non-retryable errors.
   @SneakyThrows
   private Single<WriteBulkCassandraFeaturesResponse> writeDataToOfsV2(
       WriteRequestWithReplicationFlag featuresRequests, String topic) {

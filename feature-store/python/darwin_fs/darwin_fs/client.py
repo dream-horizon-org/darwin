@@ -1,3 +1,6 @@
+# TODO: Exception handling is repetitive across all functions - extract to decorator or context manager.
+# TODO: yaml.dump for success messages is inconsistent with error handling - consider structured logging.
+# TODO: Optional imports (pyspark, aiohttp) checked at runtime - document installation requirements clearly.
 from datetime import datetime
 from os import environ
 from typing import Optional
@@ -195,6 +198,8 @@ async def read_features_async(client: ClientSession, request: ReadFeaturesReques
     raise SdkException(f"unknown exception writing features to feature-group\n\t{e}", "UNKNOWN_EXCEPTION")
 
 
+# TODO: Error handling in finally block calls put_feature_group_run even on success - clarify intent.
+# TODO: mode parameter only supports "overwrite" effectively - document supported modes or validate input.
 def write_features(df: DataFrame, feature_group_name: str, feature_group_version: str = None, mode: str = "overwrite") -> None:
   if SparkSession is None:
     raise SdkException(f"unable to find pyspark dependency\neither install it manually or use\n pip3 install ofs_sdk[all]",

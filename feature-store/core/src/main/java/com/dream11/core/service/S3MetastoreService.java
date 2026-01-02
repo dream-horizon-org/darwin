@@ -31,6 +31,9 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
+// TODO: S3 path construction logic is duplicated across multiple methods - extract to a single PathBuilder utility.
+// TODO: No retry logic for S3 operations - transient failures will propagate to callers.
+// TODO: Error handling conflates different error types (e.g., FEATURE_GROUP_NOT_FOUND vs FEATURE_GROUP_VERSION_NOT_FOUND).
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class S3MetastoreService {

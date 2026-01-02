@@ -63,6 +63,9 @@ import static com.dream11.core.util.CacheUtils.getAllFromCache;
 import static com.dream11.core.util.JsonConversionUtils.convertJsonSingle;
 import static com.dream11.core.util.LegacyStackUtils.getLegacyTypesFromCassandraTypes;
 
+// TODO: This class is ~1150 lines - split into EntityMetaStoreService, FeatureGroupMetaStoreService, TenantService.
+// TODO: Multiple caches (featureGroupMetaDataCache, entityMetaDataCache, featureGroupVersionCache) - consider unified cache strategy.
+// TODO: Cache refresh methods (loadCassandra*Cache, refreshUpdated*) have duplicated patterns - extract to generic method.
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class CassandraMetaStoreService {
@@ -400,6 +403,9 @@ public class CassandraMetaStoreService {
                 .toList();
     }
 
+    // TODO: Transaction rollback only happens on error - consider explicit savepoints for partial failure recovery.
+    // TODO: Multiple operations (metadata, features, tags, version) in single transaction - document ordering dependencies.
+    // TODO: onlyRegister flag creates two code paths - consider separate methods for clarity.
     public Single<CreateFeatureGroupResponse> atomicAddFeatureGroupToMetaStoreAndCassandra(
             CreateCassandraFeatureGroupRequest createCassandraFeatureGroupRequest,
             String version,
@@ -914,6 +920,9 @@ public class CassandraMetaStoreService {
                         });
     }
 
+    // TODO: Tenant migration creates tables in target cluster but doesn't validate schema compatibility.
+    // TODO: No rollback mechanism if migration fails after partial table creation.
+    // TODO: CassandraClient created inline and closed in doFinally - use try-with-resources pattern.
     public Completable addTenant(String fgName, TenantConfig tenantConfig) {
         return getAllCassandraFeatureGroupEntityPairForFeatureGroup(fgName)
                 .flatMapCompletable(

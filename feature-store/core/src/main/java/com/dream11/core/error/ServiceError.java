@@ -5,6 +5,9 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 
+// TODO: Error codes are inconsistent - some use hyphens (ENTITY-REGISTRATION-ERROR), some use underscores.
+// TODO: Error messages are generic ("invalid request") - add more context for debugging.
+// TODO: Consider grouping errors by domain (Entity, FeatureGroup, Tenant, Consumer) for better organization.
 @Getter
 @ToString
 @RequiredArgsConstructor
