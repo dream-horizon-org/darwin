@@ -83,10 +83,20 @@ jobs:
       - name: Step 1 - Initialize configuration (init.sh)
         run: |
           echo "📋 Step 1: Running init.sh to configure services..."
-          # Use init.sh with piped answers to enable only workflow feature
-          # Prompts order: compute (n), workspace (n), feature_store (n), mlflow (n), 
-          # serve (n), catalog (n), chronos (n), workflow (y), confirm (y), hermes-cli (n)
-          printf "n\nn\nn\nn\nn\nn\nn\ny\ny\nn\n" | ./init.sh
+          
+          # Answers:
+          # compute (n)
+          # workspace (n)
+          # feature_store (n)
+          # mlflow (n)
+          # serve (n)
+          # catalog (n)
+          # chronos (n)
+          # workflow (y)
+          # confirm (y)
+          # darwin sdk runtime (n)
+          # ray runtime (n)
+          printf "n\nn\nn\nn\nn\nn\nn\ny\ny\nn\nn\n" | ./init.sh
           
           echo "✅ Configuration created by init.sh"
           cat .setup/enabled-services.yaml
