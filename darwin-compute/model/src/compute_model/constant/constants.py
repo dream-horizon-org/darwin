@@ -1,6 +1,8 @@
 import os
 
+# TODO: DISK_TYPE should support multiple disk types (gp3, io1, etc.) and be environment-configurable
 DISK_TYPE = ["gp2"]
+# TODO: INSTANCE_ROLE is hardcoded - should be fetched from IAM or configuration
 INSTANCE_ROLE = [
     {"instance_role_id": "1", "display_name": "darwin-ds-role", "service_account_name": "darwin-ds-role"},
     {
@@ -19,6 +21,7 @@ INSTANCE_ROLE = [
         "service_account_name": "d11-prod-dspm-darwin-role",
     },
 ]
+# TODO: AZS is a placeholder - should be dynamically fetched from AWS or configured per environment
 AZS = [{"az_id": "az_id", "display_name": "az_name"}]
 
 NODE_CAPACITY_TYPE = ["ondemand", "spot"]
@@ -37,6 +40,7 @@ USER_CHECK = r"^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9](@[A-Za-z0-9.-]+\.[A-Za-
 REQUIRED_LABELS = ["project", "service", "squad", "environment"]
 LABELS_SIZE_LIMIT = 25
 
+# TODO: DEFAULT_LABELS should be configurable per deployment, not hardcoded with Dream11-specific values
 DEFAULT_LABELS = {
     "project": "darwin",
     "service": "darwin",

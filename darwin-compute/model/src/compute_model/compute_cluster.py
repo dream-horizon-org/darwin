@@ -18,6 +18,7 @@ from compute_model.policy_definition import PolicyDefinition
 from compute_model.worker_group import WorkerGroup
 
 
+# TODO: Consider using Pydantic for validation instead of manual __post_init__ checks
 @dataclass
 class ComputeClusterDefinition(DataClassJsonMixin):
     """
@@ -65,6 +66,7 @@ class ComputeClusterDefinition(DataClassJsonMixin):
     cloud_env: Optional[str] = None
     is_job_cluster: bool = False
     start_cluster: Optional[bool] = True
+    # TODO: estimated_cost has trailing comma (None,) which creates a tuple - should be just None
     estimated_cost: Optional[str] = (None,)
     packages: Optional[list[Package]] = None
 

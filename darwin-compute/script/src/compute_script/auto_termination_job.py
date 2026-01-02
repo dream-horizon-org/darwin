@@ -48,6 +48,7 @@ class ClusterActivity:
             true: Recent activity in Cluster
             false: No Recent activity in Cluster
         """
+        # TODO: Policies are checked sequentially - consider parallel checks for independent policies
         logger.info(f"{self.cluster_data.cluster_id} with cluster name {self.cluster_name} has {self.policies}")
         for policy in self.policies:
             logger.debug(f"{self.cluster_data.cluster_id} - Checking {policy.policy_name}")
@@ -107,6 +108,7 @@ class ClusterAutoTermination:
 
 
 def auto_termination_job(cluster: ClusterMetadata):
+    # TODO: Creating new ClusterActivity and ClusterAutoTermination instances per call is expensive - consider caching
     try:
         if not ClusterActivity(cluster.cluster_id).update_last_usage():
             ClusterAutoTermination(cluster.cluster_id).auto_terminate()

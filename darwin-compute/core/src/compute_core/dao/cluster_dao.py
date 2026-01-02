@@ -109,6 +109,7 @@ class ClusterDao:
             return run_id
 
     def create_cluster(self, cluster_id: str, artifact_id: str, compute_request: ESComputeDefinition):
+        # TODO: Hardcoded "inactive" status should use ClusterStatus enum
         sql_query = CREATE_CLUSTER
         logger.info(f"Creating cluster with cluster_id in create cluster dao: {cluster_id}")
         sql_data = {
@@ -150,6 +151,7 @@ class ClusterDao:
         return result
 
     def start_cluster(self, cluster_id: str, run_id: str):
+        # TODO: Dual storage (MySQL + ES) updates are not atomic - if ES fails, MySQL is already committed
         sql_query = START_CLUSTER
         sql_data = {"run_id": run_id, "cluster_id": cluster_id}
         es_data = self.get_cluster_info(cluster_id)
@@ -159,6 +161,7 @@ class ClusterDao:
         return result
 
     def stop_cluster(self, cluster_id: str):
+        # TODO: Hardcoded "inactive" status and zeroing of pods/memory should use constants or ClusterStatus enum
         sql_query = STOP_CLUSTER
         sql_data = {"cluster_id": cluster_id}
         es_data = self.get_cluster_info(cluster_id)

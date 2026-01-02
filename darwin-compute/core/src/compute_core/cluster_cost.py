@@ -3,14 +3,17 @@ import sys
 from compute_core.constant.constants import PredictionTables
 
 
+# TODO: Consider fetching pricing data from AWS Pricing API instead of hardcoded tables
 class PredictAPI:
     def __init__(self):
         pass
 
     def get_price(self, instance: list, node_capacity_type: str):
+        # TODO: we can choose to remove this feature or have a better way of managing prices
         if node_capacity_type == "ondemand":
             return instance[3]
         else:
+            # TODO: Lets remove this 
             return max(instance[4], 0.3 * instance[3])
             # temp[4] is the minimum spot price. Spot price ranges b/w 10-50% of on-demand - logic assumes an avg. of 30% and takes the maximum of the two
 
@@ -79,6 +82,7 @@ class PredictAPI:
             worker_cost[key]["min"] += worker_group.min_pods * worker_pod_cost
             worker_cost[key]["max"] += worker_group.max_pods * worker_pod_cost
 
+        # TODO: Magic multipliers 1.706 and 1.727 are unexplained - document or make configurable
         min_cost = round(
             (head_cost["gpu"] + worker_cost["gpu"]["min"]) + 1.706 * (head_cost["cpu"] + worker_cost["cpu"]["min"]), 3
         )

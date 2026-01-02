@@ -34,12 +34,14 @@ from compute_model.compute_cluster import ComputeClusterDefinition
 class DarwinClusterManager:
     """
     Proxy Class for interacting with Cluster Manager
+    TODO: Consider adding circuit breaker pattern for DCM API calls to handle failures gracefully
     """
 
     def __init__(self, env: str = None):
         _config = Config(env)
         self.env = _config.env
         self.client = _config.dcm_url
+        # TODO: Environment-specific header logic should be encapsulated in Config class
         self.headers = {"host": HOST_NAME_DARWIN} if self.env in ["prod", "uat"] else {}
         self.jupyter_dao = JupyterDao(env)
 
@@ -153,6 +155,7 @@ class DarwinClusterManager:
     def start_jupyter_client(self, namespace: str, kube_cluster: str, kube_cluster_key: str, consumer_id: str):
         release_name = get_random_id(prefix="id-jup-")
         url = urljoin(self.client, JUPYTER_START_URL)
+        # TODO: Hardcoded "0.0.0.0" and fsx-claim range (0-19) should be configurable
         params = {
             "jupyter_path": "0.0.0.0",
             "release_name": release_name,
@@ -167,6 +170,7 @@ class DarwinClusterManager:
         resp["release_name"] = release_name
 
         if resp["Err"] != "" and resp["Err"] is not None:
+            # TODO: Returning None on error is ambiguous - consider raising an exception
             logger.exception(f"Error occurred while starting jupyter client {resp['Err']}")
             return
         dao_resp = self.jupyter_dao.insert_pod_details(
@@ -177,7 +181,7 @@ class DarwinClusterManager:
         return resp
 
     def get_jupyter_client(self, namespace: str, kube_cluster: str, kube_cluster_key: str, consumer_id: str):
-        # TODO move this logic to dao, instead of here
+        # TODO: Move this logic to dao, instead of here - this method mixes orchestration with data access
         pod = self.jupyter_dao.get_pod_by_consumer_id(consumer_id=consumer_id)
 
         logger.info(f"Pod details for consumer id {consumer_id} is {pod}")

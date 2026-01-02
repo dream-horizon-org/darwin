@@ -19,8 +19,10 @@ class LibraryManager:
         self._package_installer = PackageInstaller(self._remote_command_manager)
 
     def get_libraries(self, request: SearchLibraryRequest) -> [LibraryDTO]:
+        # TODO: Mutating request.key with wildcards is a side effect - create a new variable instead
         request.key = "%" + request.key + "%"
         libraries = self._library_dao.search(request)
+        # TODO: N+1 query pattern - checking status for each library individually is inefficient
         for library in libraries:
             new_status = self.check_and_update_status(library.id, library.execution_id, LibraryStatus(library.status))
             library.status = new_status.value
@@ -60,6 +62,7 @@ class LibraryManager:
         logger.debug(f"Existing libraries converted to InstallRequest: {existing_libraries_install_request}")
 
         # Get unique libraries
+        # TODO: O(n*m) comparison - consider using a set or dict for O(n) lookup
         for library in new_request:
             skip = 0
             for i, existing_library_request in enumerate(existing_libraries_install_request):

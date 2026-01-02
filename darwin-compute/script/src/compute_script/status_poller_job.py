@@ -182,6 +182,7 @@ def status_poller_job(cluster: ClusterMetadata, custom_metric_util: CustomMetric
                 logger.debug(f"Marked {cluster_id} as inactive from cluster_died state")
 
         if new_status not in UIClusterStatusMapping.active.value:
+            # TODO: This timeout logic should be in a separate function for better readability
             if eligible_for_stop_cluster_after_creation_timout(cluster) is True:
                 compute.stop(cluster_id, user="Timeout Job")
                 lib_manager.delete_uninstalled_library(cluster_id)
@@ -198,6 +199,7 @@ def status_poller_job(cluster: ClusterMetadata, custom_metric_util: CustomMetric
 
         return new_status
     except Exception as err:
+        # TODO: Broad exception catch - consider catching specific exceptions and handling differently
         tb = traceback.format_exc()
         logger.error(f"{cluster.cluster_id} - {err} - {tb}")
         custom_metric_util.increment("aws.ec2.darwin.status_poller.job.failures")

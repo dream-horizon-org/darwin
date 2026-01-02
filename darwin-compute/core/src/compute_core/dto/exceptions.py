@@ -1,3 +1,4 @@
+# TODO: Consider adding a base DarwinComputeException class with error codes for consistent error handling
 class ClusterNotFoundError(Exception):
     def __init__(self, cluster_id: str):
         self.cluster_id = cluster_id

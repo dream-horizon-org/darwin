@@ -23,10 +23,12 @@ class EventService:
         url: str,
         data: dict = None,
     ):
+        # TODO: data parameter is unused - either use it or remove it
         response = requests.request(method, url, headers=self.headers, timeout=10)
 
         if not 200 <= response.status_code < 300:
             logger.error(f"Error occurred in API {method} - {url} - {response.text}")
+            # TODO: Use a custom EventServiceError instead of generic Exception
             raise Exception(f"Error occurred in API {method} - {url} - {response.text}")
         return response.json()
 

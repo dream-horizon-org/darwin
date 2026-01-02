@@ -42,6 +42,7 @@ from compute_model.constant.constants import DISK_TYPE, INSTANCE_ROLE, AZS, NODE
 
 
 @typechecked
+# TODO: This class is too large (900+ lines) - consider splitting into ClusterLifecycleService, ClusterQueryService, DashboardService
 class Compute:
     """
     _config: Config
@@ -80,6 +81,7 @@ class Compute:
         try:
             dcm_health = self.dcm.healthcheck()
         except Exception as e:
+            # TODO: Swallowing exception silently - log the error or return the exception details
             dcm_health = False
         return dcm_health
 
@@ -96,6 +98,7 @@ class Compute:
         return f"{name}-v{str(version)}"
 
     def _get_latest_version(self, cluster_id: str):
+        # TODO: Fragile version parsing - consider storing version as separate column in DB
         artifact_id = self.dao.get_cluster_artifact_id(cluster_id)
         return int(artifact_id[artifact_id.rfind("-v") + 2 :]) if artifact_id else 1
 
@@ -644,6 +647,7 @@ class Compute:
         """
         # Check if the new cluster name already exists or not
         if self.search_cluster_name(cluster_name):
+            # TODO: Use a custom ClusterNameExistsError instead of generic Exception
             raise Exception(ALREADY_EXIST)
         resp = self.dao.update_cluster_name(cluster_id, cluster_name)
         return resp
@@ -656,6 +660,7 @@ class Compute:
         :return: Returns the updated username
         """
         if not is_valid_email(cluster_user):
+            # TODO: Use a custom InvalidUserError instead of generic Exception
             raise Exception(INVALID_USER_NAME)
         resp: ESComputeDefinition = self.dao.update_cluster_user(cluster_id, cluster_user)
         return resp.user
@@ -826,6 +831,7 @@ class Compute:
         return events_mapper(action_details)
 
     def list_action_groups(self, cluster_id, offset, page_size, sort_order):
+        # TODO: N+1 query problem - consider joining events in a single query
         runtime_ids = self.dao.get_cluster_runtime_ids(cluster_id, offset, page_size, sort_order)
         action_groups = []
         for runtime_id in runtime_ids:
