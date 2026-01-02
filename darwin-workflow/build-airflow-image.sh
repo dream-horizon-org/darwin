@@ -36,23 +36,38 @@ docker build -t darwin-airflow:latest -f Dockerfile.airflow . || {
 echo "✅ Darwin Airflow image built successfully"
 echo ""
 
-# Tag for local registry
-echo "🏷️  Tagging image for local registry..."
-docker tag darwin-airflow:latest localhost:55000/darwin-airflow:latest
-echo "✅ Image tagged: localhost:55000/darwin-airflow:latest"
+# Read DOCKER_REGISTRY from config.env (set by start-cluster.sh)
+# The registry port is dynamically assigned, so we need to read it from config.env
+if [ -f "../../config.env" ]; then
+    source ../../config.env
+elif [ -f "../config.env" ]; then
+    source ../config.env
+elif [ -f "config.env" ]; then
+    source config.env
+fi
+
+# Use DOCKER_REGISTRY from config.env if available, otherwise default to localhost:55000
+DOCKER_REGISTRY="${DOCKER_REGISTRY:-localhost:55000}"
+
+echo "🏷️  Tagging image for local registry ($DOCKER_REGISTRY)..."
+docker tag darwin-airflow:latest "$DOCKER_REGISTRY/darwin-airflow:latest"
+echo "✅ Image tagged: $DOCKER_REGISTRY/darwin-airflow:latest"
 echo ""
 
 # Push to registry
-echo "📤 Pushing image to local registry..."
-docker push localhost:55000/darwin-airflow:latest || {
+echo "📤 Pushing image to local registry ($DOCKER_REGISTRY)..."
+docker push "$DOCKER_REGISTRY/darwin-airflow:latest" || {
     echo "❌ Failed to push image to registry"
+    echo "   Registry: $DOCKER_REGISTRY"
     echo "   Make sure the local registry is running:"
+    echo "     docker ps | grep kind-registry"
+    echo "   Or check config.env for DOCKER_REGISTRY value"
     exit 1
 }
 
 echo "✅ Image pushed to registry successfully"
-echo "Image: localhost:55000/darwin-airflow:latest"
+echo "Image: $DOCKER_REGISTRY/darwin-airflow:latest"
 echo ""
 echo "To verify the image in the registry:"
-echo "  curl http://localhost:55000/v2/darwin-airflow/tags/list"
+echo "  curl http://$DOCKER_REGISTRY/v2/darwin-airflow/tags/list"
 echo ""
