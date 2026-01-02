@@ -87,12 +87,14 @@ jobs:
           # Clean up any existing config to avoid overwrite prompt
           rm -f .setup/enabled-services.yaml
           
-          # Answers (10 prompts total):
+          # Answers (12 prompts total):
           # 1-7: compute, workspace, feature_store, mlflow, serve, catalog, chronos (all n)
           # 8: workflow (y) - will auto-enable darwin-compute and darwin-cluster-manager as dependencies
           # 9: confirm (y)
-          # 10: hermes-cli (n)
-          printf "n\nn\nn\nn\nn\nn\nn\ny\ny\nn\n" | ./init.sh
+          # 10: darwin sdk runtime (n)
+          # 11: ray runtime (n)
+          # 12: hermes-cli (n)
+          printf "n\nn\nn\nn\nn\nn\nn\ny\ny\nn\nn\nn" | ./init.sh
           
           echo "✅ Configuration created by init.sh"
           cat .setup/enabled-services.yaml
