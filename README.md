@@ -33,6 +33,7 @@ graph TB
         Workspace[Workspace Service<br/>Projects & Codespaces]
         MLflow[MLflow<br/>Experiment Tracking]
         Chronos[Chronos<br/>Event & Metadata]
+        Workflow[Darwin Workflow<br/>Pipeline Orchestration]
     end
 
     subgraph "Compute Layer"
@@ -87,6 +88,10 @@ graph TB
     Catalog --> OpenSearch
     Chronos --> OpenSearch
     Chronos --> Kafka
+
+    Workflow --> Compute
+    Workflow --> MySQL
+    Workflow --> Airflow[(Airflow<br/>DAG Execution)]
 
     style Darwin fill:#e1f5ff
     style Compute fill:#ffe1e1
@@ -280,7 +285,50 @@ mlflow.sklearn.log_model(model, "model")
 
 ---
 
-### 10. Hermes CLI
+### 10. Darwin Workflow
+**ML pipeline orchestration and scheduling**
+
+- **Workflow Definition**: Define multi-step ML pipelines with task dependencies
+- **DAG Management**: Create, deploy, and manage Airflow DAGs programmatically
+- **Job Cluster Integration**: Automatic Ray cluster provisioning for workflow tasks
+- **Conditional Execution**: Support for branching and conditional task execution
+- **Callback Events**: Event-driven notifications on workflow state changes
+
+**Components**:
+- **App Layer**: FastAPI REST API for workflow management
+- **Core**: Workflow orchestration logic and DAG services
+- **Airflow Integration**: Custom operators for Darwin platform integration
+- **SDK**: Python SDK with CLI for workflow creation and management
+
+**SDK**: `darwin_workflow`
+```python
+from darwin_workflow import WorkflowClient
+
+client = WorkflowClient(env="prod")
+
+# Create a workflow
+workflow = client.create_workflow(
+    name="feature-pipeline",
+    tasks=[
+        {"name": "extract", "type": "ray_job", "script": "extract.py"},
+        {"name": "transform", "type": "ray_job", "script": "transform.py", "depends_on": ["extract"]},
+        {"name": "load", "type": "ray_job", "script": "load.py", "depends_on": ["transform"]}
+    ]
+)
+
+# Trigger workflow run
+client.trigger_workflow(workflow_id=workflow['id'])
+```
+
+**Use Cases**:
+- Scheduled feature engineering pipelines
+- Model retraining workflows
+- Data processing DAGs with Ray/Spark tasks
+- Multi-step ML experiments with dependencies
+
+---
+
+### 11. Hermes CLI
 **Command-line tool for streamlined ML operations**
 
 - Environment configuration and management
@@ -377,6 +425,7 @@ During `init.sh`, you'll select which Darwin components to enable. Here's how to
 | Deploy trained models as real-time inference endpoints | **Serve** (includes Artifact Builder) |
 | Discover and track lineage across datasets, models, and pipelines | **Catalog** |
 | Capture platform events and build metadata graphs | **Chronos** |
+| Orchestrate multi-step ML pipelines with scheduling and dependencies | **Workflow** (includes Compute, Airflow) |
 
 > **Tip**: Dependencies are resolved automatically. For example, enabling **Workspace** will also enable **Compute**, and enabling **Serve** will include **Artifact Builder** and **MLflow**.
 
@@ -387,6 +436,7 @@ During `init.sh`, you'll select which Darwin components to enable. Here's how to
 - Chronos API: `http://localhost/chronos/*`
 - Catalog API: `http://localhost/darwin-catalog/*`
 - Workspace: `http://localhost/workspace/*`
+- Workflow: `http://localhost/workflow/*`
 
 ### Quick Start: Create and Use a Ray Cluster
 
@@ -1080,6 +1130,7 @@ datastores:
 - **darwin_fs**: Feature Store client
 - **darwin_mlflow**: MLflow wrapper with auth
 - **darwin-workspace** (internal): Workspace orchestration
+- **darwin_workflow**: Workflow orchestration and pipeline management
 
 ### REST APIs
 All services expose FastAPI/Spring Boot REST APIs:
@@ -1088,6 +1139,7 @@ All services expose FastAPI/Spring Boot REST APIs:
 - ML Serve: `/api/v1/serve/*`, `/api/v1/artifact/*`
 - Chronos: `/api/v1/event/*`, `/api/v1/sources/*`
 - Catalog: `/v1/assets/*`, `/v1/lineage/*`
+- Workflow: `/api/v3/workflow/*`, `/api/v3/workflow-run/*`
 
 API documentation available at `<service-url>/docs` (Swagger UI).
 
@@ -1158,6 +1210,7 @@ For issues, questions, or feature requests, please open an issue in the reposito
 darwin-distro/
 ├── darwin-compute/          # Ray cluster management service
 ├── darwin-cluster-manager/  # Kubernetes orchestration (Go)
+├── darwin-workflow/         # ML pipeline orchestration (Airflow integration)
 ├── feature-store/           # Feature Store (Java)
 ├── mlflow/                  # MLflow experiment tracking
 ├── ml-serve-app/            # Model serving platform
@@ -1165,11 +1218,12 @@ darwin-distro/
 ├── chronos/                 # Event processing & metadata
 ├── workspace/               # Project & codespace management
 ├── darwin-catalog/          # Data catalog & lineage
+├── darwin-sdk/              # Platform SDK with Spark integration
 ├── hermes-cli/              # CLI tool for deployments
 ├── helm/                    # Helm charts for deployment
 │   └── darwin/              # Umbrella chart
 │       ├── charts/
-│       │   ├── datastores/  # MySQL, Cassandra, Kafka, etc.
+│       │   ├── datastores/  # MySQL, Cassandra, Kafka, Airflow, etc.
 │       │   └── services/    # Application services
 ├── deployer/                # Build scripts and base images
 ├── kind/                    # Local Kubernetes setup
