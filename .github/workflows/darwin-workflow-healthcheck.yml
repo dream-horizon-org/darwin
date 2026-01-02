@@ -13,7 +13,7 @@ on:
 
 jobs:
   health-check:
-    runs-on: ubuntu-latest-4-cores
+    runs-on: self-hosted
     defaults:
       run:
         working-directory: .
@@ -43,7 +43,6 @@ jobs:
           echo ""
           echo "Disk usage after cleanup:"
           df -h
-
       - name: Install prerequisites
         run: |
           # Install kubectl
@@ -59,27 +58,22 @@ jobs:
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/kubectl
           kubectl version --client
-
           # Install Helm
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
           helm version
-
           # Install Kind
           curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
           chmod +x /tmp/kind
           sudo mv /tmp/kind /usr/local/bin/kind
           kind version
-
           # Install yq (required by init.sh)
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
           yq --version
-
       - name: Initialize submodules
         run: |
           git submodule sync --recursive
           git submodule update --init --recursive --remote || true
-
       - name: Step 1 - Initialize configuration (init.sh)
         run: |
           echo "📋 Step 1: Running init.sh to configure services..."
@@ -90,7 +84,6 @@ jobs:
           
           echo "✅ Configuration created by init.sh"
           cat .setup/enabled-services.yaml
-
       - name: Step 2 - Build images and setup cluster (setup.sh)
         run: |
           echo "🔨 Step 2: Running setup.sh to build images and setup cluster..."
@@ -110,7 +103,6 @@ jobs:
           docker image prune -f || true
           echo "Disk space after build:"
           df -h
-
       - name: Verify cluster is ready
         run: |
           echo "🔍 Verifying cluster status..."
@@ -139,7 +131,6 @@ jobs:
             echo "❌ Cluster is not accessible"
             exit 1
           fi
-
       - name: Step 3 - Deploy to Kubernetes (start.sh)
         run: |
           echo "🚀 Step 3: Running start.sh to deploy to Kubernetes..."
@@ -188,7 +179,6 @@ jobs:
           fi
           
           echo "✅ Deployment completed successfully"
-
       - name: Wait for darwin-workflow pod to be ready
         run: |
           echo "⏳ Waiting for darwin-workflow pod to be ready..."
@@ -217,7 +207,6 @@ jobs:
             kubectl logs -n darwin -l app.kubernetes.io/name=darwin-workflow --tail=50 || true
             exit 1
           fi
-
       - name: Verify Services Are Healthy (as per root README)
         run: |
           echo "✅ Verifying services are healthy (as per root README)..."
@@ -328,7 +317,6 @@ jobs:
           
           # Cleanup port-forward
           kill $PORT_FORWARD_PID 2>/dev/null || true
-
       - name: Cleanup
         if: always()
         run: |
