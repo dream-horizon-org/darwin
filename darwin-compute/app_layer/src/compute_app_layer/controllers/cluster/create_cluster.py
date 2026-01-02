@@ -71,6 +71,7 @@ async def create_cluster(
         return Response.internal_server_error_response(message=e.__str__(), data=None)
 
 
+# TODO: This retry logic is synchronous (time.sleep) in an async function - use asyncio.sleep instead
 async def create_cluster_controller(
     request: ClusterRequest,
     compute: Compute,
@@ -81,6 +82,7 @@ async def create_cluster_controller(
 ):
     try:
         response = None
+        # TODO: Different retry behavior for job vs non-job clusters should be documented
         retry_attempts = config.cluster_create_retry_attempts if request.is_job_cluster else 1
 
         for i in range(retry_attempts + 1):
@@ -89,6 +91,7 @@ async def create_cluster_controller(
                 logger.debug(f"Cluster created successfully: {response}")
                 return response
             logger.error(f"Cluster create failed for request after {i + 1} attempts: {request}")
+            # TODO: Use asyncio.sleep instead of time.sleep in async context
             time.sleep((i + 1) * 0.5)
 
         return response

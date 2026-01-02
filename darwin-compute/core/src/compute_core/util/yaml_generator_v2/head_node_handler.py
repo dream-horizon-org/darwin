@@ -69,6 +69,7 @@ def update_head_group(head_group, compute_request: ComputeClusterDefinition):
     kube_cluster = KubeCluster(compute_request.cloud_env)
 
     update_head_group_ray_start_params(head_group["rayStartParams"], ray_start_params, hn_value.node.memory)
+    # TODO: Cloud provider specific logic should be extracted into separate strategy classes
     if kube_cluster == KubeCluster.GCP:
         # If GCP cluster but not GPU node, update NodeSelectors in accordance with GCP Cluster with NPC
         darwin_resource = "ray-cluster-head-job" if compute_request.is_job_cluster else "ray-cluster-head"
@@ -77,23 +78,8 @@ def update_head_group(head_group, compute_request: ComputeClusterDefinition):
         add_gcp_node_toleration(head_group, hn_value.node_type, hn_value.node.node_capacity_type)
         add_pod_label(head_group, [PodLabel("darwin_resource", darwin_resource)])
     elif hn_value.node_type == "gpu":
-        # Update NodeSelectors in accordance with GPU Node
         update_gpu_node_selector(head_group, hn_value.node.name)
         add_eks_tolerations(head_group)
-    # else:
-    #     update_karpenter_node_selector(
-    #         head_group, hn_value.node_type, hn_value.node.node_capacity_type, compute_request.cloud_env
-    #     )
-    #
-    #     if compute_request.is_job_cluster:
-    #         add_node_selector(head_group, [NodeSelector("darwin.dream11.com/resource", "ray-cluster-head-job")])
-    #     else:
-    #         add_node_selector(head_group, [NodeSelector("darwin.dream11.com/resource", "ray-cluster-head")])
-    #
-    #     add_eks_tolerations(head_group)
-
-    # add_annotation(head_group, kube_cluster)
-    # add_log_central_head_annotation(head_group, compute_request)
 
     workspace_claim_name = f"fsx-claim-{randint(0, 19)}"
     add_volume_mount("persistent-storage", workspace_claim_name, WORKSPACE_MOUNT_PATH, head_group)

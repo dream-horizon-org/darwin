@@ -15,6 +15,7 @@ from compute_script.dto.policy_factory import DefaultPolicyFactory
 from compute_script.util.darwin_slack_alert import DarwinSlackAlert
 from compute_script.util.recent_activity import recent_activity
 
+# TODO: Default policies should be configurable via environment or config file
 DEFAULT_POLICIES = [
     PolicyDefinition("JupyterLabActivity"),
     PolicyDefinition("ClusterCPUUsage"),
@@ -66,11 +67,13 @@ class ClusterActivity:
         return False
 
 
+# TODO: Consider using dependency injection instead of instantiating Compute() in constructor
 class ClusterAutoTermination:
     def __init__(self, cluster_id: str):
         self.id = cluster_id
         self.compute = Compute()
         self.lib_manager = get_library_manager()
+        # TODO: Multiple API calls in constructor - consider lazy loading or passing pre-fetched data
         cluster_details = self.compute.get_cluster(cluster_id)
         self.expiry_time = cluster_details.terminate_after_minutes
         self.name = cluster_details.name

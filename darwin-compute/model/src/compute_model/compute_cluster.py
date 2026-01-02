@@ -68,6 +68,7 @@ class ComputeClusterDefinition(DataClassJsonMixin):
     estimated_cost: Optional[str] = (None,)
     packages: Optional[list[Package]] = None
 
+    # TODO: Manual type checking duplicates @typechecked decorator functionality - consider removing redundancy
     def __post_init__(self):
         if not isinstance(self.name, str):
             raise TypeError(f"name {self.name} should be str")
@@ -112,10 +113,6 @@ class ComputeClusterDefinition(DataClassJsonMixin):
         self.validate_labels()
 
     def validate_labels(self):
-        # TODO: Removal of comments from the below code, after tags2.0 release
-        # for label in REQUIRED_LABELS:
-        #     if label not in self.labels:
-        #         raise ValueError(f"Required label {label} not found")
         for key, val in self.labels.items():
             if len(key) > LABELS_SIZE_LIMIT:
                 raise ValueError(f"Label {key} is too long")

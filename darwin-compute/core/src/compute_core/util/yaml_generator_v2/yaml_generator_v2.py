@@ -22,6 +22,7 @@ from compute_core.util.yaml_generator_v2.worker_node_handler import WorkerNodeUp
 from compute_core.util.yaml_generator_v2.zone_handler import ZoneHandler
 from compute_model.compute_cluster import ComputeClusterDefinition
 
+# TODO: Global handler chain initialization - consider using a factory pattern for better testability
 image_handler = ImageUpdateHandler()
 resource_handler = ResourceUpdateHandler()
 env_handler = EnvVariablesUpdateHandler()
@@ -36,7 +37,7 @@ monitoring_handler = MonitoringHandler()
 remote_command_handler = RemoteCommandHandler()
 disk_handler = DiskHandler()
 
-
+# TODO: Handler chain order is implicit and fragile - consider using explicit registration or configuration
 head_node_handler.set_next(service_account_handler)
 service_account_handler.set_next(worker_node_handler)
 worker_node_handler.set_next(image_handler)
@@ -60,6 +61,7 @@ def create_yaml_v2(
     :param env: str
     :return: YAML
     """
+    # TODO: Simple string replacement for CLUSTER_ID is fragile - use proper templating
     with pkg_resource.open_text(rs, "values.yaml") as stream:
         stream = stream.read().replace("CLUSTER_ID", compute_request.cluster_id)
         values = yaml.safe_load(stream)

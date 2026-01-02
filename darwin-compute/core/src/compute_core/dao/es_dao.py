@@ -12,9 +12,11 @@ class ESDao:
     index: str
     parser_func: callable  # Parser function to convert a dictionary to the Object
 
+    # TODO: ElasticsearchInstrumentor().instrument() is called on every instantiation - should be called once at startup
     def __init__(self, env: str = None):
         ElasticsearchInstrumentor().instrument()
         config = Config(env).es_config()
+        # TODO: Consider adding connection pooling and retry configuration for ES client
         self.elasticsearch_client = Elasticsearch(
             config.get("host"), http_auth=(config.get("username", ""), config.get("password", ""))
         )
@@ -24,6 +26,7 @@ class ESDao:
     def healthcheck(self):
         return self.elasticsearch_client.ping()
 
+    # TODO: Add proper error handling and logging for ES query failures
     # TODO: aggregation query  response
     def aggregation_search(self, query: dict):
         query = ESSearchQuery(query)

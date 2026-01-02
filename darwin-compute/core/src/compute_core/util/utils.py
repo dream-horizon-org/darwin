@@ -88,12 +88,14 @@ def get_random_id(prefix: str = "id-"):
     return rand_id
 
 
+# TODO: Hardcoded timezone "Asia/Kolkata" - should be configurable or use UTC consistently
 def get_ist_time():
     timestamp = datetime.now(tz=gettz("Asia/Kolkata"))
     timestamp = timestamp.replace(tzinfo=None).isoformat(timespec="seconds")
     return timestamp
 
 
+# TODO: get_utc_time() doesn't actually return UTC - datetime.now() returns local time without timezone
 def get_utc_time():
     timestamp = datetime.now()
     timestamp = timestamp.replace(tzinfo=None).isoformat(timespec="seconds")
@@ -141,6 +143,7 @@ def retry_with_exponential_backoff(retries: int = 3, delay: float = 0.1, backoff
     return decorator
 
 
+# TODO: This function assumes the date is UTC but doesn't validate - could produce incorrect timestamps
 def serialize_date(date) -> str:
     """
     :param date: datetime
@@ -433,10 +436,12 @@ def add_volume_mount(group, volume_mount: dict):
     return group
 
 
+# TODO: LRU cache with DAO parameter means cache won't work correctly - DAO is unhashable
 @lru_cache(maxsize=150)
 def generate_ray_cluster_dashboard_url(cluster_id: str, datadog_host: str, dashboard_id: str, dao):
     start_time, end_time = dao.get_cluster_last_started_at(cluster_id), dao.get_cluster_last_stopped_at(cluster_id)
     logger.info(f"start_time_: {start_time}, end_time: {end_time} for cluster_id: {cluster_id}")
+    # TODO: Magic number 6 hours fallback should be configurable
     if not start_time or not end_time or start_time > end_time:
         start_time = datetime.now() - timedelta(hours=6)
         end_time = datetime.now()

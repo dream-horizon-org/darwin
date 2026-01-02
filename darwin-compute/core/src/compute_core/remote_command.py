@@ -15,11 +15,13 @@ from compute_core.dto.remote_command_dto import (
 from compute_core.service.dcm import DarwinClusterManager
 
 
+# TODO: Consider using dependency injection for _dao, _dcm, _compute to improve testability
 class RemoteCommand:
     def __init__(self):
         self._config = Config()
         self._dao = RemoteCommandDao()
         self._dcm = DarwinClusterManager()
+        # TODO: Circular dependency potential - RemoteCommand creates Compute which may need RemoteCommand
         self._compute = Compute()
 
     def add_to_cluster(self, cluster_id: str, commands: list[RemoteCommandDto]) -> dict:

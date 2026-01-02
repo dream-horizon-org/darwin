@@ -5,6 +5,7 @@ from typeguard import typechecked
 from compute_core.constant.config import Config
 from compute_core.util.mysql_connection import Connection, ConnectionPool
 
+# TODO: Global mutable state - consider using a proper singleton pattern or dependency injection
 connection_pool = None
 
 
@@ -32,11 +33,13 @@ class MySQLDao:
     For executing read/write/update/delete queries using separate read/write DBs
     """
 
+    # TODO: Connection pool initialization is not thread-safe - add locking or use a proper singleton
     def __init__(self, env: str = None):
         global connection_pool
         logger.debug(f"MySQLDao initializing with env: {env}")
         if connection_pool is None:
             config = Config(env).db_config()
+            # TODO: Logging config with potential credentials is a security risk
             logger.debug(f"Creating connection pool with config: {config}")
             connection_pool = ConnectionPool(config)
         self.connection_pool = connection_pool

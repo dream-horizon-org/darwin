@@ -10,8 +10,10 @@ from compute_core.util.utils import default_events
 
 
 class EventService:
+    # TODO: Consider making this class async-first for better performance in event-heavy scenarios
     def __init__(self):
         self.config = Config()
+        # TODO: Hardcoded header values should be constants
         self.headers = {"x-event-source": "compute", "Content-Type": "application/json"}
         self.default_cluster_events = DEFAULT_CLUSTER_EVENTS
 
@@ -36,6 +38,7 @@ class EventService:
         url = f"{self.config.get_chronos_url}/api/v1/event"
         logger.info(f"Sending event to chronos to url {url}. Event data: {event_data}")
         try:
+            # TODO: Hardcoded retry count and timeout should be configurable
             resp = make_api_request(
                 method="POST",
                 url=url,
@@ -46,6 +49,7 @@ class EventService:
             )
             return resp
         except Exception as e:
+            # TODO: Failed events should be queued for retry or dead-lettered for later analysis
             logger.error(f"Error while sending event: {e}. The event data is: {event_data}")
 
     async def get_default_events(self):
