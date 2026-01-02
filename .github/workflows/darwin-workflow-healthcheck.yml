@@ -95,7 +95,18 @@ jobs:
           # 11: ray:2.37.0 (n)
           # 12: ray:2.53.0 (n)
           # 13: hermes-cli (n)
-          printf "n\nn\nn\nn\nn\nn\nn\ny\ny\nn\nn\nn\nn" | ./init.sh
+          # Use printf with explicit newlines and ensure stdin is properly closed
+          printf "n\nn\nn\nn\nn\nn\nn\ny\ny\nn\nn\nn\nn\n" | ./init.sh || {
+            echo "❌ init.sh failed with exit code $?"
+            echo "Checking if config was created..."
+            if [ -f .setup/enabled-services.yaml ]; then
+              echo "Config file exists, showing contents:"
+              cat .setup/enabled-services.yaml
+            else
+              echo "Config file was not created"
+            fi
+            exit 1
+          }
           
           echo "✅ Configuration created by init.sh"
           cat .setup/enabled-services.yaml
