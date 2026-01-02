@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Get the project root directory (same as start-cluster.sh does)
+# This ensures config.env is always written to the same location
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
+CONFIG_ENV="$PROJECT_ROOT/config.env"
+
 # Check for init configuration
 ENABLED_SERVICES_FILE=".setup/enabled-services.yaml"
 if [ ! -f "$ENABLED_SERVICES_FILE" ]; then
@@ -30,7 +36,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-echo '' > config.env
+echo '' > "$CONFIG_ENV"
 
 extract_max_supported_api_version() {
     printf "%s\n" "$1" | sed -n 's/.*Maximum supported API version is \([0-9.]*\).*/\1/p' | head -n 1
@@ -119,7 +125,7 @@ if [ "$ENV" = "local" ]; then
     else
         echo ""
         echo "Skipping kind cluster setup"
-        echo "DOCKER_REGISTRY=docker.io" >> config.env
+        echo "DOCKER_REGISTRY=docker.io" >> "$CONFIG_ENV"
     fi
 else
     echo "ENV is not set to 'local' (current value: '$ENV'), skipping local k8s cluster setup"
@@ -131,8 +137,8 @@ if [ ! -f "$KUBECONFIG" ]; then
     echo "   Cluster may not have been created. Please ensure cluster setup completed successfully."
     exit 1
 else
-    echo "KUBECONFIG=$KUBECONFIG" >> config.env
-    source config.env
+    echo "KUBECONFIG=$KUBECONFIG" >> "$CONFIG_ENV"
+    source "$CONFIG_ENV"
 fi
 
 if kubectl version >/dev/null 2>&1; then
