@@ -1,3 +1,5 @@
+# TODO: Exception classes lack error codes - add codes for programmatic error handling (e.g., WORKFLOW_NOT_FOUND = "WF001")
+# TODO: Consider using a base DarwinException class with common fields (code, message, details)
 class WorkflowNotFound(Exception):
     """Exception raised when workflow not found."""
 

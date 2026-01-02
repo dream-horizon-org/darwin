@@ -86,6 +86,8 @@ class WorkflowOperator(BaseOperator):
         response = api_request("PUT", self.workflow_task_run_update_url, data=payload)
         self.log.info(f"Workflow response: {response}")
 
+    # TODO: pre_execute and post_execute are commented out - either enable or remove the methods entirely
+    # TODO: If pre/post execute are needed, use Airflow's native callbacks instead of manual implementation
     def execute(self, context: Context) -> Any:
         self.log.info(f"execute called")
         # self.pre_execute(context)

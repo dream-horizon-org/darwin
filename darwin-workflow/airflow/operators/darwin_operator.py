@@ -17,6 +17,8 @@ from airflow_core.utils.airflow_job_runner_utils import get_env, api_request
 from airflow_core.jobs.airflow_job_runner import AirflowJobRunner
 from airflow_core.constants.constants import ENV
 
+# TODO: DarwinOperator extends WorkflowOperator but pre_execute/post_execute are commented out in execute() - clarify lifecycle
+# TODO: Default timeouts (12000s for cluster, 360000s for job) are very long - should be environment-configurable
 class DarwinOperator(WorkflowOperator):
     '''
     Submit and monitor a Darwin job workload.

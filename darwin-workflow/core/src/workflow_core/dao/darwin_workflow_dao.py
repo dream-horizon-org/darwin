@@ -9,6 +9,8 @@ import aiomysql
 logger = LoggingUtil().get_logger()
 
 
+# TODO: Class name darwin_worflow_conn has typo (worflow) and doesn't follow PascalCase convention
+# TODO: Aerich migrations run on every startup - should be a separate migration command
 class darwin_worflow_conn:
     def __init__(self, env: str):
         self.conn = Config(env).get_workflow_conn

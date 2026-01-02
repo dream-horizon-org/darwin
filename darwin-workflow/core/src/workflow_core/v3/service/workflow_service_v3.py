@@ -25,6 +25,8 @@ from workflow_model.v3.task import TaskV3, PelicanConfig, DarwinConfig
 logger = get_logger(__name__)
 
 
+# TODO: V3 implementation uses MySQL (via Tortoise ORM) while V1/V2 use Elasticsearch - data may be inconsistent
+# TODO: No migration path defined from V1/V2 ES data to V3 MySQL data
 class WorkflowCoreV3Impl:
     """
     V3-specific implementation of workflow core operations.
@@ -402,6 +404,8 @@ class WorkflowCoreV3Impl:
             raise
 
 
+    # TODO: run_now concurrency check is racy - multiple concurrent requests could exceed max_concurrent_runs
+    # TODO: Consider using database-level locking or distributed lock for concurrency control
     async def run_now(self, workflow_id: str, parameters: dict = None):
         try:
             workflow = await self.repo.get_workflow_by_id(workflow_id)
