@@ -195,10 +195,16 @@ chmod 600 $KUBECONFIG 2>/dev/null || true
 
 # Start kind-registry
 echo "🚀 Starting kind-registry..."
+# Get the project root directory (where config.env should be written)
+# This script is in kind/, so go up one level to get project root
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONFIG_ENV="$PROJECT_ROOT/config.env"
+
 if docker ps | grep -q "kind-registry"; then
   echo "✅ kind-registry is already running"
   REGISTRY_PORT=$(docker port kind-registry 5000/tcp | cut -d: -f2)
-  echo "DOCKER_REGISTRY=127.0.0.1:$REGISTRY_PORT" >> config.env
+  echo "DOCKER_REGISTRY=127.0.0.1:$REGISTRY_PORT" >> "$CONFIG_ENV"
 elif docker ps -a | grep -q "kind-registry"; then
   echo "   Found existing kind-registry container, starting it..."
   if ! docker start kind-registry; then
@@ -210,7 +216,7 @@ elif docker ps -a | grep -q "kind-registry"; then
     fi
   fi
   REGISTRY_PORT=$(docker port kind-registry 5000/tcp | cut -d: -f2)
-  echo "DOCKER_REGISTRY=127.0.0.1:$REGISTRY_PORT" >> config.env
+  echo "DOCKER_REGISTRY=127.0.0.1:$REGISTRY_PORT" >> "$CONFIG_ENV"
 else
   echo "   Creating new kind-registry container..."
   if ! docker run -d --restart=always -p 0:5000 --network $CLUSTER_NAME --name kind-registry registry:2; then
@@ -218,6 +224,6 @@ else
     exit 1
   fi
   REGISTRY_PORT=$(docker port kind-registry 5000/tcp | cut -d: -f2)
-  echo "DOCKER_REGISTRY=127.0.0.1:$REGISTRY_PORT" >> config.env
+  echo "DOCKER_REGISTRY=127.0.0.1:$REGISTRY_PORT" >> "$CONFIG_ENV"
 fi
 echo "✅ kind-registry is running on port $REGISTRY_PORT"
