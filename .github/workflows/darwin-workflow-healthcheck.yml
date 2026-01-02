@@ -13,12 +13,18 @@ on:
 
 jobs:
   health-check:
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux, X64, darwin]
     defaults:
       run:
         working-directory: .
 
     steps:
+      - name: Runner identity (debug)
+        run: |
+          echo "Runner name: $RUNNER_NAME"
+          echo "Runner OS: $RUNNER_OS"
+          echo "Runner arch: $RUNNER_ARCH"
+          hostname
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
