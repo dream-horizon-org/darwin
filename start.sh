@@ -1,6 +1,12 @@
 #!/bin/sh
 set -e
 
+# Get the project root directory (same as setup.sh and start-cluster.sh)
+# This ensures config.env is always read from the same location
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
+CONFIG_ENV="$PROJECT_ROOT/config.env"
+
 # Check for init configuration
 ENABLED_SERVICES_FILE=".setup/enabled-services.yaml"
 if [ ! -f "$ENABLED_SERVICES_FILE" ]; then
@@ -49,8 +55,13 @@ if [ "$HERMES_CLI_ENABLED" = "true" ]; then
 fi
 
 # Source the config.env file
+if [ ! -f "$CONFIG_ENV" ]; then
+    echo "❌ config.env not found at $CONFIG_ENV"
+    echo "   Please run ./setup.sh first to create config.env"
+    exit 1
+fi
 set -o allexport
-. config.env
+. "$CONFIG_ENV"
 set +o allexport
 
 echo "🔧 Setting up KUBECONFIG: $KUBECONFIG"
