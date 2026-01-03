@@ -124,6 +124,21 @@ jobs:
           # Run setup.sh with auto-yes flag (it will auto-answer yes to cluster setup and clean build)
           # setup.sh will handle errors gracefully - if cluster creation fails but KUBECONFIG exists, it will continue
           ./setup.sh -y
+          
+          # Verify config.env was created (setup.sh should create it at project root)
+          echo "🔍 Verifying config.env was created..."
+          if [ -f config.env ]; then
+            echo "✅ config.env exists"
+            echo "Contents:"
+            cat config.env
+          else
+            echo "❌ config.env not found! setup.sh may have failed."
+            echo "Current directory: $(pwd)"
+            echo "Looking for config.env..."
+            find . -name "config.env" -type f 2>/dev/null | head -5 || echo "Not found"
+            exit 1
+          fi
+          
           # Clean up unused images after build to free space for deployment
           echo "🧹 Cleaning up unused Docker images after build..."
           docker image prune -f || true
@@ -162,13 +177,6 @@ jobs:
           echo "🚀 Step 3: Running start.sh to deploy to Kubernetes..."
           export KUBECONFIG=./kind/config/kindkubeconfig.yaml
           
-          # Source config.env if it exists
-          if [ -f config.env ]; then
-            set -o allexport
-            source config.env
-            set +o allexport
-          fi
-          
           # Verify cluster is accessible before deployment
           echo "🔍 Verifying cluster connectivity..."
           if ! kubectl get nodes >/dev/null 2>&1; then
@@ -176,7 +184,8 @@ jobs:
             exit 1
           fi
           
-          # Run start.sh - it should fail if deployment fails
+          # Run start.sh - it will handle config.env sourcing internally
+          # start.sh now uses absolute paths and will provide clear error if config.env is missing
           if ! ./start.sh; then
             echo "❌ start.sh failed, checking deployment status..."
             echo ""
