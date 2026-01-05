@@ -53,8 +53,8 @@ Ensure you have the following installed on your system:
 
 ```bash
 # Fork the repository on GitHub, then clone your fork
-git clone https://github.com/YOUR_USERNAME/darwin-distro.git
-cd darwin-distro
+git clone https://github.com/YOUR_USERNAME/darwin.git
+cd darwin
 ```
 
 #### 2. Initialize Submodules
@@ -91,7 +91,7 @@ git submodule update --init --recursive --remote
 ### Repository Structure
 
 ```
-darwin-distro/
+darwin/
 ├── darwin-compute/          # Ray cluster orchestration (Python)
 │   ├── app_layer/          # FastAPI REST API
 │   ├── core/               # Business logic
@@ -129,7 +129,6 @@ darwin-distro/
 │   ├── images/             # Base Docker images
 │   └── scripts/            # Image builders
 ├── kind/                    # Local Kubernetes config
-├── .prompts/                # AI agent documentation
 ├── init.sh                  # Configuration wizard
 ├── setup.sh                 # Build and setup script
 ├── start.sh                 # Deployment script

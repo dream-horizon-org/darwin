@@ -7,7 +7,7 @@ import (
 var (
 	AwsS3Bucket = map[string]string{
 		"darwin-local": "darwin",
-		"local": "d11-mlstag",
+		"local":        "d11-mlstag",
 	}
 )
 
@@ -15,7 +15,7 @@ var (
 var (
 	URL = map[string]string{
 		"darwin-local": "localhost",
-		"local": "darwin-mlp-stag.d11dev.com",
+		"local":        "darwin-mlp-stag.d11dev.com",
 	}
 )
 
@@ -47,7 +47,7 @@ const (
 )
 
 var (
-	ENV = os.Getenv("ENV")
+	ENV         = os.Getenv("ENV")
 	AwsEndpoint = os.Getenv("AWS_ENDPOINT_OVERRIDE")
 )
 
@@ -57,8 +57,7 @@ var (
 	DefaultJupyterValuesConstants = map[string]interface{}{
 		"nameOverride": "",
 		"replicas":     1,
-		"nodeSelector": map[string]interface{}{
-		},
+		"nodeSelector": map[string]interface{}{},
 		"image": map[string]interface{}{
 			"pullPolicy": "IfNotPresent",
 			"repository": "localhost:5000/ray",
