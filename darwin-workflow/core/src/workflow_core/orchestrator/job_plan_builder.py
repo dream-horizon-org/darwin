@@ -140,7 +140,7 @@ class JobPlanBuilder:
     # TODO: Synchronous upload_to_airflow vs async upload_to_s3 - standardize deployment approach
     def build_and_deploy_workflow(self):
         dag, json_data = create_json_from_dag_args(self.env, self.dag_args, self.tasks, self.dependencies)
-        print("start upload")  # TODO: Replace print with proper logging
+        LOGGER.info(f"Starting DAG upload for dag_id: {self.dag_args.get('dag_id')}")
         status = upload_to_airflow(dag, self.dag_args['dag_id'], env=self.env)
 
         dag_id = self.dag_args['dag_id']
