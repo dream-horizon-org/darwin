@@ -807,7 +807,6 @@ class LatestTaskRun(BaseModel, MetaData):
         )
 
 
-# TODO: VersionedWorkflow has 'tasks' field declared twice - remove duplicate declaration
 # TODO: Hardcoded default start_date "2021-01-01" is legacy - should use dynamic default
 class VersionedWorkflow(BaseModel, MetaData):
     workflow_id: str
@@ -831,7 +830,6 @@ class VersionedWorkflow(BaseModel, MetaData):
     workflow_status: str
     tasks: List[WorkflowTask]
     tenant: str = 'd11'
-    tasks: List[WorkflowTask]
     queue_enabled: Optional[bool] = False
     notification_preference: Optional[Dict[str, bool]] = {
         "on_start": False,  # or set as needed
