@@ -24,7 +24,7 @@ from workflow_core.constants.constants import (
 )
 from workflow_core.constants.constants import auth, SLACK_TOKEN, HTML
 from workflow_core.dao.Airflow_dao import AirflowDao
-from workflow_core.dao.darwin_workflow_dao import darwin_worflow_conn
+from workflow_core.dao.darwin_workflow_dao import DarwinWorkflowConn
 from workflow_core.dao.elasticsearch_dao import ElasticSearchConnection, RecentlyVisitedConnection, \
     WorkflowHistoryElasticSearchConnection
 from workflow_core.dao.job_clusters_es_dao import JobClusElasticSearchConnection
@@ -117,7 +117,7 @@ class WorkflowCoreImpl(WorkflowCoreInterface):
         self.airflow = AirflowApi(env)
         self.compute = ComputeApi(env)
         self.airflow_dao = AirflowDao(env)
-        self.darwin_workflow_dao = darwin_worflow_conn(env)
+        self.darwin_workflow_dao = DarwinWorkflowConn(env)
         self.logger = get_logger(__name__)
         self._config = Config(self.env)
         self.AIRFLOW_URL = self._config.get_airflow_url
