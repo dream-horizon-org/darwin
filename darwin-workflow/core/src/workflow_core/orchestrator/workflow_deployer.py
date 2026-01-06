@@ -77,8 +77,3 @@ class WorkflowDeployer:
 
     async def update_dag(self, last_parsed_time: str):
         return await self.job_plan_builder.update_and_deploy_workflow(last_parsed_time)
-
-    # TODO: deploy_via_yaml is not implemented but referenced in SDK - either implement or remove
-    def deploy_via_yaml(self):
-        # return self.job_plan_builder.build_and_deploy_workflow_via_yaml()
-        raise NotImplementedError
