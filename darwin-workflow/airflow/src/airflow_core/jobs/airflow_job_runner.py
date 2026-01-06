@@ -827,11 +827,6 @@ class AirflowJobRunner(JobRunnerInterface):
                 try_number=self.try_number,
                 user_email=self.user_email,
             )
-            LOGGER.info(f"Task Notification preference are {task_notification_preference}") # TODO: Remove this
-            LOGGER.info(f"slack_notifier1: {self.slack_notifier}")
-            LOGGER.info(f"task_notification_preference: {task_notification_preference}")
-            LOGGER.info(f"on_fail value: {task_notification_preference.get('on_fail', False)}")
-            LOGGER.info(f"bool value: {self.slack_notifier and bool(task_notification_preference.get('on_fail', False))}")
             if self.slack_notifier and bool(task_notification_preference.get("on_fail", False)):
                 LOGGER.info("Sending failure notification to Slack")
                 notification_channels = []
@@ -894,10 +889,6 @@ class AirflowJobRunner(JobRunnerInterface):
                 parent_task_instances.append(parent_ti)
             else:
                 LOGGER.warning(f"Parent task {parent_task.task_id} not found in dag run")
-        # Print parent task instances in a readable format
-        for parent_task_instance in parent_task_instances: # TODO: Remove this debug logging after testing
-            LOGGER.info(f"Parent task instance: {parent_task_instance.task_id} - {parent_task_instance.state}")
-
         if not parent_task_instances:
             return True  # No parents, always run
 
