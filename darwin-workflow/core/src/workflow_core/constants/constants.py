@@ -5,7 +5,6 @@ import os
 # TODO: Consider using an Enum instead of Literal for better IDE support and validation
 ENV_TYPE = Literal["prod", "stag", "uat", "local", "dev", "darwin-local"]
 
-# TODO: Multiple Elasticsearch indices for workflow data - consider consolidating or documenting the data model
 # Elasticsearch indices
 INDEX = os.getenv("ES_INDEX_WORKFLOW", "workflow_cud")
 INDEX_TRACKING = os.getenv("ES_INDEX_TRACKING", "workflow_tracking")

@@ -274,55 +274,6 @@ async def get_recently_visited(
 
 
 @app.post(
-    '/workflow', response_model=CreateWorkflowResponse, tags=['Workflow Create/Delete'],
-    responses={
-        200: {"description": "Workflow created successfully"},
-        400: {"description": "Invalid workflow request"},
-        500: {"description": "Internal Server Error"}
-    }
-)
-async def post_workflow(
-        body: CreateWorkflowRequest,
-        background_tasks: BackgroundTasks,
-        msd_user: str = Header(..., alias='msd-user')
-) -> CreateWorkflowResponse:
-    """
-    Creates a workflow.
-    -- create a workflow in the elasticsearch entry
-    -- we may need to deploy the workflow in Airflow
-    """
-    try:
-        if wf_core.check_if_end_date_has_passed(body.end_date):
-            raise InvalidWorkflowException("End date has passed. Please select a future date.")
-
-        if not body.display_name:
-            body.display_name = body.workflow_name
-
-        if not wf_core.check_unique_name_bool(CheckUniqueWorkflowNamePostRequest(name=body.workflow_name)).unique:
-            raise InvalidWorkflowException("Workflow name already exist. Please use a different name.")
-        msd_user_dict = json.loads(msd_user)
-        validate_workflow(body)
-        status, data = await wf_core.create_workflow_v2(body, user_email=msd_user_dict['email'])
-        if body.workflow_status == INACTIVE:
-            body.schedule = DEFAULT_SCHEDULE
-        background_tasks.add_task(deployable_workflow, request=body, user_email=msd_user_dict['email'])
-        if status == SUCCESS:
-            return CreateWorkflowResponse(status="SUCCESS", data=data)
-        else:
-            return error_handler(f"failed to register the dag in system, "
-                                 f"dag created in the airflow due to error {status}")
-    except InvalidWorkflowException as err:
-        return error_handler(err.message, 400)
-    except Exception as err:
-        import traceback
-        logger.error(traceback.format_exc())
-        logger.error(err.__str__())
-        return error_handler(traceback.format_exc())
-
-
-# TODO: post_workflow and post_workflow_v2 are nearly identical - consolidate into single endpoint. Lets remove the post workflow as it is not under use. 
-# TODO: The only difference is check_unique_name_bool vs check_unique_display_name_bool
-@app.post(
     '/v2/workflow', response_model=CreateWorkflowResponse, tags=['Workflow Create/Delete'],
     responses={
             200: {"description": "Workflow created successfully"},
