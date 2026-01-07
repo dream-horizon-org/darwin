@@ -605,6 +605,36 @@ def get_workflow_task(workflow_task_request: WorkflowTaskRequest):
     )
 
 
+# TODO: To be removed once we have v3
+def get_workflow(workflow_request: CreateWorkflowRequest, user_email: str):
+    current_time = get_current_time()
+    return Workflow(
+        workflow_id=get_workflow_id(),
+        workflow_name=workflow_request.workflow_name,
+        display_name=workflow_request.display_name,
+        description=workflow_request.description,
+        tags=workflow_request.tags,
+        schedule=workflow_request.schedule,
+        retries=workflow_request.retries,
+        notify_on=workflow_request.notify_on,
+        parameters=workflow_request.parameters,
+        max_concurrent_runs=workflow_request.max_concurrent_runs,
+        start_date=workflow_request.start_date,
+        end_date=workflow_request.end_date,
+        callback_urls=workflow_request.callback_urls,
+        event_types=workflow_request.event_types,
+        created_by=user_email,
+        last_updated_on=current_time,
+        created_at=current_time,
+        workflow_status=INACTIVE,
+        tasks=[get_workflow_task(task) for task in workflow_request.tasks],
+        expected_run_duration=workflow_request.expected_run_duration,
+        queue_enabled=workflow_request.queue_enabled,
+        notification_preference=workflow_request.notification_preference,
+        timezone=workflow_request.timezone
+    )
+
+
 def get_workflow_v2(workflow_request: CreateWorkflowRequest, user_email: str):
     current_time = get_current_time()
     return Workflow(
