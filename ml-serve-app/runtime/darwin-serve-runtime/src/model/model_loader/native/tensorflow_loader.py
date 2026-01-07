@@ -25,14 +25,12 @@ For Keras models:
 """
 
 import os
-from typing import Any, Dict
-
-import numpy as np
-import pandas as pd
+from typing import Optional
 
 from .base_native_loader import BaseNativeLoader
 from src.config.config import Config
 from src.config.logger import logger
+from src.model.predictable_model import TensorFlowModelWrapper
 
 
 class TensorFlowNativeLoader(BaseNativeLoader):
@@ -48,7 +46,7 @@ class TensorFlowNativeLoader(BaseNativeLoader):
     - Schema extraction from MLmodel file
     - TensorSpec expansion using input_example
     - Automatic signature detection from SavedModel
-    - CPU/GPU device management
+    - Returns TensorFlowModelWrapper for predictions
     """
     
     # Possible model locations
@@ -70,6 +68,7 @@ class TensorFlowNativeLoader(BaseNativeLoader):
         """
         super().__init__(config)
         self._model_format: str = "unknown"  # 'keras', 'savedmodel', 'h5'
+        self._wrapper: Optional[TensorFlowModelWrapper] = None
         logger.info("TensorFlowNativeLoader initialized")
     
     def _find_model_path(self, base_path: str) -> str:
@@ -100,14 +99,14 @@ class TensorFlowNativeLoader(BaseNativeLoader):
             f"Expected one of: {self.KERAS_MODEL_PATHS}"
         )
     
-    def load_model(self) -> Any:
+    def load_model(self) -> TensorFlowModelWrapper:
         """
-        Load the TensorFlow/Keras model.
+        Load the TensorFlow/Keras model and return a wrapper.
         
         Attempts to load as Keras model first, falls back to SavedModel.
         
         Returns:
-            Loaded TensorFlow/Keras model
+            TensorFlowModelWrapper that handles predictions
         """
         import tensorflow as tf
         
@@ -135,87 +134,24 @@ class TensorFlowNativeLoader(BaseNativeLoader):
                     logger.info("Model loaded via tf.saved_model.load()")
             
             logger.info("TensorFlow model loaded successfully")
-            return self._loaded_model
             
         except Exception as e:
             logger.error(f"Failed to load TensorFlow model: {e}")
             raise
+        
+        # Create wrapper
+        self._wrapper = TensorFlowModelWrapper(
+            model=self._loaded_model,
+            feature_order=self._feature_order,
+        )
+        
+        logger.info(f"Created TensorFlowModelWrapper (features={len(self._feature_order) if self._feature_order else 0})")
+        return self._wrapper
     
-    def reload_model(self) -> Any:
+    def reload_model(self) -> TensorFlowModelWrapper:
         """Reload the TensorFlow model."""
         logger.info("Reloading TensorFlow model...")
         return self.load_model()
-    
-    def predict(self, input_data: Any) -> Dict[str, Any]:
-        """
-        Make prediction using the native TensorFlow model.
-        
-        Handles both Keras models (with .predict()) and SavedModels
-        (with __call__() or signature-based calling).
-        
-        Args:
-            input_data: Input data (dict, DataFrame, or numpy array)
-            
-        Returns:
-            Dict with 'scores' key containing predictions
-        """
-        import tensorflow as tf
-        
-        if self._loaded_model is None:
-            raise RuntimeError("Model not loaded. Call load_model() first.")
-        
-        # Prepare input as numpy array
-        X = self._prepare_input_for_prediction(input_data, self._feature_order)
-        
-        try:
-            # Convert to TensorFlow tensor
-            tensor_input = tf.convert_to_tensor(X, dtype=tf.float32)
-            
-            # Make prediction
-            if hasattr(self._loaded_model, 'predict'):
-                # Keras model with .predict()
-                predictions = self._loaded_model.predict(tensor_input, verbose=0)
-            elif hasattr(self._loaded_model, '__call__'):
-                # Callable model (SavedModel or functional)
-                predictions = self._loaded_model(tensor_input)
-                if isinstance(predictions, tf.Tensor):
-                    predictions = predictions.numpy()
-            elif hasattr(self._loaded_model, 'signatures'):
-                # SavedModel with signatures
-                serving_fn = self._loaded_model.signatures.get('serving_default')
-                if serving_fn:
-                    result = serving_fn(tensor_input)
-                    # Get the output tensor (might have various keys)
-                    if isinstance(result, dict):
-                        output_key = list(result.keys())[0]
-                        predictions = result[output_key].numpy()
-                    else:
-                        predictions = result.numpy()
-                else:
-                    raise RuntimeError("SavedModel has no serving_default signature")
-            else:
-                raise RuntimeError(
-                    f"Model type {type(self._loaded_model)} not supported for prediction"
-                )
-            
-            # Convert to list
-            if hasattr(predictions, 'tolist'):
-                scores = predictions.tolist()
-            else:
-                scores = predictions
-            
-            # Flatten nested lists for single predictions
-            if isinstance(scores, list):
-                # Handle [[value]] -> [value]
-                if len(scores) == 1 and isinstance(scores[0], list):
-                    if len(scores[0]) == 1:
-                        scores = [scores[0][0]]
-            
-            return {"scores": scores}
-            
-        except Exception as e:
-            logger.exception(f"TensorFlow prediction failed: {e}")
-            raise
 
 
 class KerasNativeLoader(TensorFlowNativeLoader):

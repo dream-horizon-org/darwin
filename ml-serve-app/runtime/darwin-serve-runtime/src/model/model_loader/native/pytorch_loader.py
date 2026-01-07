@@ -16,14 +16,12 @@ MLflow pytorch artifact structure:
 """
 
 import os
-from typing import Any, Dict, List, Optional
-
-import numpy as np
-import pandas as pd
+from typing import Optional
 
 from .base_native_loader import BaseNativeLoader
 from src.config.config import Config
 from src.config.logger import logger
+from src.model.predictable_model import PyTorchModelWrapper
 
 
 class PyTorchNativeLoader(BaseNativeLoader):
@@ -39,7 +37,7 @@ class PyTorchNativeLoader(BaseNativeLoader):
     - Schema extraction from MLmodel file
     - TensorSpec expansion using input_example
     - Automatic GPU/CPU device handling
-    - Inference mode (no gradients)
+    - Returns PyTorchModelWrapper for predictions
     """
     
     # Possible model file locations
@@ -60,6 +58,7 @@ class PyTorchNativeLoader(BaseNativeLoader):
         super().__init__(config)
         self._device: str = "cpu"  # Default to CPU for serving
         self._is_jit_model: bool = False
+        self._wrapper: Optional[PyTorchModelWrapper] = None
         logger.info("PyTorchNativeLoader initialized")
     
     def _find_model_file(self, model_path: str) -> str:
@@ -80,29 +79,15 @@ class PyTorchNativeLoader(BaseNativeLoader):
             f"Expected one of: {self.MODEL_PATHS}"
         )
     
-    def _detect_model_class(self, model_path: str) -> Optional[type]:
+    def load_model(self) -> PyTorchModelWrapper:
         """
-        Try to detect the model class from MLmodel or code directory.
-        
-        For non-JIT models, we need the model class to reconstruct.
-        MLflow stores this information in the MLmodel file.
-        
-        Returns:
-            Model class or None if not found
-        """
-        # For now, we'll rely on pickle being able to reconstruct
-        # In production, model classes should be in the sys.path
-        return None
-    
-    def load_model(self) -> Any:
-        """
-        Load the PyTorch model.
+        Load the PyTorch model and return a wrapper.
         
         Attempts to load as TorchScript first (preferred for serving),
         falls back to pickle-based loading.
         
         Returns:
-            Loaded PyTorch model (nn.Module)
+            PyTorchModelWrapper that handles predictions
         """
         import torch
         
@@ -147,63 +132,18 @@ class PyTorchNativeLoader(BaseNativeLoader):
             self._loaded_model.eval()
         
         logger.info("PyTorch model loaded and set to eval mode")
-        return self._loaded_model
+        
+        # Create wrapper
+        self._wrapper = PyTorchModelWrapper(
+            model=self._loaded_model,
+            feature_order=self._feature_order,
+            device=self._device,
+        )
+        
+        logger.info(f"Created PyTorchModelWrapper (device={self._device}, features={len(self._feature_order) if self._feature_order else 0})")
+        return self._wrapper
     
-    def reload_model(self) -> Any:
+    def reload_model(self) -> PyTorchModelWrapper:
         """Reload the PyTorch model."""
         logger.info("Reloading PyTorch model...")
         return self.load_model()
-    
-    def predict(self, input_data: Any) -> Dict[str, Any]:
-        """
-        Make prediction using the native PyTorch model.
-        
-        Uses torch.no_grad() for inference efficiency.
-        
-        Args:
-            input_data: Input data (dict, DataFrame, or numpy array)
-            
-        Returns:
-            Dict with 'scores' key containing predictions
-        """
-        import torch
-        
-        if self._loaded_model is None:
-            raise RuntimeError("Model not loaded. Call load_model() first.")
-        
-        # Prepare input as numpy array
-        X = self._prepare_input_for_prediction(input_data, self._feature_order)
-        
-        try:
-            # Convert to PyTorch tensor
-            tensor_input = torch.tensor(X, dtype=torch.float32, device=self._device)
-            
-            # Run inference
-            with torch.no_grad():
-                output = self._loaded_model(tensor_input)
-            
-            # Convert back to numpy/list
-            if isinstance(output, torch.Tensor):
-                predictions = output.cpu().numpy()
-            elif isinstance(output, tuple):
-                # Some models return tuple (output, hidden_state, etc.)
-                predictions = output[0].cpu().numpy()
-            else:
-                predictions = output
-            
-            # Handle different output shapes
-            if hasattr(predictions, 'tolist'):
-                scores = predictions.tolist()
-            else:
-                scores = predictions
-            
-            # Flatten single-element predictions
-            if isinstance(scores, list) and len(scores) == 1:
-                if isinstance(scores[0], list) and len(scores[0]) == 1:
-                    scores = [scores[0][0]]
-            
-            return {"scores": scores}
-            
-        except Exception as e:
-            logger.exception(f"PyTorch prediction failed: {e}")
-            raise

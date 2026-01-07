@@ -1,14 +1,16 @@
 """
-Base mixin class for native model loaders.
+Base class for native model loaders.
 
 Provides shared functionality for:
 - Schema extraction from MLmodel YAML files (via schema_utils)
 - Input example loading
 - TensorSpec schema expansion (for TensorFlow/PyTorch)
-- Common prediction interface
+
+Native loaders are responsible for loading models using framework-specific APIs
+and returning PredictableModel wrappers that handle predictions.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -22,6 +24,9 @@ from src.utils.schema_utils import (
     is_tensor_spec_schema,
     expand_tensor_schema,
 )
+
+if TYPE_CHECKING:
+    from src.model.predictable_model import PredictableModel
 
 
 class NativeLoaderMixin:
@@ -104,6 +109,10 @@ class BaseNativeLoader(NativeLoaderMixin, ModelLoaderInterface, ABC):
     
     Combines the NativeLoaderMixin (schema loading) with ModelLoaderInterface
     and provides common initialization logic.
+    
+    Subclasses must implement:
+    - load_model(): Load the model and return a PredictableModel wrapper
+    - reload_model(): Reload the model and return a PredictableModel wrapper
     """
     
     def __init__(self, config: Config):
@@ -137,36 +146,34 @@ class BaseNativeLoader(NativeLoaderMixin, ModelLoaderInterface, ABC):
                 logger.debug("No schema found in MLmodel file")
     
     @abstractmethod
-    def load_model(self) -> Any:
-        """Load the model using native library. Must be implemented by subclasses."""
-        pass
-    
-    @abstractmethod
-    def reload_model(self) -> Any:
-        """Reload the model. Must be implemented by subclasses."""
-        pass
-    
-    @abstractmethod
-    def predict(self, input_data: Any) -> Any:
+    def load_model(self) -> "PredictableModel":
         """
-        Make prediction using the native model.
+        Load the model and return a PredictableModel wrapper.
         
-        Args:
-            input_data: Input data (dict, DataFrame, or numpy array)
-            
+        Subclasses must implement this to:
+        1. Load the raw model using framework-specific APIs
+        2. Wrap it in the appropriate wrapper class (e.g., SklearnModelWrapper)
+        3. Return the wrapper
+        
         Returns:
-            Prediction result as dict with 'scores' key
+            PredictableModel wrapper that handles predictions
+        """
+        pass
+    
+    @abstractmethod
+    def reload_model(self) -> "PredictableModel":
+        """
+        Reload the model and return a PredictableModel wrapper.
+        
+        Returns:
+            PredictableModel wrapper that handles predictions
         """
         pass
     
     @property
     def model(self) -> Any:
-        """Get the loaded model."""
+        """Get the loaded raw model."""
         return self._loaded_model
-    
-    def has_native_predict(self) -> bool:
-        """Native loaders always have native predict implementation."""
-        return True
     
     def has_signature(self) -> bool:
         """Check if the model has a signature (from file)."""
@@ -230,4 +237,3 @@ class BaseNativeLoader(NativeLoaderMixin, ModelLoaderInterface, ABC):
             "outputs": self.get_output_schema(),
             "input_example": self.get_input_example(),
         }
-

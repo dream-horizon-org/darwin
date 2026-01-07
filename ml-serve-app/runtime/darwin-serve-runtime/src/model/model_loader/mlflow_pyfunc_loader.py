@@ -14,6 +14,7 @@ import mlflow
 from .model_loader_interface import ModelLoaderInterface
 from src.config.config import Config
 from src.config.logger import logger
+from src.model.predictable_model import PyfuncModelWrapper
 from src.schema.schema_extractor import SchemaExtractor
 from src.utils.schema_utils import (
     load_schema_from_mlmodel,
@@ -33,6 +34,7 @@ class MLFlowPyfuncLoader(ModelLoaderInterface):
     - Pre-loads schema from MLmodel file without loading the model
     - Supports both local paths and remote MLflow URIs
     - Extracts input examples and signatures for API discovery
+    - Returns PyfuncModelWrapper for standardized predictions
     """
     
     def __init__(self, config: Config):
@@ -46,6 +48,7 @@ class MLFlowPyfuncLoader(ModelLoaderInterface):
         self.mlflow = mlflow
         self.config = config
         self._loaded_model: Any = None
+        self._predictable_model: Optional[PyfuncModelWrapper] = None
         self._schema_extractor: Optional[SchemaExtractor] = None
         self._file_schema: Optional[Dict[str, Any]] = None
         self._feature_order: Optional[List[str]] = None  # For TensorSpec models
@@ -70,35 +73,58 @@ class MLFlowPyfuncLoader(ModelLoaderInterface):
             else:
                 logger.debug("No schema found in MLmodel file, will extract on model load")
     
-    def load_model(self) -> Any:
+    def load_model(self) -> PyfuncModelWrapper:
         """
-        Load the MLflow model using pyfunc.load_model().
+        Load the MLflow model and return a PyfuncModelWrapper.
         
         Prefers local path if available (from init container pre-download),
         otherwise uses the configured MLflow model URI.
         
         Returns:
-            Loaded MLflow pyfunc model
+            PyfuncModelWrapper that handles predictions
         """
         model_uri = self.config.get_model_local_path or self.config.get_model_uri
         logger.info(f"Loading MLflow model from: {model_uri}")
         self._loaded_model = self.mlflow.pyfunc.load_model(model_uri=model_uri)
         logger.info("Model loaded successfully, initializing schema extractor")
         self._schema_extractor = SchemaExtractor(self._loaded_model)
-        return self._loaded_model
+        
+        # Ensure schema is loaded to populate feature order
+        self.get_input_schema()
+        
+        # Create predictable wrapper with feature order and tensor spec info
+        self._predictable_model = PyfuncModelWrapper(
+            model=self._loaded_model,
+            feature_order=self._feature_order,
+            is_tensor_spec=self._is_tensor_spec_flag,
+        )
+        
+        logger.info(f"Created PyfuncModelWrapper (tensor_spec={self._is_tensor_spec_flag}, features={len(self._feature_order) if self._feature_order else 0})")
+        return self._predictable_model
 
-    def reload_model(self) -> Any:
+    def reload_model(self) -> PyfuncModelWrapper:
         """
         Reload the MLflow model (e.g., after model update).
         
         Returns:
-            Reloaded MLflow pyfunc model
+            PyfuncModelWrapper that handles predictions
         """
         model_uri = self.config.get_model_local_path or self.config.get_model_uri
         logger.info(f"Reloading MLflow model from: {model_uri}")
         self._loaded_model = self.mlflow.pyfunc.load_model(model_uri=model_uri)
         self._schema_extractor = SchemaExtractor(self._loaded_model)
-        return self._loaded_model
+        
+        # Ensure schema is loaded to populate feature order
+        self.get_input_schema()
+        
+        # Create predictable wrapper with feature order and tensor spec info
+        self._predictable_model = PyfuncModelWrapper(
+            model=self._loaded_model,
+            feature_order=self._feature_order,
+            is_tensor_spec=self._is_tensor_spec_flag,
+        )
+        
+        return self._predictable_model
     
     @property
     def schema_extractor(self) -> Optional[SchemaExtractor]:
@@ -208,4 +234,3 @@ class MLFlowPyfuncLoader(ModelLoaderInterface):
         if self._schema_extractor is None:
             return {"inputs": [], "outputs": [], "input_example": None}
         return self._schema_extractor.get_full_schema()
-

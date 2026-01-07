@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.model.predictable_model import PredictableModel
 
 
 class ModelLoaderInterface(ABC):
@@ -7,38 +10,14 @@ class ModelLoaderInterface(ABC):
         pass
 
     @abstractmethod
-    def load_model(self) -> Any:
-        """Load and return the model."""
+    def load_model(self) -> "PredictableModel":
+        """Load and return a predictable model wrapper."""
         pass
 
     @abstractmethod
-    def reload_model(self) -> Any:
-        """Reload and return the model."""
+    def reload_model(self) -> "PredictableModel":
+        """Reload and return a predictable model wrapper."""
         pass
-    
-    def predict(self, input_data: Any) -> Dict[str, Any]:
-        """
-        Make prediction using the loaded model.
-        
-        Native loaders implement this directly using framework-specific APIs.
-        Pyfunc loaders may not implement this (return None to signal use model.predict).
-        
-        Args:
-            input_data: Input data (dict, DataFrame, or numpy array)
-            
-        Returns:
-            Dict with 'scores' key containing predictions, or None if not implemented
-        """
-        return None  # Signal to use model.predict() instead
-    
-    def has_native_predict(self) -> bool:
-        """
-        Check if this loader has a native predict implementation.
-        
-        Returns:
-            True if predict() should be used, False to use model.predict()
-        """
-        return False
     
     def has_signature(self) -> bool:
         """Check if the loaded model has a signature."""
