@@ -289,8 +289,19 @@ while [ $i -lt $serve_image_count ]; do
   fi
 
   dockerfile_path=$(yq eval ".serve-images[$i].dockerfile-path" "$YAML_FILE")
+  context_path=$(yq eval ".serve-images[$i].context-path // \"\"" "$YAML_FILE")
+  
   echo ">>> Building serve runtime image: $image_name"
-  sh deployer/scripts/ray-image-builder.sh -n "$image_name" -p "$dockerfile_path" -r "$DOCKER_REGISTRY"
+  
+  # All serve images use serve-image-builder.sh which requires context-path
+  if [ -n "$context_path" ] && [ "$context_path" != "null" ]; then
+    sh deployer/scripts/serve-image-builder.sh -n "$image_name" -p "$dockerfile_path" -c "$context_path" -r "$DOCKER_REGISTRY"
+  else
+    echo "    ❌ Error: context-path is required for serve images"
+    echo "    Dockerfile: $dockerfile_path"
+    i=$((i + 1))
+    continue
+  fi
   i=$((i + 1))
 done
 

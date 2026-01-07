@@ -1,0 +1,26 @@
+# Darwin Serve Runtime - TensorFlow
+# Image: serve-md-runtime:tensorflow
+
+# Web framework
+fastapi>=0.68.0
+uvicorn>=0.15.0
+pydantic>=1.8.0
+aiohttp>=3.8.0
+typeguard>=4.4.0
+typing_extensions>=4.10.0
+loguru>=0.7.0
+
+# MLflow
+mlflow==2.12.2
+
+# Data processing
+pandas>=1.5.0
+numpy>=1.21.0
+pyyaml>=6.0
+
+# TensorFlow (CPU-optimized for inference)
+# Pin major.minor, allow patch updates for security
+# ~=2.15.0 means >=2.15.0, <2.16.0 (allows 2.15.1, 2.15.2, etc.)
+tensorflow~=2.15.0
+keras~=2.15.0
+scipy>=1.9.0,<2.0.0
