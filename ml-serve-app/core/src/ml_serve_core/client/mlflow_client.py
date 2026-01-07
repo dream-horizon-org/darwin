@@ -1,33 +1,13 @@
-"""MLflow client for validating model URIs and detecting model flavors."""
+"""MLflow client for validating model URIs."""
 
 import re
-from dataclasses import dataclass
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional
 from urllib.parse import quote
 
 import aiohttp
-import yaml
 from loguru import logger
 
 from ml_serve_core.config.configs import Config
-from ml_serve_core.constants.constants import DEFAULT_FLAVOR, FLAVOR_TO_IMAGE_CATEGORY
-
-
-@dataclass
-class ModelMetadata:
-    """
-    Consolidated model metadata fetched from MLflow in a single pass.
-    
-    This reduces HTTP calls by fetching all needed information at once
-    instead of making separate calls for validation, flavor detection, and size.
-    """
-    run_id: str
-    artifact_path: str
-    experiment_id: Optional[str]
-    uri_type: str  # 'mlflow-artifacts', 'runs', or 'models'
-    flavor: str  # Image category: 'sklearn', 'boosting', 'pytorch', 'tensorflow'
-    size_bytes: Optional[int]
-    mlmodel: Optional[Dict[str, Any]]  # Raw MLmodel file content
 
 
 class MLflowClient:
@@ -109,21 +89,12 @@ class MLflowClient:
         
         return None, None, None, None
     
-    async def validate_model_uri(
-        self, 
-        model_uri: str,
-        resolved_run_id: Optional[str] = None,
-        resolved_artifact_path: Optional[str] = None,
-        resolved_experiment_id: Optional[str] = None,
-    ) -> Tuple[bool, str]:
+    async def validate_model_uri(self, model_uri: str) -> Tuple[bool, str]:
         """
         Validate that a model exists at the given URI.
         
         Args:
             model_uri: MLflow model URI
-            resolved_run_id: Pre-resolved run ID (from get_model_metadata) to skip re-resolution
-            resolved_artifact_path: Pre-resolved artifact path to skip re-resolution
-            resolved_experiment_id: Pre-resolved experiment ID for validation
             
         Returns:
             Tuple of (is_valid, error_message)
@@ -135,23 +106,7 @@ class MLflowClient:
             logger.warning("MLFLOW_TRACKING_URI not configured, skipping model URI validation")
             return True, ""
         
-        # Use pre-resolved values if provided, otherwise parse the URI
-        if resolved_run_id is not None:
-            # Use pre-resolved values from get_model_metadata()
-            run_id = resolved_run_id
-            artifact_path = resolved_artifact_path or ""
-            experiment_id = resolved_experiment_id
-            # Validate run and artifact directly
-            try:
-                return await self._validate_run_and_artifact(run_id, artifact_path, experiment_id)
-            except aiohttp.ClientError as e:
-                logger.error(f"Network error validating model URI: {e}")
-                return False, f"Unable to connect to MLflow server. Please check if MLflow is accessible."
-            except Exception as e:
-                logger.error(f"Error validating model URI: {e}")
-                return False, f"Error validating model: {str(e)}"
-        
-        # Parse the URI (fallback for direct calls without pre-resolution)
+        # Parse the URI
         identifier, artifact_path, uri_type, experiment_id = self._parse_model_uri(model_uri)
         
         if uri_type is None:
@@ -390,254 +345,4 @@ class MLflowClient:
                 except Exception as e:
                     logger.warning(f"Error listing artifacts at {current_path}: {e}")
                             
-        return total_size
-
-    async def get_model_flavor(self, model_uri: str) -> str:
-        """
-        Detect the model flavor from the MLmodel file.
-        
-        Args:
-            model_uri: MLflow model URI
-            
-        Returns:
-            Image category name: 'sklearn', 'boosting', 'pytorch', 'tensorflow'
-            Returns DEFAULT_FLAVOR as default if detection fails.
-        """
-        if not self.tracking_uri:
-            logger.warning(f"MLFLOW_TRACKING_URI not configured, defaulting to {DEFAULT_FLAVOR} image")
-            return DEFAULT_FLAVOR
-        
-        try:
-            run_id, artifact_path = await self._resolve_run_and_path(model_uri)
-            if not run_id or artifact_path is None:
-                logger.warning(f"Could not resolve run/path for {model_uri}, defaulting to {DEFAULT_FLAVOR}")
-                return DEFAULT_FLAVOR
-            
-            mlmodel_content = await self._fetch_mlmodel_file(run_id, artifact_path)
-            if not mlmodel_content:
-                logger.warning(f"Could not fetch MLmodel for {model_uri}, defaulting to {DEFAULT_FLAVOR}")
-                return DEFAULT_FLAVOR
-            
-            flavors = mlmodel_content.get("flavors", {})
-            detected_flavor = self._detect_primary_flavor(flavors)
-            image_category = FLAVOR_TO_IMAGE_CATEGORY.get(detected_flavor, DEFAULT_FLAVOR)
-            
-            logger.info(f"Detected flavor '{detected_flavor}' -> image category '{image_category}' for {model_uri}")
-            return image_category
-            
-        except Exception as e:
-            logger.error(f"Error detecting model flavor for {model_uri}: {e}, defaulting to {DEFAULT_FLAVOR}")
-            return DEFAULT_FLAVOR
-    
-    async def _fetch_mlmodel_file(self, run_id: str, artifact_path: str) -> Optional[Dict[str, Any]]:
-        """
-        Fetch and parse the MLmodel file content from MLflow.
-        
-        Args:
-            run_id: MLflow run ID
-            artifact_path: Path to model artifact (e.g., "model")
-            
-        Returns:
-            Parsed MLmodel dict or None if not found/failed
-        """
-        headers = self._get_auth_headers()
-        mlmodel_path = f"{artifact_path}/MLmodel" if artifact_path else "MLmodel"
-        
-        # Use MLflow artifact download API
-        url = f"{self.tracking_uri}/get-artifact"
-        params = {"run_id": run_id, "path": mlmodel_path}
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params, headers=headers) as response:
-                if response.status != 200:
-                    logger.debug(f"Failed to fetch MLmodel file: {response.status}")
-                    return None
-                
-                content = await response.text()
-                try:
-                    return yaml.safe_load(content)
-                except yaml.YAMLError as e:
-                    logger.warning(f"Failed to parse MLmodel YAML: {e}")
-                    return None
-    
-    def _detect_primary_flavor(self, flavors: Dict[str, Any]) -> str:
-        """
-        Detect the primary model flavor from the flavors dict.
-        
-        Priority order:
-        1. Specific ML framework flavors (sklearn, xgboost, etc.)
-        2. Deep learning frameworks (pytorch, tensorflow)
-        3. Fallback to python_function
-        
-        Args:
-            flavors: Dict of flavors from MLmodel file
-            
-        Returns:
-            Primary flavor name
-        """
-        if not flavors:
-            return "python_function"
-        
-        # Priority order for detection
-        priority_flavors = [
-            # Boosting models (check first as they're specific)
-            "xgboost", "lightgbm", "catboost",
-            # Traditional ML
-            "sklearn",
-            # Deep learning
-            "pytorch", "torch", "tensorflow", "keras",
-        ]
-        
-        for flavor in priority_flavors:
-            if flavor in flavors:
-                return flavor
-        
-        # Fallback to python_function if present
-        if "python_function" in flavors:
-            return "python_function"
-        
-        # Return first available flavor
-        return next(iter(flavors.keys()), "python_function")
-
-    async def get_model_metadata(self, model_uri: str) -> ModelMetadata:
-        """
-        Fetch all model metadata in a single pass to reduce HTTP calls.
-        
-        This method consolidates the logic from validate_model_uri, get_model_flavor,
-        and get_model_size into a single operation that:
-        1. Parses the URI once
-        2. Resolves run_id/path once (important for models:/ URIs)
-        3. Fetches MLmodel file once
-        4. Calculates size with reused session
-        
-        Args:
-            model_uri: MLflow model URI
-            
-        Returns:
-            ModelMetadata with all fields populated
-        """
-        # Parse URI once
-        identifier, artifact_path, uri_type, experiment_id = self._parse_model_uri(model_uri)
-        
-        if uri_type is None:
-            logger.warning(f"Invalid model URI format: {model_uri}")
-            return ModelMetadata(
-                run_id="",
-                artifact_path="",
-                experiment_id=None,
-                uri_type="unknown",
-                flavor=DEFAULT_FLAVOR,
-                size_bytes=None,
-                mlmodel=None
-            )
-        
-        # Resolve run_id and artifact_path (one HTTP call for models:/ URIs)
-        if uri_type == "models":
-            run_id, resolved_path = await self._resolve_model_version_source(identifier, artifact_path)
-            if not run_id:
-                logger.warning(f"Could not resolve models:/ URI: {model_uri}")
-                return ModelMetadata(
-                    run_id="",
-                    artifact_path=artifact_path or "",
-                    experiment_id=experiment_id,
-                    uri_type=uri_type,
-                    flavor=DEFAULT_FLAVOR,
-                    size_bytes=None,
-                    mlmodel=None
-                )
-            artifact_path = resolved_path
-        else:
-            # For mlflow-artifacts:/ and runs:/ URIs, identifier is already run_id
-            run_id = identifier
-        
-        # Fetch MLmodel and calculate size with shared session
-        mlmodel_content = None
-        size_bytes = None
-        flavor = DEFAULT_FLAVOR
-        
-        if self.tracking_uri and run_id:
-            headers = self._get_auth_headers()
-            
-            async with aiohttp.ClientSession() as session:
-                # Fetch MLmodel file
-                mlmodel_path = f"{artifact_path}/MLmodel" if artifact_path else "MLmodel"
-                url = f"{self.tracking_uri}/get-artifact"
-                params = {"run_id": run_id, "path": mlmodel_path}
-                
-                try:
-                    async with session.get(url, params=params, headers=headers) as response:
-                        if response.status == 200:
-                            content = await response.text()
-                            try:
-                                mlmodel_content = yaml.safe_load(content)
-                                flavors = mlmodel_content.get("flavors", {})
-                                detected_flavor = self._detect_primary_flavor(flavors)
-                                flavor = FLAVOR_TO_IMAGE_CATEGORY.get(detected_flavor, DEFAULT_FLAVOR)
-                            except yaml.YAMLError as e:
-                                logger.warning(f"Failed to parse MLmodel YAML: {e}")
-                except Exception as e:
-                    logger.warning(f"Error fetching MLmodel: {e}")
-                
-                # Calculate artifacts size (reusing session)
-                try:
-                    size_bytes = await self._calculate_artifacts_size_with_session(
-                        session, run_id, artifact_path or "", headers
-                    )
-                except Exception as e:
-                    logger.warning(f"Error calculating model size: {e}")
-        
-        logger.info(
-            f"Fetched metadata for {model_uri}: "
-            f"flavor={flavor}, size={size_bytes or 'unknown'} bytes"
-        )
-        
-        return ModelMetadata(
-            run_id=run_id or "",
-            artifact_path=artifact_path or "",
-            experiment_id=experiment_id,
-            uri_type=uri_type,
-            flavor=flavor,
-            size_bytes=size_bytes,
-            mlmodel=mlmodel_content
-        )
-
-    async def _calculate_artifacts_size_with_session(
-        self, 
-        session: aiohttp.ClientSession, 
-        run_id: str, 
-        path: str,
-        headers: dict
-    ) -> int:
-        """
-        Calculate total size of artifacts using an existing session.
-        
-        This is an optimized version of _calculate_artifacts_size that reuses
-        an existing aiohttp session instead of creating a new one.
-        """
-        total_size = 0
-        stack = [path] if path else [""]
-        url = f"{self.tracking_uri}/api/2.0/mlflow/artifacts/list"
-        
-        while stack:
-            current_path = stack.pop()
-            params = {"run_id": run_id}
-            if current_path:
-                params["path"] = current_path
-            
-            try:
-                async with session.get(url, params=params, headers=headers) as response:
-                    if response.status != 200:
-                        continue
-                    
-                    data = await response.json()
-                    files = data.get("files", [])
-                    
-                    for f in files:
-                        if f.get("is_dir"):
-                            stack.append(f.get("path"))
-                        else:
-                            total_size += int(f.get("file_size", 0))
-            except Exception as e:
-                logger.warning(f"Error listing artifacts at {current_path}: {e}")
-                        
         return total_size

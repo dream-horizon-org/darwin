@@ -1,68 +1,38 @@
 # Darwin Serve Runtime
 
-Flavor-specific runtime images for one-click model deployments.
-
-## Available Images
-
-| Image Tag | Frameworks | Python |
-|-----------|------------|--------|
-| `serve-md-runtime:sklearn` | scikit-learn, scipy | 3.9 |
-| `serve-md-runtime:boosting` | XGBoost, LightGBM, CatBoost | 3.9 |
-| `serve-md-runtime:pytorch` | PyTorch (CPU) | 3.9 |
-| `serve-md-runtime:tensorflow` | TensorFlow, Keras | 3.10 |
-
-## Automatic Flavor Detection
-
-When deploying a model via the `deploy-model` API, the system automatically:
-1. Fetches the `MLmodel` file from MLflow
-2. Detects the model flavor (sklearn, xgboost, pytorch, etc.)
-3. Selects the appropriate runtime image
-
-No manual image selection is required!
+Default runtime image for one-click model deployments.
 
 ## Purpose
 
-Each image is used for:
+This image is used for:
 1. **Main container**: Serving MLflow models via FastAPI
 2. **Init container**: Downloading models from MLflow
 3. **Cleanup job**: Managing model cache lifecycle
 
-## Directory Structure
+## Dependencies
 
-```
-darwin-serve-runtime/
-├── src/                    # Shared application code
-├── flavors/
-│   ├── sklearn/           # scikit-learn image
-│   │   ├── Dockerfile
-│   │   └── requirements.txt
-│   ├── boosting/          # XGBoost/LightGBM/CatBoost image
-│   │   ├── Dockerfile
-│   │   └── requirements.txt
-│   ├── pytorch/           # PyTorch image
-│   │   ├── Dockerfile
-│   │   └── requirements.txt
-│   └── tensorflow/        # TensorFlow/Keras image
-│       ├── Dockerfile
-│       └── requirements.txt
-└── README.md
-```
+### Core Runtime Dependencies
+- `fastapi`: Web framework for serving predictions
+- `mlflow`: Loading and serving MLflow models
+- `uvicorn`: ASGI server
 
-## Building Images
-
-Images are built automatically during `setup.sh`. To build manually:
+## Building the Image
 
 ```bash
 cd ml-serve-app/runtime/darwin-serve-runtime
+docker build -t localhost:5000/serve-md-runtime:latest .
+docker push localhost:5000/serve-md-runtime:latest
+```
 
-# Build sklearn image
-docker build -t localhost:5000/serve-md-runtime:sklearn -f flavors/sklearn/Dockerfile .
+## Verifying Dependencies
 
-# Build all flavors
-for flavor in sklearn boosting pytorch tensorflow; do
-  docker build -t localhost:5000/serve-md-runtime:$flavor -f flavors/$flavor/Dockerfile .
-  docker push localhost:5000/serve-md-runtime:$flavor
-done
+To check if the image has all required dependencies:
+
+```bash
+docker run --rm localhost:5000/serve-md-runtime:latest python -c "
+import mlflow
+print('✅ MLflow available')
+"
 ```
 
 ## Configuration
@@ -95,7 +65,7 @@ The runtime is configured via environment variables:
 
 ### One-Click Deployment
 
-Deploy a model and the correct image is automatically selected:
+This image is automatically used when deploying models via:
 
 ```bash
 hermes deploy-model \
@@ -106,15 +76,15 @@ hermes deploy-model \
   --memory 8
 ```
 
-### Manual Deployment
+### Custom Deployment
 
-If deploying manually, select the appropriate image for your model:
+You can use this image directly in your Kubernetes deployments:
 
 ```yaml
 spec:
   initContainers:
   - name: model-downloader
-    image: localhost:5000/serve-md-runtime:sklearn  # or :boosting, :pytorch, :tensorflow
+    image: localhost:5000/serve-md-runtime:latest
     command: [python, /scripts/download_model.py]
     env:
       - name: MODEL_URI
@@ -124,7 +94,7 @@ spec:
   
   containers:
   - name: model-server
-    image: localhost:5000/serve-md-runtime:sklearn
+    image: localhost:5000/serve-md-runtime:latest
     env:
       - name: MODEL_LOCAL_PATH
         value: "/models"
@@ -144,12 +114,7 @@ Common issues:
 - Network connectivity to MLflow server
 - Insufficient disk space
 
-### Wrong Image Selected
-
-If the wrong image is selected for your model:
-1. Check the `MLmodel` file in your model artifacts
-2. Ensure it contains the correct flavor in the `flavors` section
-3. The flavor detection prioritizes: xgboost/lightgbm/catboost → sklearn → pytorch/tensorflow
+### Cache Cleanup Issues
 
 Check CronJob logs:
 ```bash

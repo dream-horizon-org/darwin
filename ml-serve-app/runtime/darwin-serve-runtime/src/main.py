@@ -11,7 +11,7 @@ from src.config.config import Config
 from src.config.logger import logger
 from src.feature_store.feature_store import FeatureStoreClient
 from src.model.model import Model
-from src.model.model_loader.model_loader_factory import ModelLoaderFactory
+from src.model.model_loader.ml_flow_model_loader import MLFlowModelLoader
 from src.schema.dynamic_model import get_schema_as_json_schema
 from src.utils.type_conversion import convert_to_schema_dtype
 
@@ -111,7 +111,7 @@ class PredictResponse(BaseModel):
 
 # Initialize components (before lifespan to make them available)
 config = Config()
-model_loader = ModelLoaderFactory.create(config)
+model_loader = MLFlowModelLoader(config=config)
 api_client = APIClient(config=config)
 feature_store_client = FeatureStoreClient(api_client=api_client, config=config)
 model = Model(model_loader=model_loader)

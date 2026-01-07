@@ -1,12 +1,7 @@
 """Extract schema information from MLflow model signatures."""
 
-from collections import OrderedDict
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
-
-import pandas as pd
-
-from src.utils.schema_utils import is_tensor_spec_schema, infer_mlflow_type
+from dataclasses import dataclass
 
 
 @dataclass
@@ -37,8 +32,6 @@ class SchemaExtractor:
         self._model = mlflow_model
         self._signature = None
         self._input_example = None
-        self._feature_order: Optional[List[str]] = None  # Store feature order for TensorSpec models
-        self._is_tensor_spec = False  # Flag to indicate if model uses TensorSpec
         self._extract_metadata()
     
     def _extract_metadata(self) -> None:
@@ -51,32 +44,6 @@ class SchemaExtractor:
                 self._signature = metadata.signature
             
             self._input_example = self._load_input_example()
-    
-    def _process_example(self, example: Any) -> Optional[Dict[str, Any]]:
-        """Process an input example into a dict with feature order."""
-        try:
-            if isinstance(example, pd.DataFrame):
-                # Store column order for TensorSpec models
-                self._feature_order = example.columns.tolist()
-                # Use OrderedDict to preserve column order in the example
-                return OrderedDict(
-                    (col, float(example.iloc[0][col]) if hasattr(example.iloc[0][col], 'item') else example.iloc[0][col]) 
-                    for col in example.columns
-                )
-            elif hasattr(example, 'tolist'):
-                # NumPy array - can't derive feature names from this
-                return None
-            elif isinstance(example, dict):
-                # If already a dict, try to preserve order
-                self._feature_order = list(example.keys())
-                return example
-            elif isinstance(example, list) and example and isinstance(example[0], dict):
-                # List of dicts - use first one
-                self._feature_order = list(example[0].keys())
-                return example[0]
-        except Exception as e:
-            pass  # Silently handle processing errors
-        return None
     
     def _load_input_example(self) -> Optional[Dict[str, Any]]:
         """Load input example from model artifacts and store feature order
@@ -109,9 +76,6 @@ class SchemaExtractor:
         """
         Get the input schema as a list of column definitions.
         
-        For TensorSpec models (like TensorFlow), if an input_example with column names
-        is available, use those as feature names instead of the tensor name.
-        
         Returns:
             List of dicts with 'name', 'type', 'required' keys
         """
@@ -124,23 +88,6 @@ class SchemaExtractor:
         # Handle different schema formats
         if hasattr(schema, 'to_dict'):
             schema_dict = schema.to_dict()
-            
-            # Check if this is a TensorSpec schema
-            if is_tensor_spec_schema(schema_dict):
-                self._is_tensor_spec = True
-                
-                # For TensorSpec, use input_example columns if available
-                if self._input_example and self._feature_order:
-                    for name in self._feature_order:
-                        value = self._input_example.get(name)
-                        columns.append(ColumnSchema(
-                            name=name,
-                            type=infer_mlflow_type(value),
-                            required=True
-                        ).to_dict())
-                    return columns
-            
-            # Standard ColSpec handling (or TensorSpec fallback)
             if isinstance(schema_dict, list):
                 for col in schema_dict:
                     col_type = col.get('type', 'object')
@@ -211,29 +158,6 @@ class SchemaExtractor:
     def get_feature_names(self) -> List[str]:
         """Get list of input feature names."""
         return [col["name"] for col in self.get_input_schema()]
-    
-    def get_feature_order(self) -> Optional[List[str]]:
-        """
-        Get the ordered list of feature names for TensorSpec models.
-        
-        This is used to convert feature dictionaries to ordered arrays
-        for models that expect tensor input (like TensorFlow).
-        
-        Returns:
-            List of feature names in order, or None if not available
-        """
-        # Ensure schema is processed first
-        if not self._feature_order:
-            self.get_input_schema()
-        return self._feature_order
-    
-    @property
-    def is_tensor_spec(self) -> bool:
-        """Check if the model uses TensorSpec signature."""
-        # Ensure schema is processed first
-        if not self._is_tensor_spec:
-            self.get_input_schema()
-        return self._is_tensor_spec
     
     def get_full_schema(self) -> Dict[str, Any]:
         """

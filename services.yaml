@@ -178,27 +178,8 @@ darwin-sdk-runtime:
   registry: localhost:5000
 
 serve-images:
-  # Flavor-specific serve runtime images
-  # Each flavor contains dependencies for specific ML frameworks
-  # Image selection happens based on model flavor detected from MLmodel file
-  - image-name: serve-md-runtime:sklearn
-    dockerfile-path: ml-serve-app/runtime/darwin-serve-runtime/flavors/sklearn
-    context-path: ml-serve-app/runtime/darwin-serve-runtime
-    registry: localhost:5000
-  
-  - image-name: serve-md-runtime:boosting
-    dockerfile-path: ml-serve-app/runtime/darwin-serve-runtime/flavors/boosting
-    context-path: ml-serve-app/runtime/darwin-serve-runtime
-    registry: localhost:5000
-  
-  - image-name: serve-md-runtime:pytorch
-    dockerfile-path: ml-serve-app/runtime/darwin-serve-runtime/flavors/pytorch
-    context-path: ml-serve-app/runtime/darwin-serve-runtime
-    registry: localhost:5000
-  
-  - image-name: serve-md-runtime:tensorflow
-    dockerfile-path: ml-serve-app/runtime/darwin-serve-runtime/flavors/tensorflow
-    context-path: ml-serve-app/runtime/darwin-serve-runtime
+  - image-name: serve-md-runtime:latest
+    dockerfile-path: ml-serve-app/runtime/darwin-serve-runtime
     registry: localhost:5000
 
 datastores:

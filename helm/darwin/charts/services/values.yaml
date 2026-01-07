@@ -363,10 +363,8 @@ services:
         value: serve-app
       - name: IMAGE_TAG
         value: "test-iter1_v1"
-      - name: RUNTIME_REPOSITORY
-        value: "serve-md-runtime"
       - name: DEFAULT_RUNTIME
-        value: "localhost:5000/serve-md-runtime:sklearn"
+        value: "localhost:5000/serve-md-runtime:latest"
       # AWS Configuration
       - name: AWS_ENDPOINT_URL
         value: "http://darwin-localstack:4566"
