@@ -57,17 +57,7 @@ git clone https://github.com/YOUR_USERNAME/darwin.git
 cd darwin
 ```
 
-#### 2. Initialize Submodules
-
-Darwin uses git submodules for service components:
-
-```bash
-# Initialize and update all submodules
-git submodule sync --recursive
-git submodule update --init --recursive --remote
-```
-
-#### 3. Run Initial Configuration
+#### 2. Run Initial Configuration
 
 ```bash
 # Interactive wizard to select components to enable
@@ -92,47 +82,47 @@ git submodule update --init --recursive --remote
 
 ```
 darwin/
-├── darwin-compute/          # Ray cluster orchestration (Python)
-│   ├── app_layer/          # FastAPI REST API
-│   ├── core/               # Business logic
-│   ├── model/              # Data models
-│   ├── sdk/                # Python SDK
-│   └── script/             # Background jobs (status poller, auto-termination)
-├── darwin-cluster-manager/  # Kubernetes orchestration (Go)
-│   ├── services/           # Service layer
-│   ├── rest/               # HTTP handlers
-│   └── charts/             # Helm chart templates
-├── feature-store/           # Feature Store (Java/Vert.x)
-│   ├── app/                # Online serving
-│   ├── admin/              # Feature management
-│   ├── consumer/           # Kafka consumer
-│   ├── populator/          # Bulk ingestion
-│   └── python/             # Python SDK
-├── mlflow/                  # Experiment tracking (Python)
-│   ├── app_layer/          # FastAPI wrapper
-│   └── sdk/                # MLflow client wrapper
-├── ml-serve-app/            # Model serving (Python)
-│   ├── app_layer/          # REST API
-│   ├── core/               # Deployment logic
-│   ├── model/              # Tortoise ORM models
-│   └── runtime/            # Serving runtime template
-├── artifact-builder/        # Docker image builder (Python)
-├── chronos/                 # Event processing (Python)
-├── workspace/               # Project management (Python)
-├── darwin-catalog/          # Data catalog (Java/Spring Boot)
-├── hermes-cli/              # CLI tool (Python/Typer)
-├── helm/                    # Helm charts
-│   └── darwin/              # Umbrella chart
+├── darwin-compute/             # Ray cluster orchestration (Python)
+│   ├── app_layer/              # FastAPI REST API
+│   ├── core/                   # Business logic
+│   ├── model/                  # Data models
+│   ├── sdk/                    # Python SDK
+│   └── script/                 # Background jobs (status poller, auto-termination)
+├── darwin-cluster-manager/     # Kubernetes orchestration (Go)
+│   ├── services/               # Service layer
+│   ├── rest/                   # HTTP handlers
+│   └── charts/                 # Helm chart templates
+├── feature-store/              # Feature Store (Java/Vert.x)
+│   ├── app/                    # Online serving
+│   ├── admin/                  # Feature management
+│   ├── consumer/               # Kafka consumer
+│   ├── populator/              # Bulk ingestion
+│   └── python/                 # Python SDK
+├── mlflow/                     # Experiment tracking (Python)
+│   ├── app_layer/              # FastAPI wrapper
+│   └── sdk/                    # MLflow client wrapper
+├── ml-serve-app/               # Model serving (Python)
+│   ├── app_layer/              # REST API
+│   ├── core/                   # Deployment logic
+│   ├── model/                  # Tortoise ORM models
+│   └── runtime/                # Serving runtime template
+├── artifact-builder/           # Docker image builder (Python)
+├── chronos/                    # Event processing (Python)
+├── workspace/                  # Project management (Python)
+├── darwin-catalog/             # Data catalog (Java/Spring Boot)
+├── hermes-cli/                 # CLI tool (Python/Typer)
+├── helm/                       # Helm charts
+│   └── darwin/                 # Umbrella chart
 │       ├── charts/datastores/  # MySQL, Cassandra, Kafka, etc.
 │       └── charts/services/    # Application services
-├── deployer/                # Build infrastructure
-│   ├── images/             # Base Docker images
-│   └── scripts/            # Image builders
-├── kind/                    # Local Kubernetes config
-├── init.sh                  # Configuration wizard
-├── setup.sh                 # Build and setup script
-├── start.sh                 # Deployment script
-└── services.yaml            # Service registry
+├── deployer/                   # Build infrastructure
+│   ├── images/                 # Base Docker images
+│   └── scripts/                # Image builders
+├── kind/                       # Local Kubernetes config
+├── init.sh                     # Configuration wizard
+├── setup.sh                    # Build and setup script
+├── start.sh                    # Deployment script
+└── services.yaml               # Service registry
 ```
 
 ---
@@ -586,21 +576,24 @@ def sample_cluster_definition():
 
 #### 1. Create a Feature Branch
 
+We use **trunk-based development** - all work targets `main` directly (no `develop` branch).
+
 ```bash
 # Update your fork
 git checkout main
 git pull upstream main
 
 # Create a feature branch
-git checkout -b feature/your-feature-name
+git checkout -b feat/your-feature-name
 ```
 
 **Branch Naming Conventions**:
-- `feature/` - New features
-- `bugfix/` - Bug fixes
-- `hotfix/` - Critical production fixes
+- `feat/` - New features
+- `fix/` - Bug fixes
+- `hotfix/` - Critical production fixes (from release tags)
 - `refactor/` - Code refactoring
 - `docs/` - Documentation updates
+- `chore/` - Maintenance tasks
 
 #### 2. Make Your Changes
 
@@ -1214,7 +1207,6 @@ Any other information.
 ### Resources
 
 - **Documentation**: Check service-specific READMEs in each submodule
-- **AI Prompts**: See `.prompts/` directory for detailed component documentation
 - **Existing Issues**: Search GitHub issues for similar questions
 - **Code Examples**: Check `examples/` directory
 - **Hermes CLI**: See [hermes-cli/CLI.md](hermes-cli/CLI.md) for complete CLI documentation
