@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/user/darwin/blob/main/README.md
+    about: Check the documentation before opening an issue
+  - name: 💬 Discussions
+    url: https://github.com/user/darwin/discussions
+    about: Ask questions and discuss ideas

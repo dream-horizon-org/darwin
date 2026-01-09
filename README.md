@@ -358,7 +358,9 @@ hermes create-environment \
 ./init.sh
 
 # 2. Build platform images and setup Kind cluster
-./setup.sh
+./setup.sh              # Interactive mode
+./setup.sh -y           # Non-interactive (keeps existing data)
+./setup.sh -y --clean   # Non-interactive clean install
 
 # 3. Deploy Darwin platform to Kubernetes
 ./start.sh

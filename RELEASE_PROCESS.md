@@ -232,8 +232,8 @@ git push origin release/1.3.0
 Execute full test suite on release branch:
 
 ```bash
-# Run all nightly tests
-./setup.sh -y
+# Run all nightly tests (clean build recommended for releases)
+./setup.sh -y --clean   # Clean install: deletes cluster & data
 ./start.sh
 
 # Verify all services are healthy
@@ -296,8 +296,8 @@ Create `RELEASE_NOTES.md` for this version:
 # Checkout release branch
 git checkout release/1.3.0
 
-# Build all Docker images
-./setup.sh -y
+# Build all Docker images (use --clean for fresh release build)
+./setup.sh -y --clean
 
 # Tag images with release version
 for service in darwin-compute darwin-mlflow darwin-cluster-manager ml-serve-app; do
@@ -584,8 +584,8 @@ git checkout main && git checkout -b release/X.Y.Z
 # Cherry-pick fixes
 git checkout release/X.Y.Z && git cherry-pick <sha>
 
-# Build RC
-./setup.sh -y
+# Build RC (clean build)
+./setup.sh -y --clean
 docker tag ... && docker push ...
 
 # Tag release

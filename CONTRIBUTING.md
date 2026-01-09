@@ -64,7 +64,8 @@ cd darwin
 ./init.sh
 
 # Build base images and setup local Kind cluster
-./setup.sh -y  # Use -y flag to skip prompts
+./setup.sh -y           # Non-interactive, keeps existing data
+./setup.sh -y --clean   # Non-interactive, clean install (deletes cluster & data)
 
 # Deploy Darwin platform to local cluster
 ./start.sh

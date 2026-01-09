@@ -12,15 +12,34 @@ echo "✅ Found configuration: $ENABLED_SERVICES_FILE"
 
 # Parse command line arguments
 AUTO_YES=false
+FORCE_CLEAN=false
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes)
       AUTO_YES=true
       shift
       ;;
+    -c|--clean)
+      FORCE_CLEAN=true
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: $0 [OPTIONS]"
+      echo ""
+      echo "Options:"
+      echo "  -y, --yes     Auto-answer 'yes' to all prompts (non-interactive mode)"
+      echo "  -c, --clean   Force clean setup (deletes existing cluster and data)"
+      echo "  -h, --help    Show this help message"
+      echo ""
+      echo "Examples:"
+      echo "  $0              # Interactive mode"
+      echo "  $0 -y           # Non-interactive, keep existing data"
+      echo "  $0 -y --clean   # Non-interactive, clean install"
+      exit 0
+      ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: $0 [-y|--yes]"
+      echo "Usage: $0 [-y|--yes] [-c|--clean] [-h|--help]"
       exit 1
       ;;
   esac
@@ -109,10 +128,13 @@ if [ "$ENV" = "local" ]; then
     fi
     if [[ $REPLY =~ ^[Yy]$ ]]
     then
-        # Ask if user wants a clean setup
-        if [ "$AUTO_YES" = "true" ]; then
+        # Ask if user wants a clean setup (or force clean if --clean flag passed)
+        if [ "$FORCE_CLEAN" = "true" ]; then
+            CLEAN_REPLY="y"
+            echo "🧹 Clean setup requested via --clean flag"
+        elif [ "$AUTO_YES" = "true" ]; then
             CLEAN_REPLY="n"
-            echo "Auto-answering 'no' to clean setup (use existing data)"
+            echo "Auto-answering 'no' to clean setup (use --clean flag to force clean)"
         else
             echo ""
             read -p "Do you want a clean setup? (deletes existing cluster and data) (y/n) " -n 1 -r CLEAN_REPLY
