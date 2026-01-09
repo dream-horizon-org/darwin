@@ -3,6 +3,9 @@ contact_links:
   - name: 📖 Documentation
     url: https://github.com/user/darwin/blob/main/README.md
     about: Check the documentation before opening an issue
+  - name: 📋 Contributing Guide
+    url: https://github.com/user/darwin/blob/main/CONTRIBUTING.md
+    about: Read the contribution guidelines and RFC process
   - name: 💬 Discussions
     url: https://github.com/user/darwin/discussions
     about: Ask questions and discuss ideas

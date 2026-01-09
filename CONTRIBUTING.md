@@ -571,7 +571,71 @@ def sample_cluster_definition():
 1. **Check Existing Issues**: Search for existing issues/discussions
 2. **Create an Issue**: Describe the feature, use case, and proposed approach
 3. **Discuss**: Wait for feedback from maintainers before implementation
-4. **Design Document**: For major features, create a design document
+4. **Design Document**: For major features, create an RFC (see below)
+
+---
+
+### Discussion & RFC Process
+
+We use a structured process for discussing changes based on their complexity:
+
+#### When to Use What
+
+| Change Type | Process | Example |
+|-------------|---------|---------|
+| **Small fix/feature** | Open Issue → PR | Fix typo, add config option |
+| **Medium feature** | Open Issue → Discuss → PR | New API endpoint, refactor module |
+| **Large/Breaking change** | RFC Issue → Design Review → PR | New service, breaking API change, architecture change |
+
+#### RFC (Request for Comments) Process
+
+For significant changes, use the RFC template:
+
+```
+1. Draft      → Author creates RFC issue with [RFC] prefix
+2. Discussion → Team reviews, comments (minimum 1 week)
+3. Revision   → Author addresses feedback
+4. Decision   → Team lead approves/rejects
+5. Implement  → Create feature branch linked to RFC
+```
+
+**Create an RFC when:**
+- Adding a new service or major component
+- Changing public APIs in breaking ways
+- Introducing new dependencies or technologies
+- Architectural changes affecting multiple services
+- Changes requiring database migrations
+
+#### Linking Discussions to Branches
+
+When working on a feature:
+
+1. **Create Issue/RFC first** - Get alignment before coding
+2. **Reference in branch name** - `feat/123-add-gpu-support` (issue #123)
+3. **Link PR to Issue** - Use `Closes #123` in PR description
+4. **Update Issue with progress** - Comment on blockers, decisions
+
+#### Where Discussions Happen
+
+| Topic | Location |
+|-------|----------|
+| Bug reports | GitHub Issues (Bug Report template) |
+| Feature ideas | GitHub Issues (Feature Request template) |
+| Design proposals | GitHub Issues (RFC template) |
+| Implementation questions | PR comments |
+| General Q&A | GitHub Discussions |
+| Quick questions | Team chat (Slack/Discord) |
+
+#### Decision Making
+
+For RFCs and significant changes:
+
+- **Approval**: 2+ team members add 👍 and "LGTM"
+- **Changes Requested**: Comment with specific feedback
+- **Blocking**: Add 👎 with clear reason (security, performance, etc.)
+- **Timeout**: If no response in 1 week, author can ping or escalate
+
+---
 
 ### Pull Request Workflow
 
