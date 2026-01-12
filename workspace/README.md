@@ -25,3 +25,4 @@ Prerequisites (Ensure you have the following installed) :
 - This will mark the src directory as a source directory in PyCharm.
 
 - Set interpreter from bottom right by choosing the correct path of cloned repository. This sets the virtual environment for current project.
+
