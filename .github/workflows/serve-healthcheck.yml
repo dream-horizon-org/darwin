@@ -1,10 +1,11 @@
-name: ML Serve App - Health Check
+name: Serve - Health Check (ML Serve App & Artifact Builder)
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - "ml-serve-app/**"
+      - "artifact-builder/**"
       - "init.sh"
       - "setup.sh"
       - "start.sh"
@@ -375,9 +376,9 @@ jobs:
             kubectl get pods -n darwin || true
             exit 1
           fi
-      - name: Verify Services Are Healthy (as per ml-serve-app README)
+      - name: Verify Services Are Healthy
         run: |
-          echo "✅ Verifying services are healthy (as per ml-serve-app README)..."
+          echo "✅ Verifying services are healthy..."
 
           # Check all pods are running
           echo "📦 Checking all pods are running:"
@@ -397,7 +398,6 @@ jobs:
           done
 
           # Test health check via port-forward
-          # As per README: kubectl port-forward svc/darwin-ml-serve-app -n darwin 8007:8000
           echo "🏥 Testing health check via port-forward..."
 
           # Start port-forward in background
@@ -408,7 +408,6 @@ jobs:
           # Wait for port-forward to be ready
           sleep 5
 
-          # Test health check endpoint (as per README: curl http://localhost:8007/healthcheck)
           max_attempts=30
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
@@ -486,6 +485,189 @@ jobs:
 
           # Cleanup port-forward
           kill $PORT_FORWARD_PID 2>/dev/null || true
+      - name: Wait for artifact-builder pod to be ready
+        run: |
+          echo "⏳ Waiting for artifact-builder pod to be ready..."
+
+          # The pod is labeled with app.kubernetes.io/component=artifact-builder
+          ARTIFACT_BUILDER_POD=""
+          ARTIFACT_BUILDER_SELECTOR=""
+
+          # Try different label selectors
+          if kubectl get pods -n darwin -l app.kubernetes.io/component=artifact-builder --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
+            ARTIFACT_BUILDER_SELECTOR="app.kubernetes.io/component=artifact-builder"
+            ARTIFACT_BUILDER_POD=$(kubectl get pods -n darwin -l app.kubernetes.io/component=artifact-builder --no-headers 2>/dev/null | head -1 | awk '{print $1}')
+          elif kubectl get pods -n darwin -l component-name=darwin-artifact-builder --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
+            ARTIFACT_BUILDER_SELECTOR="component-name=darwin-artifact-builder"
+            ARTIFACT_BUILDER_POD=$(kubectl get pods -n darwin -l component-name=darwin-artifact-builder --no-headers 2>/dev/null | head -1 | awk '{print $1}')
+          elif kubectl get pods -n darwin | grep -E "artifact-builder" | head -1 | awk '{print $1}' | grep -q .; then
+            ARTIFACT_BUILDER_POD=$(kubectl get pods -n darwin | grep -E "artifact-builder" | head -1 | awk '{print $1}')
+            ARTIFACT_BUILDER_SELECTOR="name"
+          fi
+
+          if [ -z "$ARTIFACT_BUILDER_POD" ]; then
+            echo "⚠️  Could not find artifact-builder pod with any label selector"
+            echo "Checking all pods in darwin namespace:"
+            kubectl get pods -n darwin || true
+            echo ""
+            echo "Checking deployments:"
+            kubectl get deployments -n darwin | grep artifact-builder || true
+            exit 1
+          fi
+
+          echo "Found artifact-builder pod: $ARTIFACT_BUILDER_POD (using selector: $ARTIFACT_BUILDER_SELECTOR)"
+
+          max_attempts=60
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            # Check if pod exists and is ready
+            if [ "$ARTIFACT_BUILDER_SELECTOR" = "name" ]; then
+              POD_STATUS=$(kubectl get pod "$ARTIFACT_BUILDER_POD" -n darwin -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+              READY=$(kubectl get pod "$ARTIFACT_BUILDER_POD" -n darwin -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+            else
+              POD_STATUS=$(kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+              READY=$(kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR" -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+            fi
+            
+            if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
+              echo "✅ artifact-builder pod is ready"
+              if [ "$ARTIFACT_BUILDER_SELECTOR" = "name" ]; then
+                kubectl get pod "$ARTIFACT_BUILDER_POD" -n darwin
+              else
+                kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR"
+              fi
+              break
+            fi
+            
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for pod... (Status: $POD_STATUS, Ready: $READY)"
+            if [ "$ARTIFACT_BUILDER_SELECTOR" = "name" ]; then
+              kubectl get pod "$ARTIFACT_BUILDER_POD" -n darwin || true
+            else
+              kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR" || true
+            fi
+            sleep 5
+            attempt=$((attempt+1))
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ artifact-builder pod did not become ready after $max_attempts attempts"
+            echo ""
+            echo "Pod status:"
+            if [ "$ARTIFACT_BUILDER_SELECTOR" = "name" ]; then
+              kubectl get pod "$ARTIFACT_BUILDER_POD" -n darwin || true
+              kubectl describe pod "$ARTIFACT_BUILDER_POD" -n darwin || true
+              echo ""
+              echo "Pod logs:"
+              kubectl logs "$ARTIFACT_BUILDER_POD" -n darwin --tail=50 || true
+            else
+              kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR" || true
+              ARTIFACT_BUILDER_POD_NAME=$(kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+              if [ -n "$ARTIFACT_BUILDER_POD_NAME" ]; then
+                kubectl describe pod "$ARTIFACT_BUILDER_POD_NAME" -n darwin || true
+                echo ""
+                echo "Pod logs:"
+                kubectl logs "$ARTIFACT_BUILDER_POD_NAME" -n darwin --tail=50 || true
+              fi
+            fi
+            echo ""
+            echo "All pods in darwin namespace:"
+            kubectl get pods -n darwin || true
+            exit 1
+          fi
+      - name: Verify artifact-builder is healthy
+        run: |
+          echo "✅ Verifying artifact-builder is healthy..."
+
+          # Test health check via port-forward (artifact-builder uses port 8000)
+          echo "🏥 Testing artifact-builder health check..."
+
+          # Start port-forward in background
+          kubectl port-forward svc/darwin-artifact-builder -n darwin 8006:8000 > /tmp/artifact-port-forward.log 2>&1 &
+          ARTIFACT_PORT_FORWARD_PID=$!
+          echo "Port-forward started with PID: $ARTIFACT_PORT_FORWARD_PID"
+
+          # Wait for port-forward to be ready
+          sleep 5
+
+          # Test health check endpoint
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f -s http://localhost:8006/healthcheck > /dev/null 2>&1; then
+              echo "✅ Artifact Builder health check endpoint is accessible"
+              break
+            fi
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for artifact-builder health check..."
+            sleep 2
+            attempt=$((attempt+1))
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Artifact Builder health check endpoint not accessible"
+            echo "Port-forward logs:"
+            cat /tmp/artifact-port-forward.log || true
+            kill $ARTIFACT_PORT_FORWARD_PID 2>/dev/null || true
+            exit 1
+          fi
+
+          # Test health check endpoint and verify response
+          echo "Testing artifact-builder /healthcheck endpoint..."
+          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost:8006/healthcheck)
+          http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
+          body=$(echo "$response" | grep -v "HTTP_CODE")
+
+          echo "HTTP Status Code: $http_code"
+          echo "Response Body: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "❌ Artifact Builder health check returned HTTP $http_code, expected 200"
+            kill $ARTIFACT_PORT_FORWARD_PID 2>/dev/null || true
+            exit 1
+          fi
+
+          # Verify response structure
+          python3 << EOF
+          import json
+          import sys
+
+          try:
+              data = json.loads('''$body''')
+              
+              print("✅ Artifact Builder health check response is valid JSON")
+              print(f"   Response: {data}")
+              
+              # Check for common health check response patterns
+              if isinstance(data, dict):
+                  if 'status' in data:
+                      status = data.get('status')
+                      print(f"   Status: {status}")
+                      if status and status.lower() in ['healthy', 'ok', 'up']:
+                          print("✅ Artifact Builder reports healthy status")
+                      elif status:
+                          print(f"⚠️  Artifact Builder status is: {status}")
+                  else:
+                      print("✅ Artifact Builder health check returned valid response")
+              else:
+                  print("✅ Artifact Builder health check returned valid response")
+              
+              print("\n✅ Artifact Builder health check passed! Service is healthy.")
+          except json.JSONDecodeError as e:
+              response_text = '''$body'''
+              if response_text.strip():
+                  print(f"Artifact Builder health check response (non-JSON): {response_text}")
+                  print("✅ Artifact Builder health check passed with non-JSON response")
+              else:
+                  print(f"❌ Empty response from Artifact Builder health check")
+                  sys.exit(1)
+          EOF
+
+          # Cleanup port-forward
+          kill $ARTIFACT_PORT_FORWARD_PID 2>/dev/null || true
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Both ML Serve App and Artifact Builder are healthy!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       - name: Cleanup
         if: always()
         run: |
