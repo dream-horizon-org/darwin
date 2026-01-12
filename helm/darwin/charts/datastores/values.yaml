@@ -182,20 +182,6 @@ opensearch:
     DISABLE_SECURITY_PLUGIN: "true"
     discovery.type: "single-node"
 
-# Elasticsearch (for Workflow service - separate from OpenSearch)
+# Elasticsearch removed in v3 - using database instead
 elasticsearch:
-  enabled: true
-  tag: "8.6.2"
-  replicaCount: 1  # Single node for local development
-  javaOpts:
-    heap: "512m"
-  persistence:
-    enabled: true
-    size: 2Gi
-  resources:
-    limits:
-      cpu: 500m
-      memory: 1Gi
-    requests:
-      cpu: 200m
-      memory: 512Mi
+  enabled: false

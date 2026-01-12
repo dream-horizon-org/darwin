@@ -3,14 +3,6 @@ import os
 
 ENV_TYPE = Literal["prod", "stag", "uat", "local", "dev", "darwin-local"]
 
-# Elasticsearch indices
-INDEX = os.getenv("ES_INDEX_WORKFLOW", "workflow_cud")
-INDEX_TRACKING = os.getenv("ES_INDEX_TRACKING", "workflow_tracking")
-JOB_CLUSTER_INDEX = os.getenv("ES_INDEX_JOB_CLUSTERS", "job_clusters")
-WORKFLOW_CLUSTERS_INDEX = os.getenv("ES_INDEX_WORKFLOW_CLUSTERS", "workflow_clusters")
-WORKFLOW_HISTORY_INDEX = os.getenv("ES_INDEX_WORKFLOW_HISTORY", "workflow_cud_history")
-LATEST_TASK_RUN = os.getenv("ES_INDEX_LATEST_TASK_RUN", "latest_task_run")
-
 # Status constants
 ERROR = "error"
 CLUSTER_NAME_ALREADY_EXISTS_ERROR = "Cluster name already exists"

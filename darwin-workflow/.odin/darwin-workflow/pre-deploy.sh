@@ -7,7 +7,6 @@ echo "=========================================="
 echo "APP_DIR: ${APP_DIR}"
 echo "ENV: ${ENV}"
 echo "SERVICE_NAME: ${SERVICE_NAME}"
-echo "ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}"
 echo ""
 
 # Create S3 bucket for workflow artifacts if it doesn't exist
@@ -77,121 +76,10 @@ EOFPYTHON
     echo ""
 fi
 
-# Wait for Elasticsearch to be ready
-echo "⏳ Waiting for Elasticsearch to be available..."
-max_attempts=30
-attempt=0
-while [ $attempt -lt $max_attempts ]; do
-    if curl -sf -o /dev/null "${ELASTICSEARCH_URL}"; then
-        echo "✅ Elasticsearch is ready"
-        break
-    fi
-    attempt=$((attempt + 1))
-    echo "   Attempt $attempt/$max_attempts - waiting..."
-    sleep 2
-done
 
-if [ $attempt -eq $max_attempts ]; then
-    echo "❌ Elasticsearch is not available after ${max_attempts} attempts"
-    exit 1
-fi
-
-# Get index names from environment or use defaults
-INDEX_WORKFLOW=${ES_INDEX_WORKFLOW:-workflow_cud}
-INDEX_TRACKING=${ES_INDEX_TRACKING:-workflow_tracking}
-INDEX_JOB_CLUSTERS=${ES_INDEX_JOB_CLUSTERS:-job_clusters}
-INDEX_WORKFLOW_CLUSTERS=${ES_INDEX_WORKFLOW_CLUSTERS:-workflow_clusters}
-INDEX_WORKFLOW_HISTORY=${ES_INDEX_WORKFLOW_HISTORY:-workflow_cud_history}
-INDEX_LATEST_TASK_RUN=${ES_INDEX_LATEST_TASK_RUN:-latest_task_run}
 
 echo ""
-echo "📊 Creating Elasticsearch indices..."
-
-# Function to create index if it doesn't exist
-create_index_if_not_exists() {
-    local index_name=$1
-    local mapping_file=$2
-    
-    if curl -sf -o /dev/null -I "${ELASTICSEARCH_URL}/${index_name}"; then
-        echo "  ⏭️  Index '${index_name}' already exists"
-    else
-        echo "  📝 Creating index '${index_name}'..."
-        if [ -n "$mapping_file" ] && [ -f "$mapping_file" ]; then
-            curl -sf -X PUT "${ELASTICSEARCH_URL}/${index_name}" \
-                -H 'Content-Type: application/json' \
-                -d "@${mapping_file}" || echo "  ⚠️  Warning: Could not create index with mapping file"
-        else
-            # Create index using Python - try with mappings if available, otherwise create without
-            # Use elasticsearch client (workflow uses separate Elasticsearch instance)
-            python3 -c "
-import sys
-
-try:
-    from elasticsearch import Elasticsearch
-    es = Elasticsearch('${ELASTICSEARCH_URL}')
-except ImportError:
-    # Fallback to opensearch-py if elasticsearch client not available
-    try:
-        from opensearchpy import OpenSearch
-        es = OpenSearch('${ELASTICSEARCH_URL}')
-    except ImportError:
-        print('  ❌ Neither elasticsearch nor opensearch-py client available', file=sys.stderr)
-        sys.exit(1)
-index_name = '${index_name}'
-
-try:
-    # Try to import mappings from workflow_core if available
-    from workflow_core.constants.es_constants import (
-        ELASTIC_INDEX_MAPPING_WORKFLOW_CUD,
-        ELASTIC_INDEX_MAPPING_TRACKING
-    )
-    
-    # Map index names to their mappings
-    mappings = {
-        '${INDEX_WORKFLOW}': ELASTIC_INDEX_MAPPING_WORKFLOW_CUD,
-        '${INDEX_TRACKING}': ELASTIC_INDEX_MAPPING_TRACKING,
-    }
-    
-    if index_name in mappings:
-        es.indices.create(index=index_name, body=mappings[index_name])
-        print(f'  ✅ Created index: {index_name} (with mapping)')
-    else:
-        # Create index without mapping for other indices
-        es.indices.create(index=index_name)
-        print(f'  ✅ Created index: {index_name} (no mapping)')
-except ImportError:
-    # workflow_core not available - create index without mapping
-    try:
-        es.indices.create(index=index_name)
-        print(f'  ✅ Created index: {index_name} (no mapping - workflow_core not available)')
-    except Exception as e:
-        print(f'  ❌ Error creating index {index_name}: {e}', file=sys.stderr)
-        sys.exit(1)
-except Exception as e:
-    print(f'  ❌ Error creating index {index_name}: {e}', file=sys.stderr)
-    sys.exit(1)
-"
-        fi
-    fi
-}
-
-# Create all required indices
-# Temporarily disable set -e to prevent early exit if index creation fails
-set +e
-create_index_if_not_exists "${INDEX_WORKFLOW}" || echo "⚠️  Failed to create ${INDEX_WORKFLOW}"
-create_index_if_not_exists "${INDEX_TRACKING}" || echo "⚠️  Failed to create ${INDEX_TRACKING}"
-create_index_if_not_exists "${INDEX_JOB_CLUSTERS}" || echo "⚠️  Failed to create ${INDEX_JOB_CLUSTERS}"
-create_index_if_not_exists "${INDEX_WORKFLOW_CLUSTERS}" || echo "⚠️  Failed to create ${INDEX_WORKFLOW_CLUSTERS}"
-create_index_if_not_exists "${INDEX_WORKFLOW_HISTORY}" || echo "⚠️  Failed to create ${INDEX_WORKFLOW_HISTORY}"
-create_index_if_not_exists "${INDEX_LATEST_TASK_RUN}" || echo "⚠️  Failed to create ${INDEX_LATEST_TASK_RUN}"
-# Keep set +e enabled - don't re-enable set -e here, we'll do it at the very end
-
-echo ""
-echo "✅ Elasticsearch indices initialized successfully"
-echo ""
-echo "🔍🔍🔍 CRITICAL DEBUG: This message MUST appear in logs!" 
-echo "🔍🔍🔍 If you see this, the script reached line 180"
-echo "🔍🔍🔍 About to start database migrations..."
+echo "🗄️  Setting up database and running migrations..."
 echo "🔍🔍🔍 Current directory: $(pwd)"
 echo "🔍🔍🔍 Listing /app:"
 ls -la /app/ 2>&1 | head -5 || true

@@ -44,7 +44,6 @@ RUN pip install --no-cache-dir --default-timeout=300 \
     requests \
     pydantic \
     typeguard \
-    elasticsearch \
     tortoise-orm \
     pymysql \
     cryptography \

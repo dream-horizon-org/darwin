@@ -6,11 +6,6 @@ def get_config():
     This function loads all required configuration values from environment variables.
     """
     return {
-        "dataset.configs": {
-            "elastic-search.url": os.getenv("ELASTICSEARCH_URL", "http://localhost:9200"),
-            "elastic-search.user": os.getenv("ELASTICSEARCH_USERNAME", ""),
-            "elastic-search.pwd": os.getenv("ELASTICSEARCH_PASSWORD", "")
-        },
         "airflow.configs": {
             "airflow.url": os.getenv("AIRFLOW_URL", "http://localhost:8080"),
             "airflow.auth": os.getenv("AIRFLOW_AUTH_TOKEN", "")

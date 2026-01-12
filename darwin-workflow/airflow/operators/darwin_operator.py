@@ -10,7 +10,7 @@ import json
 import requests
 from airflow.exceptions import AirflowException
 from airflow.utils.context import Context
-from operators.workflow_operator import WorkflowOperator
+from airflow_core_module.operators.workflow_operator import WorkflowOperator
 
 from airflow_core.constants.configs import Config
 from airflow_core.utils.airflow_job_runner_utils import get_env, api_request

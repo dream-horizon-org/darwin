@@ -9,11 +9,11 @@ class Config:
         self._config = CONFIGS_MAP[self.env]
 
     def es_config(self, index: str, lambda_func: Callable):
-        es_host = self._config['dataset.configs']['elastic-search.url']
-        es_username = self._config['dataset.configs']['elastic-search.user']
-        es_password = self._config['dataset.configs']['elastic-search.pwd']
-        resp = (es_host, index, lambda_func, es_username, es_password,)
-        return resp
+        """
+        Elasticsearch removed in v3 - this method is deprecated.
+        Raises NotImplementedError to indicate Elasticsearch is no longer supported.
+        """
+        raise NotImplementedError("Elasticsearch has been removed in v3. Use database instead.")
 
     @property
     def get_airflow_url(self):
