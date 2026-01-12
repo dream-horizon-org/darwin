@@ -12,7 +12,7 @@ jobs:
   install-and-test:
     name: Installation and CLI Smoke Tests
     runs-on: [self-hosted, Linux, X64, darwin]
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: hermes-cli
@@ -52,14 +52,49 @@ jobs:
           clean: true
           fetch-depth: 1
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.9"
+      - name: Install Python 3.9 via deadsnakes PPA
+        run: |
+          echo "🐍 Checking for Python 3.9..."
+
+          # Check if python3.9 is already installed
+          if command -v python3.9 >/dev/null 2>&1; then
+            echo "✅ Python 3.9 already installed:"
+            python3.9 --version
+            which python3.9
+          else
+            echo "Installing Python 3.9 via deadsnakes PPA..."
+            
+            # Install prerequisites
+            sudo apt-get update
+            sudo apt-get install -y software-properties-common gnupg
+            
+            # Add deadsnakes PPA manually (bypasses Launchpad API)
+            echo "deb http://ppa.launchpad.net/deadsnakes/ppa/ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/deadsnakes-ppa.list
+            echo "deb-src http://ppa.launchpad.net/deadsnakes/ppa/ubuntu jammy main" | sudo tee -a /etc/apt/sources.list.d/deadsnakes-ppa.list
+            
+            # Add PPA GPG key
+            sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F23C5A6CF475977595C89F51BA6932366A755776
+            
+            # Update and install Python 3.9
+            sudo apt-get update
+            sudo apt-get install -y python3.9 python3.9-venv python3.9-distutils
+            
+            echo "✅ Python 3.9 installed"
+            python3.9 --version
+            which python3.9
+          fi
+        working-directory: .
+
+      - name: Create virtual environment
+        run: |
+          echo "🔧 Creating virtual environment..."
+          python3.9 -m venv .venv
+          echo "✅ Virtual environment created"
 
       - name: Install hermes-cli
         run: |
           echo "📦 Installing hermes-cli..."
+          source .venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -e .
           echo "✅ Installation completed"
@@ -67,6 +102,7 @@ jobs:
       - name: Verify installation
         run: |
           echo "🔍 Verifying hermes-cli installation..."
+          source .venv/bin/activate
           # Try --version first, fall back to --help if version not available
           hermes --version 2>/dev/null || hermes --help
           echo "✅ Hermes CLI is installed and accessible"
@@ -74,6 +110,7 @@ jobs:
       - name: Test CLI smoke test
         run: |
           echo "🧪 Testing hermes CLI..."
+          source .venv/bin/activate
 
           # Test that hermes --help works (validates CLI is working)
           echo "  Testing: hermes --help"
