@@ -106,10 +106,6 @@ jobs:
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
           yq --version
-      - name: Initialize submodules
-        run: |
-          git submodule sync --recursive
-          git submodule update --init --recursive --remote || true
       - name: Step 1 - Initialize configuration (init.sh)
         run: |
           echo "📋 Step 1: Running init.sh to configure services..."
@@ -450,37 +446,17 @@ jobs:
 
           try:
               data = json.loads('''$body''')
-              
-              # ML Serve App health check response validation
-              # The health check typically returns status information
-              print("✅ Health check response is valid JSON")
               print(f"   Response: {data}")
               
-              # Check for common health check response patterns
-              if isinstance(data, dict):
-                  if 'status' in data:
-                      status = data.get('status')
-                      print(f"   Status: {status}")
-                      if status and status.lower() in ['healthy', 'ok', 'up']:
-                          print("✅ Service reports healthy status")
-                      elif status:
-                          print(f"⚠️  Service status is: {status}")
-                  else:
-                      # Just accepting any valid JSON response as success
-                      print("✅ Health check returned valid response")
+              if 'status' in data:
+                  print(f"   Status: {data.get('status')}")
+                  print("✅ ML Serve App health check passed!")
               else:
-                  print("✅ Health check returned valid response")
-              
-              print("\n✅ Health check passed! Service is healthy (as per ml-serve-app README).")
-          except json.JSONDecodeError as e:
-              # Some health checks return simple text responses
-              response_text = '''$body'''
-              if response_text.strip():
-                  print(f"Health check response (non-JSON): {response_text}")
-                  print("✅ Health check passed with non-JSON response")
-              else:
-                  print(f"❌ Empty response from health check")
+                  print("❌ Response missing 'status' field")
                   sys.exit(1)
+          except json.JSONDecodeError as e:
+              print(f"❌ Invalid JSON response: {e}")
+              sys.exit(1)
           EOF
 
           # Cleanup port-forward
@@ -632,33 +608,17 @@ jobs:
 
           try:
               data = json.loads('''$body''')
-              
-              print("✅ Artifact Builder health check response is valid JSON")
               print(f"   Response: {data}")
               
-              # Check for common health check response patterns
-              if isinstance(data, dict):
-                  if 'status' in data:
-                      status = data.get('status')
-                      print(f"   Status: {status}")
-                      if status and status.lower() in ['healthy', 'ok', 'up']:
-                          print("✅ Artifact Builder reports healthy status")
-                      elif status:
-                          print(f"⚠️  Artifact Builder status is: {status}")
-                  else:
-                      print("✅ Artifact Builder health check returned valid response")
+              if 'status' in data:
+                  print(f"   Status: {data.get('status')}")
+                  print("✅ Artifact Builder health check passed!")
               else:
-                  print("✅ Artifact Builder health check returned valid response")
-              
-              print("\n✅ Artifact Builder health check passed! Service is healthy.")
-          except json.JSONDecodeError as e:
-              response_text = '''$body'''
-              if response_text.strip():
-                  print(f"Artifact Builder health check response (non-JSON): {response_text}")
-                  print("✅ Artifact Builder health check passed with non-JSON response")
-              else:
-                  print(f"❌ Empty response from Artifact Builder health check")
+                  print("❌ Response missing 'status' field")
                   sys.exit(1)
+          except json.JSONDecodeError as e:
+              print(f"❌ Invalid JSON response: {e}")
+              sys.exit(1)
           EOF
 
           # Cleanup port-forward
