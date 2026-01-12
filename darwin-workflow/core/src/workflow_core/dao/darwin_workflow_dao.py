@@ -9,7 +9,8 @@ import aiomysql
 logger = LoggingUtil().get_logger()
 
 
-class darwin_worflow_conn:
+# TODO: Aerich migrations run on every startup - should be a separate migration command
+class DarwinWorkflowConn:
     def __init__(self, env: str):
         self.conn = Config(env).get_workflow_conn
         self.workflow_config = Config(env).get_workflow_config

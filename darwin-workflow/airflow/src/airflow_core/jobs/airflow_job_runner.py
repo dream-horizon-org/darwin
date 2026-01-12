@@ -102,6 +102,8 @@ def terminate(kill_cluster_flag, **kwargs):
         return kill_cluster_flag
 
 
+# TODO: AirflowJobRunner is ~1100 lines - split into ClusterManager, JobExecutor, NotificationHandler
+# TODO: Class docstring mentions darwin-deployer but that module doesn't exist in codebase
 @typechecked
 class AirflowJobRunner(JobRunnerInterface):
     """
@@ -180,6 +182,8 @@ class AirflowJobRunner(JobRunnerInterface):
             LOGGER.error(f"Error while submitting job, {resp.text}")
             raise e
 
+    # TODO: Polling loop with sleep(12) is inefficient - consider using exponential backoff or webhooks
+    # TODO: Magic number 60 for exception_count threshold should be a configurable constant
     def get_status(self, job_id: str, time_out_in_sec_for_job: int = 18000):
         """
         :param job_id:The job ID or submission ID of the job whose status is being requested
@@ -697,6 +701,9 @@ class AirflowJobRunner(JobRunnerInterface):
         thread.start()
         thread.join(timeout=10)
 
+    # TODO: run_job_till_completion is 170+ lines - break into smaller methods (setup, execute, teardown)
+    # TODO: cluster_type default Enum("job", "basic") is incorrect Python - should be Literal["job", "basic"]
+    # TODO: No transaction/rollback mechanism if job fails mid-execution with cluster already started
     def run_job_till_completion(
         self,
         cluster_id: str,
@@ -820,11 +827,6 @@ class AirflowJobRunner(JobRunnerInterface):
                 try_number=self.try_number,
                 user_email=self.user_email,
             )
-            LOGGER.info(f"Task Notification preference are {task_notification_preference}") # TODO: Remove this
-            LOGGER.info(f"slack_notifier1: {self.slack_notifier}")
-            LOGGER.info(f"task_notification_preference: {task_notification_preference}")
-            LOGGER.info(f"on_fail value: {task_notification_preference.get('on_fail', False)}")
-            LOGGER.info(f"bool value: {self.slack_notifier and bool(task_notification_preference.get('on_fail', False))}")
             if self.slack_notifier and bool(task_notification_preference.get("on_fail", False)):
                 LOGGER.info("Sending failure notification to Slack")
                 notification_channels = []
@@ -869,6 +871,8 @@ class AirflowJobRunner(JobRunnerInterface):
                         f"Jobs running on the cluster: {running_jobs}. Skipping restart."
                     )
 
+    # TODO: _evaluate_trigger_rule duplicates Airflow's native trigger rule logic - consider using Airflow's built-in mechanism
+    # TODO: Custom trigger rule evaluation may drift from Airflow's semantics over time
     def _evaluate_trigger_rule(self, trigger_rule: str, **kwargs) -> bool:
         """
         Evaluate custom trigger rules
@@ -885,10 +889,6 @@ class AirflowJobRunner(JobRunnerInterface):
                 parent_task_instances.append(parent_ti)
             else:
                 LOGGER.warning(f"Parent task {parent_task.task_id} not found in dag run")
-        # Print parent task instances in a readable format
-        for parent_task_instance in parent_task_instances: # TODO: Remove this after testing
-            LOGGER.info(f"Parent task instance: {parent_task_instance.task_id} - {parent_task_instance.state}")
-
         if not parent_task_instances:
             return True  # No parents, always run
 

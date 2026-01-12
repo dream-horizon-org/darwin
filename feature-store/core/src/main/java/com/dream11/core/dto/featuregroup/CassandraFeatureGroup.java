@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 import java.util.ArrayList;
 import java.util.List;
 
+// TODO: Default values (versionEnabled=TRUE, featureGroupType=ONLINE) may be overwritten by builder - use @Builder.Default.
+// TODO: No validation that entityName references existing entity - foreign key constraint only enforced at runtime.
+// TODO: FeatureGroupType enum nested inside class - consider moving to separate file for reuse.
 @Data
 @Builder
 @AllArgsConstructor

@@ -12,6 +12,7 @@ from compute_model.gpu_node import GPUNode
 class WorkerGroup(DataClassJsonMixin):
     """
     Worker group configuration for compute request.
+    TODO: Consider using Pydantic with validators instead of manual type checking in __init__
     """
 
     node: Union[CPUNode, GPUNode]
@@ -53,6 +54,7 @@ class WorkerGroup(DataClassJsonMixin):
         Convert WorkerGroup to app layer dict.
         Returns:
             Dict[Any, Any]: Dict representation of WorkerGroup
+        TODO: Duplicated conversion logic for CPU vs GPU - consider using polymorphism
         """
         if self.node_type == "gpu":
             return {

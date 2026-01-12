@@ -8,6 +8,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+// TODO: No validation that values inner lists match names length - mismatch causes runtime errors.
+// TODO: List<Object> loses type safety - consider generic type parameter or typed value wrapper.
+// TODO: Mutable lists allow modification after construction - consider immutable collections.
 @Data
 @Builder
 @AllArgsConstructor

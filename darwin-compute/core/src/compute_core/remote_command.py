@@ -15,11 +15,13 @@ from compute_core.dto.remote_command_dto import (
 from compute_core.service.dcm import DarwinClusterManager
 
 
+# TODO: Consider using dependency injection for _dao, _dcm, _compute to improve testability
 class RemoteCommand:
     def __init__(self):
         self._config = Config()
         self._dao = RemoteCommandDao()
         self._dcm = DarwinClusterManager()
+        # TODO: Circular dependency potential - RemoteCommand creates Compute which may need RemoteCommand
         self._compute = Compute()
 
     def add_to_cluster(self, cluster_id: str, commands: list[RemoteCommandDto]) -> dict:
@@ -44,6 +46,7 @@ class RemoteCommand:
         return resp
 
     def execute_on_cluster(self, cluster_id: str, request: RemoteCommandDto) -> dict:
+        # TODO: Mutating request.status is a side effect - consider creating a copy
         logger.debug(f"Executing command on cluster: {cluster_id} with request: {request}")
 
         # Insert the remote command execution into the database with running status and update cluster chart
@@ -58,6 +61,7 @@ class RemoteCommand:
         self._dcm.start_cluster(cluster_id, artifact_name, ns, kube_cluster)
 
         # Call the DarwinClusterManager to execute the command on the cluster with retries
+        # TODO: "head" and "worker" string literals should be constants or enum values
         if request.target in [RemoteCommandTarget.cluster, RemoteCommandTarget.head]:
             self._dcm.execute_command_on_cluster(kube_cluster, ns, cluster_id, request, "head")
         if request.target in [RemoteCommandTarget.cluster, RemoteCommandTarget.worker]:

@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+// TODO: Batch size calculation logic in getBatchWriteStatementBySize is complex - extract to dedicated BatchBuilder class.
 @Slf4j
 public class CassandraFeatureDao implements FeatureDao {
   private static final ProtocolVersion PROTOCOL_VERSION = ProtocolVersion.V4;
@@ -112,36 +113,7 @@ public class CassandraFeatureDao implements FeatureDao {
         .toList();
   }
 
-  //  public Single<List<Long>> writeFeatures(
-  //      String entityName,
-  //      Set<String> entityFeatures,
-  //      Map<String, CassandraFeatureColumn.CassandraDataType> featureMap,
-  //      String featureGroupName,
-  //      String featureGroupVersion,
-  //      Boolean versionEnabled,
-  //      CassandraFeatureData featuresToWrite,
-  //      List<List<Object>> successfulRows,
-  //      List<List<Object>> failedRows) {
-  //
-  //    return prepareStmtOrGetFromCache(
-  //        getInsertFeaturesQuery(
-  //            applicationConfig.getCassandraOfsKeySpace(),
-  //            entityName,
-  //            entityFeatures,
-  //            featureGroupName,
-  //            featureGroupVersion,
-  //            versionEnabled,
-  //            featuresToWrite.getNames()))
-  //        .flatMapObservable(
-  //            preparedStatement ->
-  //                Observable
-  //                    .fromIterable(featuresToWrite.getValues())
-  //                        .map(values -> getWriteStatementWithSize(preparedStatement, featureMap,
-  // featuresToWrite.getNames(), values,
-  //                            successfulRows, failedRows)))
-  //        .toList()
-  //        .flatMap(this::zipWriteQueries);
-  //  }
+
 
   private List<BatchStatementWithSize> getBatchWriteStatementBySize(
       PreparedStatement preparedStatement,
@@ -310,6 +282,9 @@ public class CassandraFeatureDao implements FeatureDao {
     return statement;
   }
 
+  // TODO: Per-key read queries are zipped sequentially - consider parallel execution for better latency.
+  // TODO: failedKeys is a mutable list parameter - return failures as part of response object instead.
+  // TODO: e.printStackTrace() don't have structured logging context.
   public Observable<CassandraFeatureVectorAndPrimaryKeyPair> readFeatures(
       String entityName,
       Set<String> entityFeatures,

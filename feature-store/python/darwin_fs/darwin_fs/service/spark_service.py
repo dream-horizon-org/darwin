@@ -1,3 +1,6 @@
+# TODO: Offline store path construction duplicated between write_offline_features and read_offline_features.
+# TODO: Delta table initialization creates empty DataFrame - consider lazy initialization on first write.
+# TODO: _delta_table_exists uses internal Spark APIs (_jsc, _jvm) - may break across Spark versions.
 import json
 import logging
 import re
@@ -62,6 +65,9 @@ def write_offline_features(df: DataFrame, feature_group_name: str, feature_group
     raise SparkWriterException(f"error writing data to offline feature store: {e}", "OFS_OFFLINE_WRITE_EXCEPTION")
 
 
+# TODO: Error message says "reading data to" but should say "reading data from" offline feature store.
+# TODO: No validation that delta table exists before attempting read - fails with cryptic Spark error.
+# TODO: timestamp parameter type is int but Delta expects datetime string - document expected format.
 def read_offline_features(spark: SparkSession, feature_group_name: str, feature_group_version: str, delta_table_version: int = None,
                           timestamp: int = None) -> DataFrame:
   s3_base_path = DARWIN_OFS_V2_OFFLINE_STORE_BASE_S3_PATH

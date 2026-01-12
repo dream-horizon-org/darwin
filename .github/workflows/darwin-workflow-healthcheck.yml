@@ -5,131 +5,429 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - 'darwin-workflow/**'
-      - '.github/workflows/darwin-workflow-healthcheck.yml'
+      - 'init.sh'
+      - 'setup.sh'
+      - 'start.sh'
+      - 'services.yaml'
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   health-check:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, darwin]
     defaults:
       run:
-        working-directory: darwin-workflow
-
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: test_password
-          MYSQL_DATABASE: workflow
-          MYSQL_USER: workflow_user
-          MYSQL_PASSWORD: workflow_password
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
+        working-directory: .
+    env:
+      KUBECONFIG: ./kind/config/kindkubeconfig.yaml
 
     steps:
+      - name: Runner identity (debug)
+        run: |
+          echo "Runner name: $RUNNER_NAME"
+          echo "Runner OS: $RUNNER_OS"
+          echo "Runner arch: $RUNNER_ARCH"
+          hostname
+      - name: Cleanup previous run artifacts
+        run: |
+          echo "🧹 Cleaning up previous run artifacts..."
+          # Clean up kind cluster if it exists
+          if command -v kind >/dev/null 2>&1; then
+            if kind get clusters 2>/dev/null | grep -q kind; then
+              echo "Deleting existing kind cluster..."
+              kind delete cluster --name kind || true
+            fi
+          fi
+          # Clean up any leftover directories that might cause permission issues during checkout
+          # The checkout action fails if it can't remove directories from previous runs
+          WORKSPACE_DIR="${{ github.workspace }}"
+          if [ -d "$WORKSPACE_DIR" ]; then
+            echo "Cleaning up workspace directory: $WORKSPACE_DIR"
+            # Try to remove kind/shared-storage directories that might have permission issues
+            # These are often created by Kubernetes volumes and may have restrictive permissions
+            if [ -d "$WORKSPACE_DIR/kind" ]; then
+              echo "Cleaning up kind directory..."
+              sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null || true
+              sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null || true
+              find "$WORKSPACE_DIR/kind" -type d -name "shared-storage" -exec sudo rm -rf {} + 2>/dev/null || true
+            fi
+          fi
+          echo "✅ Cleanup completed"
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          submodules: recursive
+          clean: true
+          fetch-depth: 1
 
-      - name: Install dependencies
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Clean up disk space
         run: |
-          python -m pip install --upgrade pip
-          # Install modules in dependency order: model -> core -> app_layer
-          # Skip SDK module as it requires compute-sdk which isn't needed for healthcheck
-          pip install -e model/.
-          pip install -e core/.
-          # Install core requirements (needed before app_layer since app_layer depends on core)
-          pip install -r core/requirements.txt
-          # Install app_layer in editable mode
-          pip install -e app_layer/.
-          # Install app_layer requirements, but skip relative path dependencies (already installed)
-          # Filter out lines starting with "-e ../" since those are local dependencies we've already installed
-          if [ -f app_layer/requirements.txt ]; then
-            grep -v "^-e \.\./" app_layer/requirements.txt | pip install -r /dev/stdin || true
+          echo "🧹 Cleaning up disk space before build..."
+          echo "Current disk usage:"
+          df -h
+          echo ""
+          echo "Cleaning up Docker resources..."
+          docker system prune -a -f || true
+          docker volume prune -f || true
+          echo ""
+          echo "Cleaning up apt cache..."
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/* || true
+          echo ""
+          echo "Disk usage after cleanup:"
+          df -h
+      - name: Install prerequisites
+        run: |
+          # Install kubectl
+          KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+          echo "Installing kubectl version: $KUBECTL_VERSION"
+          curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          # Verify the download is actually a binary (not an error page)
+          if ! file kubectl | grep -q "ELF\|executable"; then
+            echo "❌ Downloaded file is not a binary, retrying with direct URL..."
+            rm -f kubectl
+            curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
           fi
-          # Skip SDK installation - not needed for healthcheck and requires compute-sdk
-          # pip install -e sdk/.  # Skipped: requires darwin_compute which may not be available in CI
-          if [ -f airflow/setup.py ]; then
-            pip install -e airflow/.
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+          kubectl version --client
+          # Install Helm
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
+          # Install Kind
+          curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x /tmp/kind
+          sudo mv /tmp/kind /usr/local/bin/kind
+          kind version
+          # Install yq (required by init.sh)
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+      - name: Initialize submodules
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive --remote || true
+      - name: Step 1 - Initialize configuration (init.sh)
+        run: |
+          echo "📋 Step 1: Running init.sh to configure services..."
+          
+          # Clean up any existing config to avoid overwrite prompt
+          rm -f .setup/enabled-services.yaml
+          
+          # Answers (13 prompts total):
+          # 1-7: compute, workspace, feature_store, mlflow, serve, catalog, chronos (all n)
+          # 8: workflow (y) - will auto-enable darwin-compute and darwin-cluster-manager as dependencies
+          # 9: confirm (y)
+          # 10: darwin sdk runtime (n)
+          # 11: ray:2.37.0 (n)
+          # 12: ray:2.53.0 (n)
+          # 13: hermes-cli (n)
+          # Use printf with explicit newlines and ensure stdin is properly closed
+          printf "n\nn\nn\nn\nn\nn\nn\ny\ny\nn\nn\nn\nn\n" | ./init.sh || {
+            echo "❌ init.sh failed with exit code $?"
+            echo "Checking if config was created..."
+            if [ -f .setup/enabled-services.yaml ]; then
+              echo "Config file exists, showing contents:"
+              cat .setup/enabled-services.yaml
+            else
+              echo "Config file was not created"
+            fi
+            exit 1
+          }
+          
+          echo "✅ Configuration created by init.sh"
+          cat .setup/enabled-services.yaml
+      - name: Step 2 - Build images and setup cluster (setup.sh)
+        run: |
+          echo "🔨 Step 2: Running setup.sh to build images and setup cluster..."
+          # Clean up Docker before building to free space (GitHub Actions runners have limited disk space)
+          echo "🧹 Cleaning up Docker before build..."
+          docker system prune -f || true
+          docker image prune -f || true
+          echo "Disk space before build:"
+          df -h
+          # Ensure ENV is set to local for cluster creation
+          export ENV=local
+          # Run setup.sh with auto-yes flag (it will auto-answer yes to cluster setup and clean build)
+          # setup.sh will handle errors gracefully - if cluster creation fails but KUBECONFIG exists, it will continue
+          ./setup.sh -y
+          
+          # Verify config.env was created (setup.sh should create it at project root)
+          echo "🔍 Verifying config.env was created..."
+          if [ -f config.env ]; then
+            echo "✅ config.env exists"
+            echo "Contents:"
+            cat config.env
+          else
+            echo "❌ config.env not found! setup.sh may have failed."
+            echo "Current directory: $(pwd)"
+            echo "Looking for config.env..."
+            find . -name "config.env" -type f 2>/dev/null | head -5 || echo "Not found"
+            exit 1
           fi
-          # Install root requirements (if any)
-          pip install -r requirements.txt || true
-          # Install model requirements
-          pip install -r model/requirements.txt || true
-          # Skip SDK requirements - not needed for healthcheck
-          # pip install -r sdk/requirements.txt || true  # Skipped: requires darwin_compute
-          # Install test dependencies
-          pip install pytest==7.3.1 pytest-asyncio==0.21.1 httpx==0.23.3
-
-      - name: Set up environment variables
+          
+          # Clean up unused images after build to free space for deployment
+          echo "🧹 Cleaning up unused Docker images after build..."
+          docker image prune -f || true
+          echo "Disk space after build:"
+          df -h
+      - name: Verify cluster is ready
         run: |
-          echo "ENV=local" >> $GITHUB_ENV
-          echo "DEPLOYMENT_TYPE=container" >> $GITHUB_ENV
-          echo "WORKFLOW_DB_HOST=127.0.0.1" >> $GITHUB_ENV
-          echo "WORKFLOW_DB_PORT=3306" >> $GITHUB_ENV
-          echo "WORKFLOW_DB_USERNAME=workflow_user" >> $GITHUB_ENV
-          echo "WORKFLOW_DB_PASSWORD=workflow_password" >> $GITHUB_ENV
-          echo "WORKFLOW_DB_NAME=workflow" >> $GITHUB_ENV
-          echo "S3_BUCKET_NAME=test-bucket" >> $GITHUB_ENV
-          echo "S3_ARTIFACT_PREFIX=test/workflow" >> $GITHUB_ENV
-          echo "COMPUTE_SERVICE_URL=http://localhost:9000" >> $GITHUB_ENV
-          echo "LOG_DIR=/tmp/darwin-workflow" >> $GITHUB_ENV
-
-      - name: Wait for MySQL to be ready
+          echo "🔍 Verifying cluster status..."
+          
+          if [ ! -f "$KUBECONFIG" ]; then
+            echo "❌ KUBECONFIG not found at $KUBECONFIG, cluster may not be ready"
+            exit 1
+          fi
+          
+          # Wait for cluster to be ready
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if kubectl get nodes >/dev/null 2>&1; then
+              echo "✅ Cluster is accessible"
+              kubectl get nodes
+              break
+            fi
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for cluster..."
+            sleep 5
+            attempt=$((attempt+1))
+          done
+          
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Cluster is not accessible"
+            exit 1
+          fi
+      - name: Step 3 - Deploy to Kubernetes (start.sh)
         run: |
-          timeout 60 bash -c 'until mysqladmin ping -h 127.0.0.1 -u workflow_user -pworkflow_password --silent; do sleep 2; done'
-        continue-on-error: true
-
-      - name: Create necessary directories
+          echo "🚀 Step 3: Running start.sh to deploy to Kubernetes..."
+          
+          echo "📋 Running start.sh (it will source config.env automatically)..."
+          
+          # Start a background process to periodically show status and keep runner alive
+          (
+            while true; do
+              sleep 30
+              echo ""
+              echo "⏳ [$(date +%H:%M:%S)] Deployment in progress... Showing current status:"
+              echo "   Helm releases:"
+              helm list -n darwin 2>/dev/null | head -3 || echo "      (no releases yet)"
+              echo "   Pod status:"
+              kubectl get pods -n darwin --no-headers 2>/dev/null | head -5 | awk '{print "      " $1 ": " $3}' || echo "      (no pods yet)"
+              echo ""
+            done
+          ) &
+          STATUS_MONITOR_PID=$!
+          
+          # Capture output and exit code
+          set +e  # Don't exit on error immediately, we want to capture diagnostics
+          ./start.sh 2>&1 | tee /tmp/start.sh.log
+          START_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          
+          # Stop the status monitor
+          kill $STATUS_MONITOR_PID 2>/dev/null || true
+          
+          if [ $START_EXIT_CODE -ne 0 ]; then
+            echo "❌ start.sh failed with exit code $START_EXIT_CODE"
+            echo ""
+            echo "=== start.sh output ==="
+            cat /tmp/start.sh.log || true
+            echo ""
+            echo "=== Helm releases ==="
+            helm list -n darwin || true
+            echo ""
+            echo "=== Helm release status ==="
+            helm status darwin -n darwin || true
+            echo ""
+            echo "=== Helm release history ==="
+            helm history darwin -n darwin || true
+            echo ""
+            echo "=== All pods in darwin namespace ==="
+            kubectl get pods -n darwin || true
+            echo ""
+            echo "=== Failed pods details ==="
+            kubectl get pods -n darwin -o json | jq -r '.items[] | select(.status.phase != "Running" and .status.phase != "Succeeded") | "\(.metadata.name): \(.status.phase) - \(.status.reason // "N/A")"' || true
+            echo ""
+            echo "=== Pod events ==="
+            kubectl get events -n darwin --sort-by='.lastTimestamp' | tail -20 || true
+            echo ""
+            echo "=== Readiness check job (if exists) ==="
+            kubectl get jobs -n darwin | grep readiness || true
+            kubectl logs -n darwin -l job-name=darwin-services-readiness-check --tail=50 || true
+            echo ""
+            echo "=== All resources in darwin namespace ==="
+            kubectl get all -n darwin || true
+            echo ""
+            echo "=== Describe failed pods ==="
+            for pod in $(kubectl get pods -n darwin -o jsonpath='{.items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")].metadata.name}'); do
+              echo "--- Describing pod: $pod ---"
+              kubectl describe pod -n darwin "$pod" || true
+              echo "--- Logs for pod: $pod ---"
+              kubectl logs -n darwin "$pod" --tail=50 || true
+            done
+            echo ""
+            echo "=== Helm test results (if any) ==="
+            helm test darwin -n darwin || true
+            exit 1
+          fi
+          
+          # Verify deployment was successful
+          echo "🔍 Verifying deployment..."
+          if ! helm list -n darwin | grep -q darwin; then
+            echo "❌ Helm release 'darwin' not found after start.sh completed"
+            exit 1
+          fi
+          
+          echo "✅ Deployment completed successfully"
+      - name: Wait for darwin-workflow pod to be ready
         run: |
-          mkdir -p /tmp/darwin-workflow
-          mkdir -p app_layer/src/workflow_app_layer/static
-          mkdir -p static
-
-      - name: Start workflow service in background
+          echo "⏳ Waiting for darwin-workflow pod to be ready..."
+          
+          # Try to find the pod using multiple label selectors
+          # The pod is labeled with app.kubernetes.io/component=workflow, not app.kubernetes.io/name=darwin-workflow
+          WORKFLOW_POD=""
+          WORKFLOW_SELECTOR=""
+          
+          # Try different label selectors
+          if kubectl get pods -n darwin -l app.kubernetes.io/component=workflow --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
+            WORKFLOW_SELECTOR="app.kubernetes.io/component=workflow"
+            WORKFLOW_POD=$(kubectl get pods -n darwin -l app.kubernetes.io/component=workflow --no-headers 2>/dev/null | head -1 | awk '{print $1}')
+          elif kubectl get pods -n darwin -l component-name=darwin-workflow --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
+            WORKFLOW_SELECTOR="component-name=darwin-workflow"
+            WORKFLOW_POD=$(kubectl get pods -n darwin -l component-name=darwin-workflow --no-headers 2>/dev/null | head -1 | awk '{print $1}')
+          elif kubectl get pods -n darwin | grep -E "darwin-workflow|workflow" | head -1 | awk '{print $1}' | grep -q .; then
+            WORKFLOW_POD=$(kubectl get pods -n darwin | grep -E "darwin-workflow|workflow" | head -1 | awk '{print $1}')
+            WORKFLOW_SELECTOR="name"
+          fi
+          
+          if [ -z "$WORKFLOW_POD" ]; then
+            echo "⚠️  Could not find darwin-workflow pod with any label selector"
+            echo "Checking all pods in darwin namespace:"
+            kubectl get pods -n darwin || true
+            echo ""
+            echo "Checking deployments:"
+            kubectl get deployments -n darwin | grep workflow || true
+            exit 1
+          fi
+          
+          echo "Found workflow pod: $WORKFLOW_POD (using selector: $WORKFLOW_SELECTOR)"
+          
+          max_attempts=60
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            # Check if pod exists and is ready
+            if [ "$WORKFLOW_SELECTOR" = "name" ]; then
+              POD_STATUS=$(kubectl get pod "$WORKFLOW_POD" -n darwin -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+              READY=$(kubectl get pod "$WORKFLOW_POD" -n darwin -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+            else
+              POD_STATUS=$(kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+              READY=$(kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR" -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+            fi
+            
+            if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
+              echo "✅ darwin-workflow pod is ready"
+              if [ "$WORKFLOW_SELECTOR" = "name" ]; then
+                kubectl get pod "$WORKFLOW_POD" -n darwin
+              else
+                kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR"
+              fi
+              break
+            fi
+            
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for pod... (Status: $POD_STATUS, Ready: $READY)"
+            if [ "$WORKFLOW_SELECTOR" = "name" ]; then
+              kubectl get pod "$WORKFLOW_POD" -n darwin || true
+            else
+              kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR" || true
+            fi
+            sleep 5
+            attempt=$((attempt+1))
+          done
+          
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ darwin-workflow pod did not become ready after $max_attempts attempts"
+            echo ""
+            echo "Pod status:"
+            if [ "$WORKFLOW_SELECTOR" = "name" ]; then
+              kubectl get pod "$WORKFLOW_POD" -n darwin || true
+              kubectl describe pod "$WORKFLOW_POD" -n darwin || true
+              echo ""
+              echo "Pod logs:"
+              kubectl logs "$WORKFLOW_POD" -n darwin --tail=50 || true
+            else
+              kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR" || true
+              WORKFLOW_POD_NAME=$(kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+              if [ -n "$WORKFLOW_POD_NAME" ]; then
+                kubectl describe pod "$WORKFLOW_POD_NAME" -n darwin || true
+                echo ""
+                echo "Pod logs:"
+                kubectl logs "$WORKFLOW_POD_NAME" -n darwin --tail=50 || true
+              fi
+            fi
+            echo ""
+            echo "All pods in darwin namespace:"
+            kubectl get pods -n darwin || true
+            exit 1
+          fi
+      - name: Verify Services Are Healthy (as per root README)
         run: |
-          cd app_layer/src/workflow_app_layer
-          nohup python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 > /tmp/workflow.log 2>&1 &
-          echo $! > /tmp/workflow.pid
-          echo "Service started with PID: $(cat /tmp/workflow.pid)"
-
-      - name: Wait for service to start
-        run: |
-          echo "Waiting for service to be ready..."
+          echo "✅ Verifying services are healthy (as per root README)..."
+          
+          # Check all pods are running (as per README: kubectl get pods -n darwin)
+          echo "📦 Checking all pods are running:"
+          kubectl get pods -n darwin
+          
+          # Wait for ingress to be ready (if available)
+          echo "⏳ Waiting for ingress controller to be ready..."
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if kubectl get pods -n ingress-nginx 2>/dev/null | grep -q "Running"; then
+              echo "✅ Ingress controller is ready"
+              break
+            fi
+            sleep 2
+            attempt=$((attempt+1))
+          done
+          
+          # Test health check via ingress (as per README: curl http://localhost/workflow/healthcheck)
+          echo "🏥 Testing health check via ingress..."
+          # Note: In CI, we may need to use port-forward instead if ingress isn't accessible
+          # Try ingress first, fallback to port-forward
+          
+          # Start port-forward in background (as per README alternative: kubectl port-forward svc/darwin-workflow -n darwin 8001:8001)
+          kubectl port-forward svc/darwin-workflow -n darwin 8001:8001 > /tmp/port-forward.log 2>&1 &
+          PORT_FORWARD_PID=$!
+          echo "Port-forward started with PID: $PORT_FORWARD_PID"
+          
+          # Wait for port-forward to be ready
+          sleep 5
+          
+          # Test health check endpoint (as per README: curl http://localhost:8001/healthcheck)
           max_attempts=30
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
             if curl -f -s http://localhost:8001/healthcheck > /dev/null 2>&1; then
-              echo "✅ Service is ready!"
+              echo "✅ Health check endpoint is accessible"
               break
             fi
-            echo "Attempt $((attempt+1))/$max_attempts: Service not ready yet..."
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for health check endpoint..."
             sleep 2
             attempt=$((attempt+1))
           done
+          
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Service failed to start"
-            echo "Service logs:"
-            cat /tmp/workflow.log || true
-            ps aux | grep uvicorn || true
+            echo "❌ Health check endpoint not accessible"
+            echo "Port-forward logs:"
+            cat /tmp/port-forward.log || true
+            kill $PORT_FORWARD_PID 2>/dev/null || true
             exit 1
           fi
-
-      - name: Check service status
-        run: |
-          ps aux | grep uvicorn | grep -v grep || echo "No uvicorn process found"
-          netstat -tuln 2>/dev/null | grep 8001 || ss -tuln 2>/dev/null | grep 8001 || echo "Port 8001 not listening"
-
-      - name: Test health check endpoint
-        run: |
+          
+          # Test health check endpoint and verify response (as per README expected response)
           echo "Testing /healthcheck endpoint..."
           response=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost:8001/healthcheck)
           http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
@@ -140,10 +438,11 @@ jobs:
           
           if [ "$http_code" != "200" ]; then
             echo "❌ Health check returned HTTP $http_code, expected 200"
+            kill $PORT_FORWARD_PID 2>/dev/null || true
             exit 1
           fi
           
-          # Verify response structure (using Python for JSON parsing)
+          # Verify response structure matches README expected response
           python3 << EOF
           import json
           import sys
@@ -161,16 +460,45 @@ jobs:
               print(f"   app_layer: {data.get('app_layer')}")
               print(f"   core: {data.get('core')}")
               print(f"   db: {data.get('db')}")
+              
+              # Verify values match expected format from README
+              if data.get('app_layer') != 'OK':
+                  print(f"⚠️  app_layer is '{data.get('app_layer')}', expected 'OK'")
+              
+              if data.get('core') != 'OK':
+                  print(f"⚠️  core is '{data.get('core')}', expected 'OK'")
+              
+              # db can be True/False (string or boolean)
+              db_value = data.get('db')
+              if db_value not in [True, False, 'True', 'False', 'true', 'false']:
+                  print(f"⚠️  db value '{db_value}' is unexpected")
+              
+              print("\n✅ Health check passed! Service is healthy (as per root README).")
           except json.JSONDecodeError as e:
               print(f"❌ Invalid JSON response: {e}")
               sys.exit(1)
           EOF
-
+          
+          # Cleanup port-forward
+          kill $PORT_FORWARD_PID 2>/dev/null || true
       - name: Cleanup
         if: always()
         run: |
-          if [ -f /tmp/workflow.pid ]; then
-            kill $(cat /tmp/workflow.pid) 2>/dev/null || true
+          echo "🧹 Cleaning up..."
+          
+          # Clean up Docker to free space (important for GitHub Actions runners)
+          echo "Cleaning up Docker resources..."
+          docker system prune -a -f || true
+          docker volume prune -f || true
+          
+          # Kill any port-forwards
+          pkill -f "kubectl port-forward" || true
+          
+          # Delete kind cluster if it exists
+          if kind get clusters 2>/dev/null | grep -q kind; then
+            echo "Deleting kind cluster..."
+            kind delete cluster --name kind || true
           fi
-          pkill -f "uvicorn main:app" || true
-
+          
+          # Cleanup Docker resources
+          docker system prune -f || true

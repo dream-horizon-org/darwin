@@ -13,6 +13,8 @@ from workflow_model.utils.utils import get_current_time, get_workflow_id, get_wo
 from workflow_model.utils.validators import validate_timezone, \
     validate_optional_integer, is_valid_timetable
 
+# TODO: DEFAULT_NOTIFICATION_PREFERENCE differs between task-level (on_fail, on_skip) and workflow-level (on_start, on_fail, on_success, on_skip)
+# TODO: Notification preference structure should be unified across task and workflow levels
 DEFAULT_NOTIFICATION_PREFERENCE = {
     "on_fail": False,
     "on_skip": False
@@ -603,6 +605,7 @@ def get_workflow_task(workflow_task_request: WorkflowTaskRequest):
     )
 
 
+# TODO: To be removed once we have v3
 def get_workflow(workflow_request: CreateWorkflowRequest, user_email: str):
     current_time = get_current_time()
     return Workflow(
@@ -803,6 +806,7 @@ class LatestTaskRun(BaseModel, MetaData):
         )
 
 
+# TODO: Hardcoded default start_date "2021-01-01" is legacy - should use dynamic default
 class VersionedWorkflow(BaseModel, MetaData):
     workflow_id: str
     workflow_version: int
@@ -825,7 +829,6 @@ class VersionedWorkflow(BaseModel, MetaData):
     workflow_status: str
     tasks: List[WorkflowTask]
     tenant: str = 'd11'
-    tasks: List[WorkflowTask]
     queue_enabled: Optional[bool] = False
     notification_preference: Optional[Dict[str, bool]] = {
         "on_start": False,  # or set as needed

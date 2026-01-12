@@ -32,9 +32,11 @@ from compute_script.get_compute_cluster_state import (
 from compute_script.util.darwin_slack_alert import DarwinSlackAlert
 from compute_script.util.custom_metrics import CustomMetrics
 
+# TODO: Global status_graph instance - consider lazy initialization or dependency injection
 status_graph = generate_status_graph()
 
 
+# TODO: This function has multiple responsibilities - consider splitting into status update and event sending
 def update_status_and_send_events(
     compute: Compute,
     cluster: ClusterMetadata,
@@ -74,6 +76,7 @@ def update_status_and_send_events(
 
 def eligible_for_cluster_died_to_inactive(cluster: ClusterMetadata, new_status: ClusterStatus) -> bool:
     if new_status == ClusterStatus.cluster_died:
+        # TODO: Creating new ScriptMySQLDao() instance on each call is inefficient - use dependency injection
         # Check if the cluster is in cluster_died state for more than 60 minutes
         cluster_died_time = ScriptMySQLDao().get_cluster_action_time(cluster.active_cluster_runid, CLUSTER_DIED_ACTION)
         if cluster_died_time and datetime.now() - cluster_died_time > timedelta(
@@ -83,7 +86,9 @@ def eligible_for_cluster_died_to_inactive(cluster: ClusterMetadata, new_status: 
     return False
 
 
+# TODO: Function name has typo - "timout" should be "timeout"
 def eligible_for_stop_cluster_after_creation_timout(cluster: ClusterMetadata) -> bool:
+    # TODO: Multiple ScriptMySQLDao() instantiations - pass DAO as parameter or use singleton
     latest_worker_nodes_died_action_time = ScriptMySQLDao().get_cluster_action_ending_time(
         cluster.active_cluster_runid, WORKER_NODES_DIED_ACTION
     )
@@ -129,6 +134,7 @@ def eligible_for_stop_cluster_after_creation_timout(cluster: ClusterMetadata) ->
     return False
 
 
+# TODO: This function is too long (60+ lines) - extract K8s resource fetching and status calculation into helpers
 def status_poller_job(cluster: ClusterMetadata, custom_metric_util: CustomMetrics) -> Optional[ClusterStatus]:
     try:
         compute: Compute = get_compute()
@@ -176,6 +182,7 @@ def status_poller_job(cluster: ClusterMetadata, custom_metric_util: CustomMetric
                 logger.debug(f"Marked {cluster_id} as inactive from cluster_died state")
 
         if new_status not in UIClusterStatusMapping.active.value:
+            # TODO: This timeout logic should be in a separate function for better readability
             if eligible_for_stop_cluster_after_creation_timout(cluster) is True:
                 compute.stop(cluster_id, user="Timeout Job")
                 lib_manager.delete_uninstalled_library(cluster_id)
@@ -192,6 +199,7 @@ def status_poller_job(cluster: ClusterMetadata, custom_metric_util: CustomMetric
 
         return new_status
     except Exception as err:
+        # TODO: Broad exception catch - consider catching specific exceptions and handling differently
         tb = traceback.format_exc()
         logger.error(f"{cluster.cluster_id} - {err} - {tb}")
         custom_metric_util.increment("aws.ec2.darwin.status_poller.job.failures")

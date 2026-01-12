@@ -23,6 +23,9 @@ import static com.dream11.core.constant.Constants.SDK_V2_HEADER_VALUE;
 import static com.dream11.core.constant.Constants.SDK_VERSION_HEADER_NAME;
 import static com.dream11.core.constant.Constants.WRITE_REPLICATION_HEADER_NAME;
 
+// TODO: Per-row Kafka send is inefficient for bulk ingestion - batch messages before sending.
+// TODO: Error handling in catch block silently swallows exception details - log the actual error.
+// TODO: No backpressure handling - fast Delta reader can overwhelm Kafka producer.
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class OfsKafkaWriterService implements Shareable {

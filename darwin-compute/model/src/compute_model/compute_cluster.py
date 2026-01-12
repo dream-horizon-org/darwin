@@ -18,6 +18,7 @@ from compute_model.policy_definition import PolicyDefinition
 from compute_model.worker_group import WorkerGroup
 
 
+# TODO: Consider using Pydantic for validation instead of manual __post_init__ checks
 @dataclass
 class ComputeClusterDefinition(DataClassJsonMixin):
     """
@@ -65,9 +66,11 @@ class ComputeClusterDefinition(DataClassJsonMixin):
     cloud_env: Optional[str] = None
     is_job_cluster: bool = False
     start_cluster: Optional[bool] = True
+    # TODO: estimated_cost has trailing comma (None,) which creates a tuple - should be just None
     estimated_cost: Optional[str] = (None,)
     packages: Optional[list[Package]] = None
 
+    # TODO: Manual type checking duplicates @typechecked decorator functionality - consider removing redundancy
     def __post_init__(self):
         if not isinstance(self.name, str):
             raise TypeError(f"name {self.name} should be str")
@@ -112,10 +115,6 @@ class ComputeClusterDefinition(DataClassJsonMixin):
         self.validate_labels()
 
     def validate_labels(self):
-        # TODO: Removal of comments from the below code, after tags2.0 release
-        # for label in REQUIRED_LABELS:
-        #     if label not in self.labels:
-        #         raise ValueError(f"Required label {label} not found")
         for key, val in self.labels.items():
             if len(key) > LABELS_SIZE_LIMIT:
                 raise ValueError(f"Label {key} is too long")

@@ -12,12 +12,14 @@ class Config:
     Config class to get the configuration based on environment
     """
 
+    # TODO: Environment fallback logic (dev/stag/load -> stag) is implicit - document or make explicit
     def __init__(self, env: str = None):
         if not env:
             env = os.getenv("ENV", "stag")
             if env in ["dev", "stag", "load"]:
                 env = "stag"
         self.env = env
+        # TODO: Missing validation - will KeyError if env is not in CONFIGS_MAP
         self._config = CONFIGS_MAP[self.env]
 
     @property
@@ -92,6 +94,7 @@ class Config:
 
     @property
     def cluster_create_retry_attempts(self):
+        # TODO: Hardcoded value should be configurable via environment variable or config
         return 3
 
     @property

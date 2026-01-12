@@ -23,11 +23,13 @@ import javax.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+// TODO: featureStoreType defaults to cassandra inline - extract default handling to configuration.
+// TODO: replicationEnabled defaults to true inline - document why and make configurable.
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 @Path("/feature-group")
 public class FeatureStoreFeatureGroup {
-  //todo: add validations
+  // TODO: Add request validation (schema, size limits, required fields) before processing.
 
   private final FeatureGroupService featureGroupService;
 

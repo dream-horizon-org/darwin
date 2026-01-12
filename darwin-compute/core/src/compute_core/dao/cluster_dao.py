@@ -53,6 +53,7 @@ from compute_core.dto.request.es_compute_cluster_definition import ESComputeDefi
 from compute_core.util.utils import serialize_date
 
 
+# TODO: Consider splitting this class - it handles too many responsibilities (cluster CRUD, actions, configs, runtimes)
 class ClusterDao:
     def __init__(self, env: str = None):
         self._mysql_dao = MySQLDao(env)
@@ -72,6 +73,7 @@ class ClusterDao:
         sql_data = {"cluster_id": cluster_id}
         result = self._mysql_dao.read(sql_query, sql_data)
         if not result:
+            # TODO: Use ClusterNotFoundError instead of generic Exception for consistency
             raise Exception(f"Cluster does not exist")
         cluster_status = result[0]["status"]
         return cluster_status
@@ -107,6 +109,7 @@ class ClusterDao:
             return run_id
 
     def create_cluster(self, cluster_id: str, artifact_id: str, compute_request: ESComputeDefinition):
+        # TODO: Hardcoded "inactive" status should use ClusterStatus enum
         sql_query = CREATE_CLUSTER
         logger.info(f"Creating cluster with cluster_id in create cluster dao: {cluster_id}")
         sql_data = {
@@ -148,6 +151,7 @@ class ClusterDao:
         return result
 
     def start_cluster(self, cluster_id: str, run_id: str):
+        # TODO: Dual storage (MySQL + ES) updates are not atomic - if ES fails, MySQL is already committed
         sql_query = START_CLUSTER
         sql_data = {"run_id": run_id, "cluster_id": cluster_id}
         es_data = self.get_cluster_info(cluster_id)
@@ -157,6 +161,7 @@ class ClusterDao:
         return result
 
     def stop_cluster(self, cluster_id: str):
+        # TODO: Hardcoded "inactive" status and zeroing of pods/memory should use constants or ClusterStatus enum
         sql_query = STOP_CLUSTER
         sql_data = {"cluster_id": cluster_id}
         es_data = self.get_cluster_info(cluster_id)
@@ -246,6 +251,7 @@ class ClusterDao:
         return result
 
     def get_cluster_list(self, cluster_list: list):
+        # TODO: SQL injection risk - use parameterized queries instead of string concatenation
         if len(cluster_list) == 0:
             return []
         elif len(cluster_list) > 1:
@@ -259,6 +265,7 @@ class ClusterDao:
         return result
 
     def get_cluster_actions(self, run_id: str, sort_order: str):
+        # TODO: SQL injection risk - sort_order should be validated against allowed values (asc/desc)
         sql_query = GET_CLUSTER_ACTIONS_FOR_CLUSTER_RUN_ID % {
             "run_id": run_id,
             "sort_order": sort_order,
@@ -382,6 +389,7 @@ class ClusterDao:
         return job_cluster_ids
 
     def get_clusters_last_used_before_days(self, days: int, cluster_ids: list[str]) -> list[dict]:
+        # TODO: SQL injection risk - use parameterized queries instead of string concatenation
         sql_query = GET_CLUSTERS_LAST_USED_BEFORE_DAYS
 
         if len(cluster_ids) == 0:
@@ -395,6 +403,7 @@ class ClusterDao:
 
         return self._mysql_dao.read(query=sql_query, data=data)
 
+    # TODO: This method mixes MySQL and ES updates without proper transaction handling across both stores
     def update_status(
         self,
         cluster_id: str,
@@ -404,6 +413,7 @@ class ClusterDao:
         last_updated_at: datetime.datetime = None,
     ):
         with CustomTransaction(self._mysql_dao.get_write_connection()) as mysql_connection:
+            # TODO: This optimistic locking pattern could lead to lost updates - consider using proper locking
             if last_updated_at:
                 mysql_connection.execute_query(GET_CLUSTER_LAST_UPDATED_AT, {"cluster_id": cluster_id})
                 last_updated = mysql_connection.cursor.fetchone()["last_updated_at"]

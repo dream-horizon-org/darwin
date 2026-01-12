@@ -1,6 +1,8 @@
 from typing_extensions import Literal
 import os
 
+# TODO: ENV_TYPE literal doesn't match actual environment handling logic (e.g., 'stag' maps to 'dev' in some places)
+# TODO: Consider using an Enum instead of Literal for better IDE support and validation
 ENV_TYPE = Literal["prod", "stag", "uat", "local", "dev", "darwin-local"]
 
 # Elasticsearch indices
@@ -11,6 +13,8 @@ WORKFLOW_CLUSTERS_INDEX = os.getenv("ES_INDEX_WORKFLOW_CLUSTERS", "workflow_clus
 WORKFLOW_HISTORY_INDEX = os.getenv("ES_INDEX_WORKFLOW_HISTORY", "workflow_cud_history")
 LATEST_TASK_RUN = os.getenv("ES_INDEX_LATEST_TASK_RUN", "latest_task_run")
 
+# TODO: Status constants should be an Enum with clear state machine transitions documented
+# TODO: Workflow status vs run status vs task status use overlapping constants - separate into distinct enums
 # Status constants
 ERROR = "error"
 CLUSTER_NAME_ALREADY_EXISTS_ERROR = "Cluster name already exists"
@@ -27,7 +31,7 @@ SUCCESS = "success"
 EXPIRED = "expired"
 CREATED_ARTIFACT = "created_artifact"
 CREATING_ARTIFACT = "creating_artifact"
-CREATION_FAILED = "creating_failed"
+CREATION_FAILED = "creation_failed"
 UPDATED_ARTIFACT = "updated_artifact"
 UPDATING_ARTIFACT = "updating_artifact"
 UPDATE_FAILED = "updating_failed"

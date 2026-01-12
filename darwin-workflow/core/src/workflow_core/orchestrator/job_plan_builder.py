@@ -16,6 +16,8 @@ LOGGER = logging.getLogger('main')
 LOGGER.setLevel(logging.INFO)
 
 
+# TODO: JobPlanBuilder accumulates state (dag_args, tasks, dependencies) - not thread-safe for concurrent DAG creation
+# TODO: Consider builder pattern with immutable intermediate states
 class JobPlanBuilder:
     """
         Base class for darwin JobPlanBuilder,
@@ -134,9 +136,11 @@ class JobPlanBuilder:
         edge = f"{task1_id} -> {task2_id}"
         LOGGER.info(f"Edge has been added to dag: {edge}")
 
+    # TODO: build_and_deploy_workflow and build_and_deploy_workflow_v2 have significant duplication - extract common logic
+    # TODO: Synchronous upload_to_airflow vs async upload_to_s3 - standardize deployment approach
     def build_and_deploy_workflow(self):
         dag, json_data = create_json_from_dag_args(self.env, self.dag_args, self.tasks, self.dependencies)
-        print("start upload")
+        LOGGER.info(f"Starting DAG upload for dag_id: {self.dag_args.get('dag_id')}")
         status = upload_to_airflow(dag, self.dag_args['dag_id'], env=self.env)
 
         dag_id = self.dag_args['dag_id']

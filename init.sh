@@ -20,6 +20,12 @@ if [ ! -f "$YAML_FILE" ]; then
   exit 1
 fi
 
+DEP_FILE="service-dependencies.yaml"
+if [ ! -f "$DEP_FILE" ]; then
+  echo "❌ $DEP_FILE not found in current directory."
+  exit 1
+fi
+
 # Create .setup directory if it doesn't exist
 mkdir -p .setup
 
@@ -124,11 +130,6 @@ SERVICE_DATASTORES_darwin_workflow="mysql elasticsearch localstack busybox airfl
 # HELPER FUNCTIONS
 # ============================================================================
 
-# Convert service name to variable-safe name (replace hyphens with underscores)
-to_var_name() {
-  echo "$1" | tr '-' '_'
-}
-
 # Get feature apps by feature name
 get_feature_apps() {
   local feature="$1"
@@ -139,15 +140,13 @@ get_feature_apps() {
 # Get service dependencies
 get_service_deps() {
   local service="$1"
-  local var_name="SERVICE_DEPS_$(to_var_name "$service")"
-  eval echo "\$$var_name"
+  yq eval ".services[\"$service\"].required_services[]" "$DEP_FILE" 2>/dev/null
 }
 
 # Get service datastores
 get_service_datastores() {
   local service="$1"
-  local var_name="SERVICE_DATASTORES_$(to_var_name "$service")"
-  eval echo "\$$var_name"
+  yq eval ".services[\"$service\"].required_datastores[]" "$DEP_FILE" 2>/dev/null
 }
 
 # Check if item is in space-separated list

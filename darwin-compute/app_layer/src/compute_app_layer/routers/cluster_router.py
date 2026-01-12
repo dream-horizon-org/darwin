@@ -94,6 +94,7 @@ async def create_cluster(
     )
 
 
+# TODO: Inconsistent user extraction logic - extract to a shared dependency or utility
 @router.put("/{cluster_id}")
 async def update_and_restart_cluster(
     cluster_id,
@@ -104,6 +105,7 @@ async def update_and_restart_cluster(
     lib_manager: LibraryManager = Depends(get_library_manager),
 ):
     try:
+        # TODO: "user_not_passed" is a magic string - use a constant or None
         user = json.loads(msd_user)["email"] if msd_user else "user_not_passed"
     except (json.JSONDecodeError, KeyError):
         user = "user_not_passed"
@@ -117,6 +119,7 @@ async def update_and_restart_cluster(
     )
 
 
+# TODO: Missing error handling for json.loads - will crash if msd_user is invalid JSON
 @router.post("/start-cluster/{cluster_id}")
 async def start_cluster(
     cluster_id,

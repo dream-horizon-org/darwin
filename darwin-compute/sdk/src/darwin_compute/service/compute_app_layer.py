@@ -10,6 +10,7 @@ from darwin_compute.constant.config import Config
 class ComputeAppLayer:
     """
     ComputeAppLayer class to interact with compute app layer service over http
+    TODO: Consider adding retry logic with exponential backoff for transient failures
     """
 
     def __init__(self, env: str):
@@ -24,8 +25,10 @@ class ComputeAppLayer:
         headers: Dict[str, Any] = None,
         payload: Dict[str, Any] = None,
     ):
+        # TODO: 60s timeout is hardcoded - should be configurable per operation type
         resp = requests.request(method, url, params=params, headers=headers, json=payload, timeout=60)
         if not 200 <= resp.status_code < 300:
+            # TODO: Use a custom ComputeAPIError with status code and response body for better debugging
             raise IOError(resp.text)
         resp_json = resp.json()
         return resp_json
@@ -42,6 +45,7 @@ class ComputeAppLayer:
 
     def start(self, cluster_id: str):
         url = self._get_url(f"/cluster/start-cluster/{cluster_id}")
+        # TODO: Hardcoded user header "sdk" should be configurable or use actual user identity
         headers = {"msd-user": '{"email": "sdk"}'}
         resp = self._request(method="POST", url=url, headers=headers)
         return resp

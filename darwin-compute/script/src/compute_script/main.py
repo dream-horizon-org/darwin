@@ -16,6 +16,7 @@ from compute_script.util.darwin_slack_alert import DarwinSlackAlert
 from compute_script.util.custom_metrics import CustomMetrics
 
 
+# TODO: Add distributed locking to prevent multiple instances from processing the same cluster
 def run_job(custom_metric_util: CustomMetrics):
     try:
         dao: ScriptMySQLDao = get_script_sql_dao()

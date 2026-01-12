@@ -20,6 +20,10 @@ spec:
       app.kubernetes.io/component: {{ $serviceName }}
   template:
     metadata:
+      {{- if $.Values.global.redeployTimestamp }}
+      annotations:
+        redeployTimestamp: "{{ $.Values.global.redeployTimestamp }}"
+      {{- end }}
       labels:
         {{- include "darwin.selectorLabels" $ | nindent 8 }}
         app.kubernetes.io/component: {{ $serviceName }}

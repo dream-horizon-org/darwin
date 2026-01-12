@@ -4,11 +4,14 @@ from workflow_core.orchestrator.job_plan_builder import JobPlanBuilder
 from workflow_model.workflow import CreateWorkflowRequest, WorkflowTaskRequest, UpdateWorkflowRequest
 
 
+# TODO: WorkflowDeployer only wraps JobPlanBuilder - consider merging or clarifying separation of concerns
 class WorkflowDeployer:
     def __init__(self, env: str):
         self.env = env
         self.job_plan_builder = JobPlanBuilder()
 
+    # TODO: Default timeout of 7 days (3600*24*7) is extremely long - should be configurable per environment
+    # TODO: Trigger rule fallback logic is complex - extract to a utility function
     def __add_tasks(self, tasks: List[WorkflowTaskRequest]):
         for task in tasks:
             retries = task.retries if task.retries is not None and task.retries >= 0 else 0
@@ -74,7 +77,3 @@ class WorkflowDeployer:
 
     async def update_dag(self, last_parsed_time: str):
         return await self.job_plan_builder.update_and_deploy_workflow(last_parsed_time)
-
-    def deploy_via_yaml(self):
-        # return self.job_plan_builder.build_and_deploy_workflow_via_yaml()
-        raise NotImplementedError

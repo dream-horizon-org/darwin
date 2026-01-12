@@ -13,6 +13,8 @@ from workflow_model.utils.validators import validate_timezone, validate_and_conv
 from workflow_model.workflow import CreateWorkflowRequest
 
 
+# TODO: Validation functions are scattered across validation_utils.py, validators.py (in model), and inline in workflow_core_impl.py
+# TODO: Consolidate all validation logic into a single ValidationService
 def _is_valid_name(name: str) -> bool:
     """
     Check if the workflow name is valid.
@@ -40,6 +42,8 @@ def is_valid_cluster_type(cluster_type):
     return cluster_type in {JOB_CLUSTER, BASIC_CLUSTER}
 
 
+# TODO: is_valid_job_cluster_definition makes HTTP call during validation - slow and creates circular dependency
+# TODO: Hardcoded localhost:8001 fallback is fragile - use service discovery or configuration
 def is_valid_job_cluster_definition(job_cluster_definition_id: str):
     env = os.getenv("ENV", "prod")
     _config = Config(env)
@@ -83,6 +87,8 @@ def is_valid_entry_point(entry_point: str, source_type: str) -> bool:
     return file_extension in ('.py', '.ipynb')
 
 
+# TODO: validate_workflow mixes validation with date conversion side effects - separate concerns
+# TODO: Validation errors are generic - provide field-level error details for API responses
 def validate_workflow(request: CreateWorkflowRequest, wf_dict=None):
     if not _is_valid_name(request.display_name):
         raise InvalidWorkflowException(

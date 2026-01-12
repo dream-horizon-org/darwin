@@ -21,11 +21,13 @@ from compute_core.constant.config import Config
 from compute_script.main import run_job, manage_jupyter_pods, update_status_for_remote_command_execution
 from compute_script.util.custom_metrics import CustomMetrics
 
+# TODO: Consider adding lifespan context manager for proper startup/shutdown handling
 app = FastAPI()
 
 # Add OpenTelemetry middleware FIRST (executes last in the middleware chain)
 app.add_middleware(OpenTelemetryMiddleware)
 
+# TODO: Move instrumentation setup to a dedicated module for cleaner initialization
 # Auto-instrument FastAPI and ASGI
 try:
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -46,6 +48,7 @@ app.include_router(libraries_router.router)
 app.include_router(maven_router.router)
 app.include_router(runtime_v2_router.router)
 
+# TODO: These global instances should use dependency injection pattern via FastAPI's Depends
 config = Config()
 compute = Compute()
 custom_metric_util = CustomMetrics()
@@ -67,10 +70,12 @@ async def add_request_id(request: Request, call_next):
     return response
 
 
+# TODO: Polling interval of 2 seconds is aggressive - consider making it configurable
 @app.on_event("startup")
 @repeat_every(seconds=2)
 def status_poller_job():
     # Generate a unique identifier
+    # TODO: Variable naming - use snake_case (uuid_str instead of uuId)
     uuId = str(uuid.uuid4())
     token = request_id_var.set(uuId)
     try:

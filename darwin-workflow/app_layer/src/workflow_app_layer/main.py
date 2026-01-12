@@ -4,6 +4,7 @@ import os
 from typing import List
 import logging
 
+# TODO: Move DD telemetry configuration to environment variables or config file instead of hardcoding
 os.environ["DD_TELEMETRY_ENABLED"] = "false"
 os.environ["DD_TELEMETRY_DEPENDENCY_COLLECTION_ENABLED"] = "false"
 
@@ -98,6 +99,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# TODO: Lets keep it centralized. A lot of places, the same line is being used.
 env = 'stag' if os.getenv("ENV", "stag") in ['dev', 'stag'] else os.getenv("ENV")
 
 wf_core = WorkflowCoreImpl(env)
@@ -272,53 +274,6 @@ async def get_recently_visited(
 
 
 @app.post(
-    '/workflow', response_model=CreateWorkflowResponse, tags=['Workflow Create/Delete'],
-    responses={
-        200: {"description": "Workflow created successfully"},
-        400: {"description": "Invalid workflow request"},
-        500: {"description": "Internal Server Error"}
-    }
-)
-async def post_workflow(
-        body: CreateWorkflowRequest,
-        background_tasks: BackgroundTasks,
-        msd_user: str = Header(..., alias='msd-user')
-) -> CreateWorkflowResponse:
-    """
-    Creates a workflow.
-    -- create a workflow in the elasticsearch entry
-    -- we may need to deploy the workflow in Airflow
-    """
-    try:
-        if wf_core.check_if_end_date_has_passed(body.end_date):
-            raise InvalidWorkflowException("End date has passed. Please select a future date.")
-
-        if not body.display_name:
-            body.display_name = body.workflow_name
-
-        if not wf_core.check_unique_name_bool(CheckUniqueWorkflowNamePostRequest(name=body.workflow_name)).unique:
-            raise InvalidWorkflowException("Workflow name already exist. Please use a different name.")
-        msd_user_dict = json.loads(msd_user)
-        validate_workflow(body)
-        status, data = await wf_core.create_workflow_v2(body, user_email=msd_user_dict['email'])
-        if body.workflow_status == INACTIVE:
-            body.schedule = DEFAULT_SCHEDULE
-        background_tasks.add_task(deployable_workflow, request=body, user_email=msd_user_dict['email'])
-        if status == SUCCESS:
-            return CreateWorkflowResponse(status="SUCCESS", data=data)
-        else:
-            return error_handler(f"failed to register the dag in system, "
-                                 f"dag created in the airflow due to error {status}")
-    except InvalidWorkflowException as err:
-        return error_handler(err.message, 400)
-    except Exception as err:
-        import traceback
-        logger.error(traceback.format_exc())
-        logger.error(err.__str__())
-        return error_handler(traceback.format_exc())
-
-
-@app.post(
     '/v2/workflow', response_model=CreateWorkflowResponse, tags=['Workflow Create/Delete'],
     responses={
             200: {"description": "Workflow created successfully"},
@@ -368,7 +323,11 @@ async def post_workflow_v2(
 
 
 
+# TODO: Refactor deployable_workflow and deployable_update_workflow into a single function with mode parameter
+# TODO: The deployment logic (create_dag -> deploy -> activate) is duplicated across create/update paths
 def deployable_workflow(request: CreateWorkflowRequest, user_email: str):
+    # TODO: Replace debug file logging with proper structured logging
+    # TODO: This debug log writes to /tmp which may not exist in all environments
     def log_debug(msg):
         try:
             with open("/tmp/workflow_debug.log", "a") as f:
@@ -413,6 +372,8 @@ def deployable_workflow(request: CreateWorkflowRequest, user_email: str):
         return error_handler(err.__str__())
 
 
+# TODO: No error handling for DAG update failures - should update workflow status to UPDATE_FAILED on exception
+# TODO: Missing event publishing for workflow update success/failure (similar to create path)
 def deployable_update_workflow(request: UpdateWorkflowRequest, user_email: str, last_parsed_time: str, workflow_id: str,
                                workflow_status: str):
     deployer = WorkflowDeployer(env=env)
@@ -490,6 +451,8 @@ async def put_update_workflow(
         return error_handler(traceback.format_exc())
 
 
+# TODO: put_update_workflow and put_update_workflow_v2 are nearly identical - consolidate
+# TODO: The only difference is how workflow_status is handled in background_tasks.add_task
 @app.put(
     '/v2/workflow/{workflow_id}', response_model=UpdateWorkflowResponse, tags=['Workflow Create/Delete'],
         responses={
@@ -918,6 +881,7 @@ async def get_workflow_workflow_id(
         return error_handler(err.__str__())
 
 
+# TODO: get_workflow_workflow_id and get_workflow_by_workflow_id are identical - remove duplicate endpoint
 @app.get(
     '/v2/workflow/{workflow_id}',
     response_model=WorkflowWorkflowIdGetResponse,
@@ -1136,6 +1100,7 @@ async def post_runs_workflow_id(
         return error_handler(err.__str__())
 
 
+# TODO: Function name post_runs_workflow_id is reused for v1 and v2 endpoints - rename to post_runs_workflow_id_v2
 @app.post(
     '/v2/runs/{workflow_id}',
     response_model=RetrieveWorkflowRunsResponseV2,
@@ -1602,10 +1567,11 @@ def get_job_cluster_definition(
         return error_handler(err.__str__())
 
 
+# TODO: Three get_job_cluster_definitions functions with same name - causes shadowing issues
 @app.get(
     '/job-cluster-definitions',
     response_model=JobClusterDefinitionListResponse,
-    tags=['JJob Cluster Details'],
+    tags=['Job Cluster Details'],
     responses={
         200: {"description": "Retrieved list of job cluster definitions", "model": JobClusterDefinitionListResponse},
         404: {"description": "Job cluster not found"},

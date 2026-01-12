@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Get the project root directory (same as start-cluster.sh does)
+# This ensures config.env is always written to the same location
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
+CONFIG_ENV="$PROJECT_ROOT/.setup/config.env"
+
 # Check for init configuration
 ENABLED_SERVICES_FILE=".setup/enabled-services.yaml"
 if [ ! -f "$ENABLED_SERVICES_FILE" ]; then
@@ -45,7 +51,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-echo '' > .setup/config.env
+echo '' > "$CONFIG_ENV"
 
 extract_max_supported_api_version() {
     printf "%s\n" "$1" | sed -n 's/.*Maximum supported API version is \([0-9.]*\).*/\1/p' | head -n 1
@@ -86,6 +92,9 @@ ensure_docker_api_version() {
 
 ENV=local
 ENV_CREATION=false
+
+# Set default KUBECONFIG path
+KUBECONFIG=./kind/config/kindkubeconfig.yaml
 
 ensure_docker_api_version
 
@@ -147,6 +156,7 @@ if [ "$ENV" = "local" ]; then
         echo -e "\n🚀 Starting kind cluster..."
 
         envsubst < ./kind/kind-config.yaml > ./kind/kind-config-tmp.yaml
+        
         export CLUSTER_NAME=kind
         export KIND_CONFIG=./kind/kind-config-tmp.yaml
         export KUBECONFIG=./.setup/kindkubeconfig.yaml
@@ -157,7 +167,7 @@ if [ "$ENV" = "local" ]; then
         rm ./kind/kind-config-tmp.yaml
     else
         echo -e "\n🔄 Skipping kind cluster setup"
-        echo "DOCKER_REGISTRY=docker.io" >> .setup/config.env
+        echo "DOCKER_REGISTRY=docker.io" >> "$CONFIG_ENV"
     fi
 else
     echo "ENV is not set to 'local' (current value: '$ENV'), skipping local k8s cluster setup"
@@ -165,11 +175,12 @@ fi
 
 # check if kube config file exists and is reachable
 if [ ! -f "$KUBECONFIG" ]; then
-    echo "❌ KUBECONFIG file does not exist"
+    echo "❌ KUBECONFIG file does not exist at $KUBECONFIG"
+    echo "   Cluster may not have been created. Please ensure cluster setup completed successfully."
     exit 1
 else
-    echo "KUBECONFIG=$KUBECONFIG" >> .setup/config.env
-    source .setup/config.env
+    echo "KUBECONFIG=$KUBECONFIG" >> "$CONFIG_ENV"
+    source "$CONFIG_ENV"
 fi
 
 if kubectl version >/dev/null 2>&1; then

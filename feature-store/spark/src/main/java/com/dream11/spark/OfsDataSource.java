@@ -16,6 +16,9 @@ import static com.dream11.spark.constant.Constants.FEATURE_GROUP_VERSION_KEY;
 import static com.dream11.spark.constant.Constants.TEAM_SUFFIX_KEY;
 import static com.dream11.spark.constant.Constants.VPC_SUFFIX_KEY;
 
+// TODO: adminService is mutable instance variable set in inferSchema - not thread-safe for concurrent schema inference.
+// TODO: No caching of schema - each write job fetches schema from admin service.
+// TODO: Error messages ("feature-group-name cannot be null") should include context about valid options.
 public class OfsDataSource implements DataSourceRegister, TableProvider {
   private OfsAdminService adminService;
 

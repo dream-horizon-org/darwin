@@ -1,3 +1,4 @@
+# TODO: lru_cache creates effectively singleton instances - document this behavior or use explicit singleton pattern
 from functools import lru_cache
 
 from compute_core.compute import Compute
@@ -11,6 +12,7 @@ from compute_core.util.package_management.package_manager import LibraryManager
 from compute_script.dao.sql_dao import ScriptMySQLDao
 
 
+# TODO: Consider adding cache invalidation mechanism for testing and hot-reloading scenarios
 @lru_cache
 def get_remote_command() -> RemoteCommand:
     return RemoteCommand()

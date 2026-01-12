@@ -1,6 +1,7 @@
 import os
 from enum import Enum
 
+# TODO: Large config dict should be moved to external config files (YAML/JSON) for easier environment management
 CONFIGS_MAP = {
     "darwin-local": {
         "thanos_remote_write_url": "http://darwin-thanos:10902",
@@ -167,7 +168,7 @@ USER_FIELD = "user"
 ALREADY_EXIST = "Cluster with same name already exist"
 INVALID_USER_NAME = "Invalid username entered"
 
-# TODO: Move to config constants
+# TODO: Move to config constants - these paths should be environment-specific
 WORKSPACE_MOUNT_PATH = "/home/ray/fsx"
 RSS_MOUNT_PATH = "/home/ray/rss"
 ADDITIONAL_DISK_MOUNT_PATH = "/tmp/disk"
@@ -251,6 +252,7 @@ class ResourceType(Enum):
     SPARK_HISTORY_SERVER = "spark-history-server"
 
 
+# TODO: Pricing data is hardcoded and will become stale - consider fetching from AWS Pricing API
 class PredictionTables:
     # tables are named CMR values - like oneTwo => CMR = 1:2
     # the columns are instance type, cores, memory, on-demand price per hr, min. spot price per hr, respectively

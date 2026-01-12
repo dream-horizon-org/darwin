@@ -47,6 +47,9 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+// TODO: This class is ~800 lines - split into ReadService and WriteService for better separation of concerns.
+// TODO: Validation logic (validateFeatureNamesAndValues*) is duplicated for read/write/partition - extract to shared validator.
+// TODO: lowercaseSchema parameter threaded through many methods - consider a RequestContext object instead.
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class CassandraFeatureStoreService implements FeatureStoreServiceInterface {
@@ -166,6 +169,8 @@ public class CassandraFeatureStoreService implements FeatureStoreServiceInterfac
             dao -> writeFeatures(cassandraFeatureGroupEntityPair, features, lowercaseSchema, dao));
   }
 
+  // TODO: successfulRows and failedRows are mutable lists passed through - use immutable return types instead.
+  // TODO: e.printStackTrace() on line 205 swallows context - use proper structured logging with exception.
   private Single<WriteCassandraFeaturesResponse> writeFeatures(
       CassandraFeatureGroupEntityPair cassandraFeatureGroupEntityPair,
       CassandraFeatureData features,

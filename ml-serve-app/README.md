@@ -749,6 +749,25 @@ For developing ML Serve App independently (outside Darwin ecosystem):
 
 ## Development Workflow
 
+### Test Scripts
+
+Automated test scripts are available in `tests/scripts/`:
+
+- **`test-unit.sh`** - Run unit tests with automatic venv setup and dependency installation
+- **`test-integration.sh`** - Run integration tests (requires running Darwin services)
+- **`cleanup-test-db.sh`** - Clean up test data from the database
+
+```bash
+# Run unit tests
+./tests/scripts/test-unit.sh
+
+# Run integration tests (ensure services are running)
+./tests/scripts/test-integration.sh
+
+# Clean up test database
+./tests/scripts/cleanup-test-db.sh
+```
+
 ### Running Tests
 
 ```bash

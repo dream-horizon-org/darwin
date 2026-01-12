@@ -15,6 +15,9 @@ import org.apache.spark.sql.connector.write.WriterCommitMessage;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 
+// TODO: KafkaProducer created per partition - consider shared producer pool for better resource utilization.
+// TODO: Synchronous send with callback that throws - consider async batching for better throughput.
+// TODO: abort() is empty - should handle partial write cleanup if task fails mid-execution.
 public class OfsDataWriter implements DataWriter<InternalRow> {
   private final Integer partitionId;
   private final Long taskId;

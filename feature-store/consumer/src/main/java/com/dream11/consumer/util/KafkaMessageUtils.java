@@ -8,6 +8,8 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 
+// TODO: Similar message serialization logic exists in spark module (MessageUtils) - consolidate into core module.
+// TODO: throws Throwable is too broad - use JsonProcessingException for better error handling.
 @Slf4j
 public class KafkaMessageUtils {
 

@@ -1,0 +1,124 @@
+version: "1.0"
+
+# Service dependencies
+# For each service, list which datastores and services it requires to run
+services:
+  darwin-ofs-v2:
+    required_datastores:
+      - cassandra
+      - mysql
+      - busybox
+    required_services:
+      - darwin-ofs-v2-admin
+
+  darwin-ofs-v2-admin:
+    required_datastores:
+      - zookeeper
+      - cassandra
+      - mysql
+      - localstack
+      - kafka
+      - busybox
+    required_services: []
+
+  darwin-ofs-v2-consumer:
+    required_datastores:
+      - zookeeper
+      - cassandra
+      - mysql
+      - localstack
+      - kafka
+      - busybox
+    required_services:
+      - darwin-ofs-v2-admin
+
+  darwin-mlflow:
+    required_datastores:
+      - mysql
+      - localstack
+      - busybox
+    required_services: []
+
+  darwin-mlflow-app:
+    required_datastores:
+      - mysql
+      - localstack
+      - busybox
+    required_services:
+      - darwin-mlflow
+
+  chronos:
+    required_datastores:
+      - mysql
+      - localstack
+      - busybox
+      - kafka
+      - zookeeper
+    required_services: []
+
+  chronos-consumer:
+    required_datastores:
+      - mysql
+      - localstack
+      - busybox
+      - kafka
+      - zookeeper
+    required_services:
+      - chronos
+
+  darwin-compute:
+    required_datastores:
+      - mysql
+      - opensearch
+      - busybox
+    required_services:
+      - darwin-cluster-manager
+
+  darwin-cluster-manager:
+    required_datastores:
+      - mysql
+      - opensearch
+      - localstack
+      - busybox
+    required_services: []
+
+  darwin-workspace:
+    required_datastores:
+      - mysql
+      - busybox
+    required_services:
+      - darwin-compute
+
+  ml-serve-app:
+    required_datastores:
+      - mysql
+      - localstack
+      - busybox
+    required_services:
+      - artifact-builder
+      - darwin-cluster-manager
+      - darwin-mlflow-app
+
+  artifact-builder:
+    required_datastores:
+      - mysql
+      - localstack
+      - busybox
+    required_services: []
+
+  darwin-catalog:
+    required_datastores:
+      - mysql
+      - localstack
+    required_services: []
+
+  darwin-workflow:
+    required_datastores:
+      - mysql
+      - elasticsearch
+      - localstack
+      - busybox
+      - airflow
+    required_services:
+      - darwin-compute
+      - darwin-cluster-manager
