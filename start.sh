@@ -214,10 +214,10 @@ if [ "$LOCALSTACK_ENABLED" = "true" ] && [ "$CLUSTER_MANAGER_ENABLED" = "true" ]
     rm -f "$KUBECONFIG_TEMP"
     
     if [ $UPLOAD_EXIT_CODE -eq 0 ]; then
-      echo "   ✅ Kubeconfig uploaded to S3 successfully"
+      echo "✅ Kubeconfig uploaded to S3 successfully"
     else
-      echo "   ⚠️  Failed to upload kubeconfig to S3 (exit code: $UPLOAD_EXIT_CODE)"
-      echo "   ⚠️  darwin-cluster-manager may not be able to access kubeconfig"
+      echo "❌ Failed to upload kubeconfig to S3 (exit code: $UPLOAD_EXIT_CODE)"
+      echo "⚠️ darwin-cluster-manager may not be able to access kubeconfig"
     fi
   else
     echo "⚠️  Kubeconfig not found at $KUBECONFIG"
