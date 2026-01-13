@@ -1,9 +1,15 @@
 #!/bin/sh
 set -e
 
-# Detect platform - default to linux/amd64 for Kind compatibility
-# Kind clusters run amd64 nodes even on Apple Silicon Macs
-PLATFORM="${PLATFORM:-linux/amd64}"
+# Auto-detect platform based on architecture
+# Detects CI environment vs local development
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64|amd64) DEFAULT_PLATFORM="linux/amd64" ;;
+  arm64|aarch64) DEFAULT_PLATFORM="linux/arm64" ;;
+  *) DEFAULT_PLATFORM="linux/arm64" ;;  # Default to arm64 for unknown
+esac
+PLATFORM="${PLATFORM:-$DEFAULT_PLATFORM}"
 
 # Parse command line arguments
 while getopts n:p:P:r:h flag
@@ -18,7 +24,7 @@ do
             echo "  -n: Image name (required)"
             echo "  -p: Path to directory containing Dockerfile (required)"
             echo "  -r: Docker registry URL (required)"
-            echo "  -P: Platform (default: linux/amd64)"
+            echo "  -P: Platform (default: auto-detected, currently $DEFAULT_PLATFORM)"
             echo "  -h: Show this help message"
             exit 0
             ;;
@@ -53,16 +59,12 @@ fi
 echo "Building Ray image..."
 echo "  Image name: $IMAGE_NAME"
 echo "  Dockerfile path: $DOCKERFILE_PATH"
-echo "  Platform: $PLATFORM"
+echo "  Platform: $PLATFORM (detected arch: $ARCH)"
 echo "  Registry: $REGISTRY"
 
 # Build the Docker image
-# Use --provenance=false and --sbom=false to ensure a single-platform manifest
-# (multi-platform OCI indexes can cause "no match for platform" errors in Kind)
 docker build \
     --platform=$PLATFORM \
-    --provenance=false \
-    --sbom=false \
     -t "$IMAGE_NAME" \
     -f "$DOCKERFILE_PATH/Dockerfile" \
     "$DOCKERFILE_PATH"
