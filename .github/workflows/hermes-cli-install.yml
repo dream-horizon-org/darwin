@@ -11,90 +11,24 @@ on:
 jobs:
   install-and-test:
     name: Installation and CLI Smoke Tests
-    runs-on: [self-hosted, Linux, X64, darwin]
-    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: hermes-cli
 
     steps:
-      - name: Runner identity (debug)
-        run: |
-          echo "Runner name: $RUNNER_NAME"
-          echo "Runner OS: $RUNNER_OS"
-          echo "Runner arch: $RUNNER_ARCH"
-          hostname
-        working-directory: .
-
-      - name: Cleanup previous run artifacts
-        run: |
-          echo "🧹 Cleaning up previous run artifacts..."
-          # Clean up any leftover directories that might cause permission issues during checkout
-          # The checkout action fails if it can't remove directories from previous runs
-          WORKSPACE_DIR="${{ github.workspace }}"
-          if [ -d "$WORKSPACE_DIR" ]; then
-            echo "Cleaning up workspace directory: $WORKSPACE_DIR"
-            # Try to remove kind/shared-storage directories that might have permission issues
-            # These are often created by Kubernetes volumes and may have restrictive permissions
-            if [ -d "$WORKSPACE_DIR/kind" ]; then
-              echo "Cleaning up kind directory..."
-              sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null || true
-              sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null || true
-              find "$WORKSPACE_DIR/kind" -type d -name "shared-storage" -exec sudo rm -rf {} + 2>/dev/null || true
-            fi
-          fi
-          echo "✅ Cleanup completed"
-        working-directory: .
-
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          clean: true
-          fetch-depth: 1
-
-      - name: Install Python 3.9 via deadsnakes PPA
-        run: |
-          echo "🐍 Checking for Python 3.9..."
-
-          # Check if python3.9 is already installed
-          if command -v python3.9 >/dev/null 2>&1; then
-            echo "✅ Python 3.9 already installed:"
-            python3.9 --version
-            which python3.9
-          else
-            echo "Installing Python 3.9 via deadsnakes PPA..."
-            
-            # Install prerequisites
-            sudo apt-get update
-            sudo apt-get install -y software-properties-common gnupg
-            
-            # Add deadsnakes PPA manually (bypasses Launchpad API)
-            echo "deb http://ppa.launchpad.net/deadsnakes/ppa/ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/deadsnakes-ppa.list
-            echo "deb-src http://ppa.launchpad.net/deadsnakes/ppa/ubuntu jammy main" | sudo tee -a /etc/apt/sources.list.d/deadsnakes-ppa.list
-            
-            # Add PPA GPG key
-            sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F23C5A6CF475977595C89F51BA6932366A755776
-            
-            # Update and install Python 3.9
-            sudo apt-get update
-            sudo apt-get install -y python3.9 python3.9-venv python3.9-distutils
-            
-            echo "✅ Python 3.9 installed"
-            python3.9 --version
-            which python3.9
-          fi
-        working-directory: .
-
-      - name: Create virtual environment
-        run: |
-          echo "🔧 Creating virtual environment..."
-          python3.9 -m venv .venv
-          echo "✅ Virtual environment created"
+          python-version: "3.9"
 
       - name: Install hermes-cli
         run: |
           echo "📦 Installing hermes-cli..."
-          source .venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -e .
           echo "✅ Installation completed"
@@ -102,7 +36,8 @@ jobs:
       - name: Verify installation
         run: |
           echo "🔍 Verifying hermes-cli installation..."
-          source .venv/bin/activate
+          python --version
+          which hermes
           # Try --version first, fall back to --help if version not available
           hermes --version 2>/dev/null || hermes --help
           echo "✅ Hermes CLI is installed and accessible"
@@ -110,7 +45,6 @@ jobs:
       - name: Test CLI smoke test
         run: |
           echo "🧪 Testing hermes CLI..."
-          source .venv/bin/activate
 
           # Test that hermes --help works (validates CLI is working)
           echo "  Testing: hermes --help"
@@ -124,28 +58,3 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Hermes CLI Install Test Passed!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-      - name: Cleanup
-        if: always()
-        run: |
-          echo "🧹 Cleaning up..."
-
-          # Clean up Docker to free space (important for GitHub Actions runners)
-          echo "Cleaning up Docker resources..."
-          docker system prune -a -f || true
-          docker volume prune -f || true
-
-          # Kill any port-forwards
-          pkill -f "kubectl port-forward" || true
-
-          # Delete kind cluster if it exists
-          if command -v kind >/dev/null 2>&1; then
-            if kind get clusters 2>/dev/null | grep -q kind; then
-              echo "Deleting kind cluster..."
-              kind delete cluster --name kind || true
-            fi
-          fi
-
-          # Final Docker cleanup
-          docker system prune -f || true
-        working-directory: .
