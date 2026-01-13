@@ -166,6 +166,71 @@ fi
 
 echo "✅ Helm chart deployed (all pods ready via --wait)"
 
+# ============================================================================
+# UPLOAD KUBECONFIG TO S3 (for darwin-cluster-manager)
+# ============================================================================
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "               UPLOADING KUBECONFIG TO S3"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check if both localstack and darwin-cluster-manager are enabled
+LOCALSTACK_ENABLED=$(yq eval '.datastores.localstack // false' "$ENABLED_SERVICES_FILE")
+CLUSTER_MANAGER_ENABLED=$(yq eval '.applications.darwin-cluster-manager // false' "$ENABLED_SERVICES_FILE")
+
+if [ "$LOCALSTACK_ENABLED" = "true" ] && [ "$CLUSTER_MANAGER_ENABLED" = "true" ]; then
+  
+  if [ -f "$KUBECONFIG" ]; then
+    echo "📦 Uploading kubeconfig to S3 for darwin-cluster-manager..."
+    
+    # Create a temporary file with the server address updated for in-cluster use
+    KUBECONFIG_TEMP=$(mktemp)
+    cp "$KUBECONFIG" "$KUBECONFIG_TEMP"
+    
+    # Update the server address to use in-cluster DNS name
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      sed -i '' 's|server: https://127\.0\.0\.1:[0-9]*|server: https://kubernetes.default.svc|' "$KUBECONFIG_TEMP"
+    else
+      sed -i 's|server: https://127\.0\.0\.1:[0-9]*|server: https://kubernetes.default.svc|' "$KUBECONFIG_TEMP"
+    fi
+    
+    # Wait for LocalStack to be accessible via port-forward
+    echo "   Setting up port-forward to LocalStack..."
+    kubectl port-forward svc/darwin-localstack -n darwin 4566:4566 &
+    PF_PID=$!
+    sleep 3
+    
+    # Upload to S3 using AWS CLI
+    set +e
+    AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws s3 \
+      --endpoint-url=http://localhost:4566 \
+      cp "$KUBECONFIG_TEMP" s3://darwin/mlp/cluster_manager/configs/kind 2>&1
+    UPLOAD_EXIT_CODE=$?
+    set -e
+    
+    # Cleanup
+    kill $PF_PID 2>/dev/null || true
+    rm -f "$KUBECONFIG_TEMP"
+    
+    if [ $UPLOAD_EXIT_CODE -eq 0 ]; then
+      echo "   ✅ Kubeconfig uploaded to S3 successfully"
+    else
+      echo "   ⚠️  Failed to upload kubeconfig to S3 (exit code: $UPLOAD_EXIT_CODE)"
+      echo "   ⚠️  darwin-cluster-manager may not be able to access kubeconfig"
+    fi
+  else
+    echo "⚠️  Kubeconfig not found at $KUBECONFIG"
+    echo "   darwin-cluster-manager may not work correctly"
+  fi
+else
+  if [ "$LOCALSTACK_ENABLED" != "true" ]; then
+    echo "⏭️  Skipping kubeconfig upload (LocalStack disabled)"
+  else
+    echo "⏭️  Skipping kubeconfig upload (darwin-cluster-manager disabled)"
+  fi
+fi
+
 echo "✅ Deployment completed!"
 
 # ============================================================================

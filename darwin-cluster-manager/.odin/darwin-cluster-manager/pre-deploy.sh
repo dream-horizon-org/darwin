@@ -10,7 +10,8 @@ echo "AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID"
 echo "AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY"
 echo "AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
 
-aws s3 --endpoint-url=$AWS_ENDPOINT_OVERRIDE mb s3://$COMPUTE_BUCKET_NAME
+# Create the S3 bucket for cluster manager artifacts
+aws s3 --endpoint-url=$AWS_ENDPOINT_OVERRIDE mb s3://$COMPUTE_BUCKET_NAME || echo "Bucket may already exist"
 aws s3 --endpoint-url=$AWS_ENDPOINT_OVERRIDE ls
 
 echo "----- Pre-deploy completed -----"

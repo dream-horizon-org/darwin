@@ -143,8 +143,8 @@ airflow:
 localstack:
   enabled: true
   image:
-    repository: localstack/localstack
-    tag: "latest"
+    repository: localhost:5000/localstack/localstack
+    tag: latest
     pullPolicy: IfNotPresent
   persistence:
     enabled: true

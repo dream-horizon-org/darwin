@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: opensearch
-          image: opensearchproject/opensearch:2.11.0
+          image: localhost:5000/opensearchproject/opensearch:2.11.0
           env:
             - name: cluster.name
               value: {{ .Values.opensearch.clusterName | quote }}
