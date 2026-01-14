@@ -4,7 +4,7 @@ set -e # For enabling Exit on error
 
 # Get project root directory (consistent with other scripts)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 KUBECONFIG_SOURCE="$PROJECT_ROOT/kind/config/kindkubeconfig.yaml"
 
 cp -rf ./app ./target/darwin-cluster-manager/app
@@ -23,6 +23,7 @@ cp -rf ./main.go ./target/darwin-cluster-manager/main.go
 mkdir -p ./target/darwin-cluster-manager/configs
 if [ -f "$KUBECONFIG_SOURCE" ]; then
     cp "$KUBECONFIG_SOURCE" ./target/darwin-cluster-manager/configs/kind
+    echo "✅ Copied kubeconfig from $KUBECONFIG_SOURCE"
 else
     echo "⚠️  Warning: kindkubeconfig.yaml not found at $KUBECONFIG_SOURCE"
     echo "   This may be expected if running outside of a Kind cluster setup"
