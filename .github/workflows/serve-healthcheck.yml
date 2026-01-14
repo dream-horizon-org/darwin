@@ -393,21 +393,17 @@ jobs:
             attempt=$((attempt+1))
           done
 
-          # Test health check via port-forward
-          echo "🏥 Testing health check via port-forward..."
+          # Test health check via ingress
+          echo "🏥 Testing ML Serve App health check via ingress..."
 
-          # Start port-forward in background
-          kubectl port-forward svc/darwin-ml-serve-app -n darwin 8007:8000 > /tmp/port-forward.log 2>&1 &
-          PORT_FORWARD_PID=$!
-          echo "Port-forward started with PID: $PORT_FORWARD_PID"
+          HEALTH_URL="http://localhost/ml-serve/healthcheck"
+          echo "Testing endpoint: $HEALTH_URL"
 
-          # Wait for port-forward to be ready
-          sleep 5
-
+          # Wait for health check endpoint to be accessible
           max_attempts=30
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            if curl -f -s http://localhost:8007/healthcheck > /dev/null 2>&1; then
+            if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
               echo "✅ Health check endpoint is accessible"
               break
             fi
@@ -417,16 +413,13 @@ jobs:
           done
 
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Health check endpoint not accessible"
-            echo "Port-forward logs:"
-            cat /tmp/port-forward.log || true
-            kill $PORT_FORWARD_PID 2>/dev/null || true
+            echo "❌ Health check endpoint not accessible at $HEALTH_URL"
             exit 1
           fi
 
           # Test health check endpoint and verify response
-          echo "Testing /healthcheck endpoint..."
-          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost:8007/healthcheck)
+          echo "Testing health check endpoint..."
+          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$HEALTH_URL")
           http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
           body=$(echo "$response" | grep -v "HTTP_CODE")
 
@@ -435,7 +428,6 @@ jobs:
 
           if [ "$http_code" != "200" ]; then
             echo "❌ Health check returned HTTP $http_code, expected 200"
-            kill $PORT_FORWARD_PID 2>/dev/null || true
             exit 1
           fi
 
@@ -458,9 +450,6 @@ jobs:
               print(f"❌ Invalid JSON response: {e}")
               sys.exit(1)
           EOF
-
-          # Cleanup port-forward
-          kill $PORT_FORWARD_PID 2>/dev/null || true
       - name: Wait for artifact-builder pod to be ready
         run: |
           echo "⏳ Waiting for artifact-builder pod to be ready..."
@@ -554,22 +543,17 @@ jobs:
         run: |
           echo "✅ Verifying artifact-builder is healthy..."
 
-          # Test health check via port-forward (artifact-builder uses port 8000)
-          echo "🏥 Testing artifact-builder health check..."
+          # Test health check via ingress
+          echo "🏥 Testing Artifact Builder health check via ingress..."
 
-          # Start port-forward in background
-          kubectl port-forward svc/darwin-artifact-builder -n darwin 8006:8000 > /tmp/artifact-port-forward.log 2>&1 &
-          ARTIFACT_PORT_FORWARD_PID=$!
-          echo "Port-forward started with PID: $ARTIFACT_PORT_FORWARD_PID"
+          HEALTH_URL="http://localhost/artifact-builder/healthcheck"
+          echo "Testing endpoint: $HEALTH_URL"
 
-          # Wait for port-forward to be ready
-          sleep 5
-
-          # Test health check endpoint
+          # Wait for health check endpoint to be accessible
           max_attempts=30
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            if curl -f -s http://localhost:8006/healthcheck > /dev/null 2>&1; then
+            if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
               echo "✅ Artifact Builder health check endpoint is accessible"
               break
             fi
@@ -579,16 +563,13 @@ jobs:
           done
 
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Artifact Builder health check endpoint not accessible"
-            echo "Port-forward logs:"
-            cat /tmp/artifact-port-forward.log || true
-            kill $ARTIFACT_PORT_FORWARD_PID 2>/dev/null || true
+            echo "❌ Artifact Builder health check endpoint not accessible at $HEALTH_URL"
             exit 1
           fi
 
           # Test health check endpoint and verify response
-          echo "Testing artifact-builder /healthcheck endpoint..."
-          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost:8006/healthcheck)
+          echo "Testing artifact-builder health check endpoint..."
+          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$HEALTH_URL")
           http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
           body=$(echo "$response" | grep -v "HTTP_CODE")
 
@@ -597,7 +578,6 @@ jobs:
 
           if [ "$http_code" != "200" ]; then
             echo "❌ Artifact Builder health check returned HTTP $http_code, expected 200"
-            kill $ARTIFACT_PORT_FORWARD_PID 2>/dev/null || true
             exit 1
           fi
 
@@ -621,9 +601,6 @@ jobs:
               sys.exit(1)
           EOF
 
-          # Cleanup port-forward
-          kill $ARTIFACT_PORT_FORWARD_PID 2>/dev/null || true
-
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Both ML Serve App and Artifact Builder are healthy!"
@@ -637,9 +614,6 @@ jobs:
           echo "Cleaning up Docker resources..."
           docker system prune -a -f || true
           docker volume prune -f || true
-
-          # Kill any port-forwards
-          pkill -f "kubectl port-forward" || true
 
           # Delete kind cluster if it exists
           if kind get clusters 2>/dev/null | grep -q kind; then
