@@ -1,0 +1,60 @@
+name: Hermes CLI - Install Test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "hermes-cli/**"
+      - ".github/workflows/hermes-cli-install.yml"
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  install-and-test:
+    name: Installation and CLI Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: hermes-cli
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install hermes-cli
+        run: |
+          echo "📦 Installing hermes-cli..."
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          echo "✅ Installation completed"
+
+      - name: Verify installation
+        run: |
+          echo "🔍 Verifying hermes-cli installation..."
+          python --version
+          which hermes
+          # Try --version first, fall back to --help if version not available
+          hermes --version 2>/dev/null || hermes --help
+          echo "✅ Hermes CLI is installed and accessible"
+
+      - name: Test CLI smoke test
+        run: |
+          echo "🧪 Testing hermes CLI..."
+
+          # Test that hermes --help works (validates CLI is working)
+          echo "  Testing: hermes --help"
+          hermes --help
+
+          # Verify it returns exit code 0
+          hermes --help > /dev/null
+
+          echo "✅ Hermes CLI is working correctly"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Hermes CLI Install Test Passed!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
