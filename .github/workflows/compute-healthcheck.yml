@@ -449,17 +449,13 @@ jobs:
           try:
               data = json.loads('''$body''')
               
-              # darwin-compute /health endpoint returns {"message": "...", "success": true, "data": ...}
-              if 'success' not in data:
-                  print("❌ Missing 'success' field in response")
-                  sys.exit(1)
-              
-              if data.get('success') != True:
-                  print(f"❌ success is '{data.get('success')}', expected True")
+              # darwin-compute /health endpoint returns {"status":"SUCCESS","data":null,"message":"Healthy"}
+              if 'SUCCESS' not in data['status']:
+                  print(f"❌ status is '{data.get('status')}', expected 'SUCCESS'")
                   sys.exit(1)
               
               print("✅ Health check response structure is valid")
-              print(f"   success: {data.get('success')}")
+              print(f"   status: {data.get('status')}")
               print(f"   message: {data.get('message')}")
               
               print("\n✅ Health check passed! Service is healthy.")
