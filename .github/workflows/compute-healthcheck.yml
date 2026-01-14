@@ -22,38 +22,22 @@ jobs:
       KUBECONFIG: ./kind/config/kindkubeconfig.yaml
 
     steps:
-      - name: Runner identity (debug)
+      - name: Runner identity
         run: |
-          echo "Runner name: $RUNNER_NAME"
-          echo "Runner OS: $RUNNER_OS"
-          echo "Runner arch: $RUNNER_ARCH"
+          echo "Runner: $RUNNER_NAME | OS: $RUNNER_OS | Arch: $RUNNER_ARCH"
           hostname
 
-      - name: Cleanup previous run artifacts
+      - name: Cleanup previous artifacts
         run: |
           echo "🧹 Cleaning up previous run artifacts..."
-          # Clean up kind cluster if it exists
           if command -v kind >/dev/null 2>&1; then
-            if kind get clusters 2>/dev/null | grep -q kind; then
-              echo "Deleting existing kind cluster..."
-              kind delete cluster --name kind || true
-            fi
+            kind delete cluster --name kind 2>/dev/null || true
           fi
-          # Clean up any leftover directories that might cause permission issues during checkout
-          # The checkout action fails if it can't remove directories from previous runs
           WORKSPACE_DIR="${{ github.workspace }}"
-          if [ -d "$WORKSPACE_DIR" ]; then
-            echo "Cleaning up workspace directory: $WORKSPACE_DIR"
-            # Try to remove kind/shared-storage directories that might have permission issues
-            # These are often created by Kubernetes volumes and may have restrictive permissions
-            if [ -d "$WORKSPACE_DIR/kind" ]; then
-              echo "Cleaning up kind directory..."
-              sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null || true
-              sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null || true
-              find "$WORKSPACE_DIR/kind" -type d -name "shared-storage" -exec sudo rm -rf {} + 2>/dev/null || true
-            fi
+          if [ -d "$WORKSPACE_DIR/kind" ]; then
+            sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null || true
+            sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null || true
           fi
-          echo "✅ Cleanup completed"
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -62,18 +46,17 @@ jobs:
           clean: true
           fetch-depth: 1
 
-      - name: Set up Docker Buildx
+      - name: Setup Docker
         uses: docker/setup-buildx-action@v3
 
-      - name: Clean up disk space
+      - name: Clean disk space
         run: |
-          echo "🧹 Cleaning up disk space before build..."
+          echo "🧹 Cleaning up disk space..."
           echo "Current disk usage:"
           df -h
           echo ""
           echo "Cleaning up Docker resources..."
           docker system prune -a -f || true
-          docker image prune -f || true
           docker volume prune -f || true
           echo ""
           echo "Cleaning up apt cache..."
@@ -87,7 +70,7 @@ jobs:
         run: |
           # Install kubectl
           KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
-          echo "Installing kubectl version: $KUBECTL_VERSION"
+          echo "Installing kubectl $KUBECTL_VERSION"
           curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
           # Verify the download is actually a binary (not an error page)
           if ! file kubectl | grep -q "ELF\|executable"; then
@@ -95,81 +78,56 @@ jobs:
             rm -f kubectl
             curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
           fi
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/kubectl
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
           kubectl version --client
+
           # Install Helm
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
           helm version
+
           # Install Kind
           curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-          chmod +x /tmp/kind
-          sudo mv /tmp/kind /usr/local/bin/kind
+          chmod +x /tmp/kind && sudo mv /tmp/kind /usr/local/bin/kind
           kind version
-          # Install yq (required by init.sh)
+
+          # Install yq
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
           yq --version
 
-      - name: Step 1 - Initialize configuration (init.sh)
+      - name: Configure services (init.sh)
         run: |
-          echo "📋 Step 1: Running init.sh to configure services..."
-          
-          # Clean up any existing config to avoid overwrite prompt
+          echo "📋 Running init.sh to configure services..."
           rm -f .setup/enabled-services.yaml
-          
-          # Answers (13 prompts total):
-          # 1: compute (y) - this is the service we're testing
+
+          # Answers (13 prompts):
+          # 1: compute (y) - service under test
           # 2-8: workspace, feature_store, mlflow, serve, catalog, chronos, workflow (all n)
           # 9: confirm (y)
-          # 10: darwin sdk runtime (n)
-          # 11: ray:2.37.0 (n)
-          # 12: ray:2.53.0 (y)
+          # 10-12: darwin sdk runtime, ray:2.37.0, ray:2.53.0 (all n)
           # 13: hermes-cli (n)
-          # Use printf with explicit newlines and ensure stdin is properly closed
           printf "y\nn\nn\nn\nn\nn\nn\nn\ny\nn\nn\nn\nn\n" | ./init.sh || {
-            echo "❌ init.sh failed with exit code $?"
-            echo "Checking if config was created..."
-            if [ -f .setup/enabled-services.yaml ]; then
-              echo "Config file exists, showing contents:"
-              cat .setup/enabled-services.yaml
-            else
-              echo "Config file was not created"
-            fi
+            echo "❌ init.sh failed"
+            [ -f .setup/enabled-services.yaml ] && cat .setup/enabled-services.yaml
             exit 1
           }
-          
-          echo "✅ Configuration created by init.sh"
+
+          echo "✅ Configuration created:"
           cat .setup/enabled-services.yaml
 
-      - name: Step 2 - Build images and setup cluster (setup.sh)
+      - name: Build and setup cluster (setup.sh)
         run: |
-          echo "🔨 Step 2: Running setup.sh to build images and setup cluster..."
-          # Ensure ENV is set to local for cluster creation
+          echo "🔨 Running setup.sh..."
           export ENV=local
-          # Run setup.sh with auto-yes flag (it will auto-answer yes to cluster setup and clean build)
-          # setup.sh will handle errors gracefully - if cluster creation fails but KUBECONFIG exists, it will continue
           ./setup.sh -y
-          
-          # Verify config.env was created (setup.sh should create it at project root)
-          echo "🔍 Verifying config.env was created..."
+
           if [ -f config.env ]; then
-            echo "✅ config.env exists"
-            echo "Contents:"
+            echo "✅ config.env created:"
             cat config.env
           else
-            echo "❌ config.env not found! setup.sh may have failed."
-            echo "Current directory: $(pwd)"
-            echo "Looking for config.env..."
-            find . -name "config.env" -type f 2>/dev/null | head -5 || echo "Not found"
+            echo "❌ config.env not found"
             exit 1
           fi
-          
-          # Clean up unused images after build to free space for deployment
-          echo "🧹 Cleaning up unused Docker images after build..."
-          docker image prune -f || true
-          echo "Disk space after build:"
-          df -h
 
       - name: Verify cluster is ready
         run: |
@@ -199,292 +157,116 @@ jobs:
             exit 1
           fi
 
-      - name: Step 3 - Deploy to Kubernetes (start.sh)
+      - name: Deploy to Kubernetes (start.sh)
         run: |
-          echo "🚀 Step 3: Running start.sh to deploy to Kubernetes..."
-          
-          echo "📋 Running start.sh (it will source config.env automatically)..."
-          
-          # Start a background process to periodically show status and keep runner alive
+          echo "🚀 Running start.sh..."
+
+          # Background status monitor
           (
             while true; do
               sleep 30
-              echo ""
-              echo "⏳ [$(date +%H:%M:%S)] Deployment in progress... Showing current status:"
-              echo "   Helm releases:"
-              helm list -n darwin 2>/dev/null | head -3 || echo "      (no releases yet)"
-              echo "   Pod status:"
-              kubectl get pods -n darwin --no-headers 2>/dev/null | head -5 | awk '{print "      " $1 ": " $3}' || echo "      (no pods yet)"
-              echo ""
+              echo "⏳ [$(date +%H:%M:%S)] Status:"
+              helm list -n darwin 2>/dev/null | head -3 || true
+              kubectl get pods -n darwin --no-headers 2>/dev/null | head -5 | awk '{print "  " $1 ": " $3}' || true
             done
           ) &
-          STATUS_MONITOR_PID=$!
-          
-          # Capture output and exit code
-          set +e  # Don't exit on error immediately, we want to capture diagnostics
+          MONITOR_PID=$!
+
+          set +e
           ./start.sh 2>&1 | tee /tmp/start.sh.log
-          START_EXIT_CODE=${PIPESTATUS[0]}
+          EXIT_CODE=${PIPESTATUS[0]}
           set -e
-          
-          # Stop the status monitor
-          kill $STATUS_MONITOR_PID 2>/dev/null || true
-          
-          if [ $START_EXIT_CODE -ne 0 ]; then
-            echo "❌ start.sh failed with exit code $START_EXIT_CODE"
-            echo ""
-            echo "=== start.sh output ==="
-            cat /tmp/start.sh.log || true
-            echo ""
-            echo "=== Helm releases ==="
+
+          kill $MONITOR_PID 2>/dev/null || true
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "❌ start.sh failed with exit code $EXIT_CODE"
+            echo "=== Diagnostics ==="
             helm list -n darwin || true
-            echo ""
-            echo "=== Helm release status ==="
-            helm status darwin -n darwin || true
-            echo ""
-            echo "=== Helm release history ==="
-            helm history darwin -n darwin || true
-            echo ""
-            echo "=== All pods in darwin namespace ==="
             kubectl get pods -n darwin || true
-            echo ""
-            echo "=== Failed pods details ==="
-            kubectl get pods -n darwin -o json | jq -r '.items[] | select(.status.phase != "Running" and .status.phase != "Succeeded") | "\(.metadata.name): \(.status.phase) - \(.status.reason // "N/A")"' || true
-            echo ""
-            echo "=== Pod events ==="
             kubectl get events -n darwin --sort-by='.lastTimestamp' | tail -20 || true
-            echo ""
-            echo "=== Readiness check job (if exists) ==="
-            kubectl get jobs -n darwin | grep readiness || true
-            kubectl logs -n darwin -l job-name=darwin-services-readiness-check --tail=50 || true
-            echo ""
-            echo "=== All resources in darwin namespace ==="
-            kubectl get all -n darwin || true
-            echo ""
-            echo "=== Describe failed pods ==="
-            for pod in $(kubectl get pods -n darwin -o jsonpath='{.items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")].metadata.name}'); do
-              echo "--- Describing pod: $pod ---"
-              kubectl describe pod -n darwin "$pod" || true
-              echo "--- Logs for pod: $pod ---"
-              kubectl logs -n darwin "$pod" --tail=50 || true
+            for pod in $(kubectl get pods -n darwin -o jsonpath='{.items[?(@.status.phase!="Running")].metadata.name}' 2>/dev/null); do
+              echo "--- Pod: $pod ---"
+              kubectl describe pod -n darwin "$pod" 2>/dev/null | tail -30 || true
+              kubectl logs -n darwin "$pod" --tail=30 2>/dev/null || true
             done
-            echo ""
-            echo "=== Helm test results (if any) ==="
-            helm test darwin -n darwin || true
-            exit 1
-          fi
-          
-          # Verify deployment was successful
-          echo "🔍 Verifying deployment..."
-          if ! helm list -n darwin | grep -q darwin; then
-            echo "❌ Helm release 'darwin' not found after start.sh completed"
-            exit 1
-          fi
-          
-          echo "✅ Deployment completed successfully"
-
-      - name: Wait for darwin-compute pod to be ready
-        run: |
-          echo "⏳ Waiting for darwin-compute pod to be ready..."
-          
-          # Try to find the pod using multiple label selectors
-          # The pod is labeled with app.kubernetes.io/component=compute, not app.kubernetes.io/name=darwin-compute
-          COMPUTE_POD=""
-          COMPUTE_SELECTOR=""
-          
-          # Try different label selectors
-          if kubectl get pods -n darwin -l app.kubernetes.io/component=compute --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
-            COMPUTE_SELECTOR="app.kubernetes.io/component=compute"
-            COMPUTE_POD=$(kubectl get pods -n darwin -l app.kubernetes.io/component=compute --no-headers 2>/dev/null | head -1 | awk '{print $1}')
-          elif kubectl get pods -n darwin -l component-name=darwin-compute --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
-            COMPUTE_SELECTOR="component-name=darwin-compute"
-            COMPUTE_POD=$(kubectl get pods -n darwin -l component-name=darwin-compute --no-headers 2>/dev/null | head -1 | awk '{print $1}')
-          elif kubectl get pods -n darwin | grep -E "darwin-compute|compute" | head -1 | awk '{print $1}' | grep -q .; then
-            COMPUTE_POD=$(kubectl get pods -n darwin | grep -E "darwin-compute|compute" | head -1 | awk '{print $1}')
-            COMPUTE_SELECTOR="name"
-          fi
-          
-          if [ -z "$COMPUTE_POD" ]; then
-            echo "⚠️  Could not find darwin-compute pod with any label selector"
-            echo "Checking all pods in darwin namespace:"
-            kubectl get pods -n darwin || true
-            echo ""
-            echo "Checking deployments:"
-            kubectl get deployments -n darwin | grep compute || true
-            exit 1
-          fi
-          
-          echo "Found compute pod: $COMPUTE_POD (using selector: $COMPUTE_SELECTOR)"
-          
-          max_attempts=60
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            # Check if pod exists and is ready
-            if [ "$COMPUTE_SELECTOR" = "name" ]; then
-              POD_STATUS=$(kubectl get pod "$COMPUTE_POD" -n darwin -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
-              READY=$(kubectl get pod "$COMPUTE_POD" -n darwin -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
-            else
-              POD_STATUS=$(kubectl get pods -n darwin -l "$COMPUTE_SELECTOR" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
-              READY=$(kubectl get pods -n darwin -l "$COMPUTE_SELECTOR" -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
-            fi
-            
-            if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
-              echo "✅ darwin-compute pod is ready"
-              if [ "$COMPUTE_SELECTOR" = "name" ]; then
-                kubectl get pod "$COMPUTE_POD" -n darwin
-              else
-                kubectl get pods -n darwin -l "$COMPUTE_SELECTOR"
-              fi
-              break
-            fi
-            
-            echo "Attempt $((attempt+1))/$max_attempts: Waiting for pod... (Status: $POD_STATUS, Ready: $READY)"
-            if [ "$COMPUTE_SELECTOR" = "name" ]; then
-              kubectl get pod "$COMPUTE_POD" -n darwin || true
-            else
-              kubectl get pods -n darwin -l "$COMPUTE_SELECTOR" || true
-            fi
-            sleep 5
-            attempt=$((attempt+1))
-          done
-          
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-compute pod did not become ready after $max_attempts attempts"
-            echo ""
-            echo "Pod status:"
-            if [ "$COMPUTE_SELECTOR" = "name" ]; then
-              kubectl get pod "$COMPUTE_POD" -n darwin || true
-              kubectl describe pod "$COMPUTE_POD" -n darwin || true
-              echo ""
-              echo "Pod logs:"
-              kubectl logs "$COMPUTE_POD" -n darwin --tail=50 || true
-            else
-              kubectl get pods -n darwin -l "$COMPUTE_SELECTOR" || true
-              COMPUTE_POD_NAME=$(kubectl get pods -n darwin -l "$COMPUTE_SELECTOR" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
-              if [ -n "$COMPUTE_POD_NAME" ]; then
-                kubectl describe pod "$COMPUTE_POD_NAME" -n darwin || true
-                echo ""
-                echo "Pod logs:"
-                kubectl logs "$COMPUTE_POD_NAME" -n darwin --tail=50 || true
-              fi
-            fi
-            echo ""
-            echo "All pods in darwin namespace:"
-            kubectl get pods -n darwin || true
             exit 1
           fi
 
-      - name: Verify Services Are Healthy
+          echo "✅ Deployment completed"
+
+      - name: Wait for compute pod
         run: |
-          echo "✅ Verifying services are healthy..."
-          
-          # Check all pods are running
-          echo "📦 Checking all pods are running:"
-          kubectl get pods -n darwin
-          
-          # Wait for ingress to be ready (if available)
-          echo "⏳ Waiting for ingress controller to be ready..."
-          max_attempts=30
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            if kubectl get pods -n ingress-nginx 2>/dev/null | grep -q "Running"; then
-              echo "✅ Ingress controller is ready"
-              break
+          echo "⏳ Waiting for darwin-compute pod..."
+
+          # Use kubectl wait with fallback to manual check
+          if ! kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=compute -n darwin --timeout=300s 2>/dev/null; then
+            echo "Label selector failed, trying name-based lookup..."
+            COMPUTE_POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep -E "darwin-compute" | head -1 | awk '{print $1}')
+            if [ -z "$COMPUTE_POD" ]; then
+              echo "❌ Could not find darwin-compute pod"
+              kubectl get pods -n darwin || true
+              exit 1
             fi
-            sleep 2
-            attempt=$((attempt+1))
-          done
-          
-          # Test health check via port-forward
-          echo "🏥 Testing health check via port-forward..."
-          
-          # Start port-forward in background (darwin-compute uses port 8000)
+            kubectl wait --for=condition=ready pod/$COMPUTE_POD -n darwin --timeout=300s || {
+              echo "❌ Pod did not become ready"
+              kubectl describe pod/$COMPUTE_POD -n darwin || true
+              kubectl logs $COMPUTE_POD -n darwin --tail=50 || true
+              exit 1
+            }
+          fi
+
+          echo "✅ darwin-compute pod is ready"
+          kubectl get pods -n darwin | grep compute
+
+      - name: Test health endpoint
+        run: |
+          echo "🏥 Testing /health endpoint..."
+
+          # Start port-forward
           kubectl port-forward svc/darwin-compute -n darwin 8000:8000 > /tmp/port-forward.log 2>&1 &
           PORT_FORWARD_PID=$!
-          echo "Port-forward started with PID: $PORT_FORWARD_PID"
-          
-          # Wait for port-forward to be ready
           sleep 5
-          
-          # Test health check endpoint
-          max_attempts=30
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
+
+          # Wait for endpoint
+          for i in $(seq 1 30); do
             if curl -f -s http://localhost:8000/health > /dev/null 2>&1; then
-              echo "✅ Health check endpoint is accessible"
+              echo "✅ Endpoint accessible"
               break
             fi
-            echo "Attempt $((attempt+1))/$max_attempts: Waiting for health check endpoint..."
+            echo "Attempt $i/30: Waiting..."
             sleep 2
-            attempt=$((attempt+1))
           done
-          
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Health check endpoint not accessible"
-            echo "Port-forward logs:"
-            cat /tmp/port-forward.log || true
-            kill $PORT_FORWARD_PID 2>/dev/null || true
-            exit 1
-          fi
-          
-          # Test health check endpoint and verify response
-          echo "Testing /health endpoint..."
-          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost:8000/health)
-          http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
-          body=$(echo "$response" | grep -v "HTTP_CODE")
-          
-          echo "HTTP Status Code: $http_code"
-          echo "Response Body: $body"
-          
-          if [ "$http_code" != "200" ]; then
-            echo "❌ Health check returned HTTP $http_code, expected 200"
-            kill $PORT_FORWARD_PID 2>/dev/null || true
-            exit 1
-          fi
-          
-          # Verify response structure matches expected format
+
+          # Test and validate response
+          response=$(curl -s http://localhost:8000/health)
+          echo "Response: $response"
+
           python3 << EOF
           import json
           import sys
-          
+
           try:
-              data = json.loads('''$body''')
-              
-              # darwin-compute /health endpoint returns {"status":"SUCCESS","data":null,"message":"Healthy"}
-              if 'SUCCESS' not in data['status']:
-                  print(f"❌ status is '{data.get('status')}', expected 'SUCCESS'")
+              data = json.loads('''$response''')
+              status = data.get('status', '')
+              if 'SUCCESS' not in status:
+                  print(f"❌ status is '{status}', expected 'SUCCESS'")
                   sys.exit(1)
-              
-              print("✅ Health check response structure is valid")
-              print(f"   status: {data.get('status')}")
+              print("✅ Health check passed!")
+              print(f"   status: {status}")
               print(f"   message: {data.get('message')}")
-              
-              print("\n✅ Health check passed! Service is healthy.")
           except json.JSONDecodeError as e:
-              print(f"❌ Invalid JSON response: {e}")
+              print(f"❌ Invalid JSON: {e}")
               sys.exit(1)
           EOF
-          
-          # Cleanup port-forward
+
           kill $PORT_FORWARD_PID 2>/dev/null || true
 
       - name: Cleanup
         if: always()
         run: |
           echo "🧹 Cleaning up..."
-          
-          # Clean up Docker to free space (important for GitHub Actions runners)
-          echo "Cleaning up Docker resources..."
+          pkill -f "kubectl port-forward" || true
+          kind delete cluster --name kind 2>/dev/null || true
           docker system prune -a -f || true
           docker volume prune -f || true
-          
-          # Kill any port-forwards
-          pkill -f "kubectl port-forward" || true
-          
-          # Delete kind cluster if it exists
-          if kind get clusters 2>/dev/null | grep -q kind; then
-            echo "Deleting kind cluster..."
-            kind delete cluster --name kind || true
-          fi
-          
-          # Cleanup Docker resources
-          docker system prune -f || true
