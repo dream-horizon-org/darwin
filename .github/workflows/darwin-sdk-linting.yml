@@ -49,7 +49,7 @@ jobs:
         working-directory: darwin-sdk/darwin
         run: |
           echo "Checking import sorting with isort..."
-          isort --check-only --diff darwin/ tests/ || {
+          isort --check-only --profile black --diff darwin/ tests/ || {
             echo "❌ Import sorting issues found. Run 'isort darwin/ tests/' to fix."
             exit 1
           }

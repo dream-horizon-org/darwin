@@ -66,6 +66,7 @@ echo "  Registry: $REGISTRY"
 docker build \
     --platform=$PLATFORM \
     -t "$IMAGE_NAME" \
+    --label "maintainer=darwin" \
     -f "$DOCKERFILE_PATH/Dockerfile" \
     "$DOCKERFILE_PATH"
 
