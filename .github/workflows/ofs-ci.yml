@@ -1,0 +1,347 @@
+name: OFS CI
+
+on:
+    push:
+        branches:
+            - main
+            - develop
+        paths:
+            - "feature-store/**"
+            - ".github/workflows/ofs-ci.yml"
+            - "helm/darwin/charts/services/**"
+            - "service-dependencies.yaml"
+    pull_request:
+        types: [opened, synchronize, reopened]
+        paths:
+            - "feature-store/**"
+            - ".github/workflows/ofs-ci.yml"
+            - "helm/darwin/charts/services/**"
+            - "service-dependencies.yaml"
+    workflow_dispatch:
+        inputs:
+            run_integration_test:
+                description: "Run integration test"
+                required: false
+                default: true
+                type: boolean
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    ofs-integration-test:
+        name: OFS Integration Test with Kubernetes
+        runs-on: [self-hosted, Linux, X64]
+        timeout-minutes: 90
+        if: github.event_name == 'workflow_dispatch' && inputs.run_integration_test == true || github.event_name != 'workflow_dispatch'
+        defaults:
+            run:
+                working-directory: .
+        env:
+            KUBECONFIG: ${{ github.workspace }}/kind/config/kindkubeconfig.yaml
+
+        steps:
+            - name: Cleanup workspace before checkout
+              run: |
+                  WORKSPACE_DIR="${{ github.workspace }}"
+
+                  if [ -d "$WORKSPACE_DIR/kind/shared-storage" ]; then
+                    echo "Cleaning up kind shared-storage directories..."
+                    sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" || true
+                  fi
+
+                  if [ -d "$WORKSPACE_DIR" ]; then
+                    echo "Cleaning up workspace directory..."
+                    sudo find "$WORKSPACE_DIR" -mindepth 1 -delete 2>/dev/null || true
+                  fi
+
+                  echo "Workspace cleanup completed"
+
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Install yq
+              run: |
+                  # Detect architecture
+                  ARCH=$(uname -m)
+                  case $ARCH in
+                    x86_64)
+                      YQ_ARCH="amd64"
+                      ;;
+                    aarch64|arm64)
+                      YQ_ARCH="arm64"
+                      ;;
+                    armv7l)
+                      YQ_ARCH="arm"
+                      ;;
+                    *)
+                      echo "Unsupported architecture: $ARCH"
+                      exit 1
+                      ;;
+                  esac
+
+                  echo "Detected architecture: $ARCH, downloading yq for: $YQ_ARCH"
+
+                  # Check if yq is already installed
+                  if command -v yq &> /dev/null; then
+                    echo "yq is already installed"
+                    yq --version
+                  else
+                    sudo wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${YQ_ARCH}"
+                    sudo chmod +x /usr/local/bin/yq
+                    yq --version
+                  fi
+
+            - name: Cache Darwin dependencies
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.m2/repository
+                      feature-store/local-repo
+                  key: ${{ runner.os }}-maven-ofs-${{ hashFiles('feature-store/**/pom.xml') }}
+                  restore-keys: |
+                      ${{ runner.os }}-maven-ofs-
+
+            - name: Initialize Darwin configuration for OFS only
+              run: |
+                  # Enable all services first to generate the full config
+                  bash ./init.sh --all
+
+                  # Modify configuration to enable only OFS services
+                  echo "Configuring OFS-only deployment..."
+
+                  # Strategy: Disable ALL applications first, then enable only OFS
+                  # This is robust against new services being added
+
+                  # Get all application keys and set them to false
+                  yq eval '.applications | keys | .[]' .setup/enabled-services.yaml | while read -r app; do
+                    yq eval ".applications.\"$app\" = false" -i .setup/enabled-services.yaml
+                  done
+
+                  # Enable only OFS applications
+                  yq eval '.applications.darwin-ofs-v2 = true' -i .setup/enabled-services.yaml
+                  yq eval '.applications.darwin-ofs-v2-admin = true' -i .setup/enabled-services.yaml
+                  yq eval '.applications.darwin-ofs-v2-consumer = true' -i .setup/enabled-services.yaml
+
+                  # Get all datastore keys and set them to false
+                  yq eval '.datastores | keys | .[]' .setup/enabled-services.yaml | while read -r ds; do
+                    yq eval ".datastores.\"$ds\" = false" -i .setup/enabled-services.yaml
+                  done
+
+                  # Enable only required datastores for OFS
+                  yq eval '.datastores.mysql = true' -i .setup/enabled-services.yaml
+                  yq eval '.datastores.cassandra = true' -i .setup/enabled-services.yaml
+                  yq eval '.datastores.kafka = true' -i .setup/enabled-services.yaml
+                  yq eval '.datastores.zookeeper = true' -i .setup/enabled-services.yaml
+                  yq eval '.datastores.localstack = true' -i .setup/enabled-services.yaml
+                  yq eval '.datastores.busybox = true' -i .setup/enabled-services.yaml
+
+                  # Disable all ray images
+                  yq eval '.ray-images | to_entries | .[] | .key' .setup/enabled-services.yaml 2>/dev/null | while read -r image; do
+                    yq eval ".ray-images.\"$image\" = false" -i .setup/enabled-services.yaml
+                  done || true
+
+                  # Disable all serve images
+                  yq eval '.serve-images | to_entries | .[] | .key' .setup/enabled-services.yaml 2>/dev/null | while read -r image; do
+                    yq eval ".serve-images.\"$image\" = false" -i .setup/enabled-services.yaml
+                  done || true
+
+                  # Disable darwin-sdk-runtime if it exists
+                  yq eval '.darwin-sdk-runtime.enabled = false' -i .setup/enabled-services.yaml 2>/dev/null || true
+
+                  # Disable all CLI tools
+                  yq eval '.cli-tools | keys | .[]' .setup/enabled-services.yaml 2>/dev/null | while read -r tool; do
+                    yq eval ".cli-tools.\"$tool\" = false" -i .setup/enabled-services.yaml
+                  done || true
+
+                  echo "OFS-only configuration complete"
+                  echo "Enabled services:"
+                  cat .setup/enabled-services.yaml
+
+            - name: Setup Darwin platform
+              run: |
+                  echo "Running setup.sh..."
+                  bash ./setup.sh -y
+
+                  echo "✅ Setup completed"
+
+            - name: Deploy Darwin platform
+              run: |
+                  # Export KUBECONFIG to GitHub environment for subsequent steps
+                  export KUBECONFIG="${{ github.workspace }}/kind/config/kindkubeconfig.yaml"
+                  echo "KUBECONFIG=${KUBECONFIG}" >> $GITHUB_ENV
+
+                  bash ./start.sh
+                  echo "Listing all pods in all namespaces:"
+                  kubectl get pods --all-namespaces
+
+            - name: Wait for OFS services to be ready
+              run: |
+                  set -o allexport
+                  source ./config.env
+                  set +o allexport
+
+                  echo "Waiting for OFS services to be ready..."
+
+                  # Wait for darwin-ofs-v2-admin (Admin service)
+                  echo "Checking darwin-ofs-v2-admin (Admin service)..."
+                  kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=feature-store-admin -n darwin --timeout=600s || {
+                    echo "ERROR: darwin-ofs-v2-admin pods failed to become ready"
+                    kubectl get pods -n darwin -l app.kubernetes.io/component=feature-store-admin
+                    kubectl describe pods -n darwin -l app.kubernetes.io/component=feature-store-admin
+                    exit 1
+                  }
+
+                  # Wait for darwin-ofs-v2 (App service)
+                  echo "Checking darwin-ofs-v2 (App service)..."
+                  kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=feature-store -n darwin --timeout=600s || {
+                    echo "ERROR: darwin-ofs-v2 pods failed to become ready"
+                    kubectl get pods -n darwin -l app.kubernetes.io/component=feature-store
+                    kubectl describe pods -n darwin -l app.kubernetes.io/component=feature-store
+                    exit 1
+                  }
+
+                  # Wait for darwin-ofs-v2-consumer (Consumer service)
+                  echo "Checking darwin-ofs-v2-consumer (Consumer service)..."
+                  kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=feature-store-consumer -n darwin --timeout=600s || {
+                    echo "ERROR: darwin-ofs-v2-consumer pods failed to become ready"
+                    kubectl get pods -n darwin -l app.kubernetes.io/component=feature-store-consumer
+                    kubectl describe pods -n darwin -l app.kubernetes.io/component=feature-store-consumer
+                    exit 1
+                  }
+
+                  echo "✅ All OFS services are ready!"
+
+            - name: Verify OFS service endpoints
+              run: |
+                  echo "========================================"
+                  echo "Verifying OFS service endpoints..."
+                  echo "========================================"
+
+                  # Get service details
+                  kubectl get svc -n darwin | grep ofs || kubectl get svc -n darwin
+
+                  # Port-forward OFS Admin service
+                  echo "Setting up port-forward for OFS Admin (8082)..."
+                  kubectl port-forward -n darwin svc/darwin-feature-store-admin 8082:8080 &
+                  ADMIN_PF_PID=$!
+                  sleep 5
+
+                  # Port-forward OFS App service
+                  echo "Setting up port-forward for OFS App (8083)..."
+                  kubectl port-forward -n darwin svc/darwin-feature-store 8083:8080 &
+                  APP_PF_PID=$!
+                  sleep 5
+
+                  # Test Admin healthcheck
+                  echo "Testing OFS Admin healthcheck..."
+                  ADMIN_RESPONSE=$(curl -s -w "\n%{http_code}" http://localhost:8082/healthcheck || echo "failed")
+                  ADMIN_HTTP_CODE=$(echo "$ADMIN_RESPONSE" | tail -n1)
+                  echo "Admin HTTP Status: $ADMIN_HTTP_CODE"
+
+                  # Test App healthcheck
+                  echo "Testing OFS App healthcheck..."
+                  APP_RESPONSE=$(curl -s -w "\n%{http_code}" http://localhost:8083/healthcheck || echo "failed")
+                  APP_HTTP_CODE=$(echo "$APP_RESPONSE" | tail -n1)
+                  echo "App HTTP Status: $APP_HTTP_CODE"
+
+                  # Cleanup port-forwards
+                  kill $ADMIN_PF_PID $APP_PF_PID 2>/dev/null || true
+
+                  # Verify responses
+                  if [ "$ADMIN_HTTP_CODE" = "200" ] && [ "$APP_HTTP_CODE" = "200" ]; then
+                    echo ""
+                    echo "✅ All OFS service endpoints are healthy!"
+                  else
+                    echo ""
+                    echo "❌ Some OFS service endpoints are not healthy"
+                    echo "Admin Status: $ADMIN_HTTP_CODE"
+                    echo "App Status: $APP_HTTP_CODE"
+                    exit 1
+                  fi
+
+            - name: Display final platform status
+              if: always()
+              run: |
+                  set -o allexport
+                  source ./config.env || echo "config.env not found"
+                  set +o allexport
+
+                  echo "========================================"
+                  echo "Final Platform Status"
+                  echo "========================================"
+
+                  echo ""
+                  echo "=== All Pods ==="
+                  kubectl get pods -n darwin || true
+
+                  echo ""
+                  echo "=== All Services ==="
+                  kubectl get svc -n darwin || true
+
+                  echo ""
+                  echo "=== OFS Admin Pods ==="
+                  kubectl get pods -n darwin -l app.kubernetes.io/component=feature-store-admin || true
+
+                  echo ""
+                  echo "=== OFS App Pods ==="
+                  kubectl get pods -n darwin -l app.kubernetes.io/component=feature-store || true
+
+                  echo ""
+                  echo "=== OFS Consumer Pods ==="
+                   kubectl get pods -n darwin -l app.kubernetes.io/component=feature-store-consumer || true
+
+            - name: Display service logs on failure
+              if: failure()
+              run: |
+                  set -o allexport
+                  source ./config.env || echo "config.env not found"
+                  set +o allexport
+
+                  echo "========================================"
+                  echo "Service Logs (Last 100 lines)"
+                  echo "========================================"
+
+                  echo ""
+                  echo "=== MySQL logs ==="
+                  kubectl logs -n darwin -l app.kubernetes.io/component=mysql --tail=100 || echo "No MySQL logs found"
+
+                  echo ""
+                  echo "=== Cassandra logs ==="
+                  kubectl logs -n darwin -l app.kubernetes.io/component=cassandra --tail=100 || echo "No Cassandra logs found"
+
+                  echo ""
+                  echo "=== Kafka logs ==="
+                  kubectl logs -n darwin -l app.kubernetes.io/component=kafka --tail=100 || echo "No Kafka logs found"
+
+                  echo ""
+                  echo "=== darwin-ofs-v2-admin logs ==="
+                  kubectl logs -n darwin -l app.kubernetes.io/component=feature-store-admin --tail=100 || echo "No darwin-ofs-v2-admin logs found"
+
+                  echo ""
+                  echo "=== darwin-ofs-v2 (App) logs ==="
+                  kubectl logs -n darwin -l app.kubernetes.io/component=feature-store --tail=100 || echo "No darwin-ofs-v2 logs found"
+
+                  echo ""
+                  echo "=== darwin-ofs-v2-consumer logs ==="
+                  kubectl logs -n darwin -l app.kubernetes.io/component=feature-store-consumer --tail=100 || echo "No darwin-ofs-v2-consumer logs found"
+
+                  echo ""
+                  echo "=== LocalStack logs ==="
+                   kubectl logs -n darwin -l app.kubernetes.io/component=localstack --tail=100 || echo "No LocalStack logs found"
+
+            - name: Cleanup
+              if: always()
+              run: |
+                  set -o allexport
+                  source ./config.env || echo "config.env not found"
+                  set +o allexport
+
+                  echo "=== Config.env ==="
+                  cat ./config.env || echo "config.env not found"
+
+                  echo ""
+                  echo "Cleaning up resources..."
+                  kind delete cluster || true
+                  echo "Cleanup complete"
