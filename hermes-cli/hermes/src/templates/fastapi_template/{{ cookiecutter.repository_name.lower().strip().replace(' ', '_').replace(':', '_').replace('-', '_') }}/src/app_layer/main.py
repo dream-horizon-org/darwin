@@ -24,6 +24,7 @@ container = Container()
 
 
 @app.get("/healthcheck")
+@app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy"}
+    return {"status": "SUCCESS", "message": "OK"}

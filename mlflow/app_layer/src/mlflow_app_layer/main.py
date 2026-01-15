@@ -58,7 +58,8 @@ from mlflow_app_layer.service.mlflow import MLFlow
 from mlflow_app_layer.util.s3_utils import initialize_s3_bucket
 
 patch(fastapi=True)
-app = FastAPI()
+root_path = os.environ.get("ROOT_PATH", "")
+app = FastAPI(root_path=root_path)
 
 config = Config()
 mlflow_service = MLFlow()
@@ -67,9 +68,10 @@ mlflow_service = MLFlow()
 initialize_s3_bucket()
 
 
+@app.get("/healthcheck")
 @app.get("/health")
 def health():
-    return {"status": "SUCCESS"}
+    return {"status": "SUCCESS", "message": "OK"}
 
 
 @app.get("/experiments", response_class=HTMLResponse)

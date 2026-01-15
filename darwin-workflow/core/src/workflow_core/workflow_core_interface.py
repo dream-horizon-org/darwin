@@ -15,6 +15,14 @@ class WorkflowCoreInterface(ABC):
         pass
 
     @abstractmethod
+    async def deep_healthcheck(self) -> dict:
+        """
+        Deep healthcheck for Workflow service dependencies.
+        Returns a small, structured dict suitable for returning directly from an API.
+        """
+        pass
+
+    @abstractmethod
     def recently_visited_workflows(self, user_id: str):
         pass
 
