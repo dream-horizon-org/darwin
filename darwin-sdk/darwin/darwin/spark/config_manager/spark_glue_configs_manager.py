@@ -3,7 +3,13 @@ import os
 
 from darwin.config_clients.spark_config_client import SparkConfigClient
 from darwin.version import Version
-from darwin.util.utils import get_default_spark_config_path, get_jars, overwrite_metastore_jars, get_default_jars_path, get_env
+from darwin.util.utils import (
+    get_default_spark_config_path,
+    get_jars,
+    overwrite_metastore_jars,
+    get_default_jars_path,
+    get_env,
+)
 from darwin.util.enums import Environment
 
 
@@ -28,7 +34,7 @@ class SparkGlueConfigsManager:
         # For LOCAL environment, return minimal configs without AWS Glue dependencies
         if get_env() == Environment.LOCAL:
             return self._get_local_configs()
-        
+
         default_spark_configs: Dict = self.spark_config_client.get_all_spark_configs_dict()
         metastore_jars = get_jars(get_default_jars_path())
         driver_extra_classpath = overwrite_metastore_jars(get_default_jars_path(), metastore_jars, self.pyspark_version)

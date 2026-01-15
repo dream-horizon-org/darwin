@@ -45,11 +45,7 @@ def get_jars(directory: str) -> str:
     """Get Hive JARs for metastore integration."""
     files = os.listdir(directory)
     # Filter for Hive JARs needed for metastore
-    jar_files = [
-        directory + "/" + f 
-        for f in files 
-        if f.endswith(".jar") and f.startswith("hive-")
-    ]
+    jar_files = [directory + "/" + f for f in files if f.endswith(".jar") and f.startswith("hive-")]
     return ":".join(jar_files)
 
 
