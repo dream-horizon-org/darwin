@@ -138,7 +138,7 @@ jobs:
           fi
           
           # Wait for cluster to be ready
-          max_attempts=30
+          max_attempts=10
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
             if kubectl get nodes >/dev/null 2>&1; then
