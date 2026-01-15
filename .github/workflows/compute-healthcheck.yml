@@ -5,10 +5,10 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - 'darwin-compute/**'
+      - 'darwin-cluster-manager/**'
       - 'init.sh'
       - 'setup.sh'
       - 'start.sh'
-      - 'services.yaml'
       - '.github/workflows/compute-healthcheck.yml'
   workflow_dispatch:  # Allow manual triggering
 
