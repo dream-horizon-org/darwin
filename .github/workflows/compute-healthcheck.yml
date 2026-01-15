@@ -194,72 +194,116 @@ jobs:
 
           echo "✅ Deployment completed"
 
-      - name: Wait for compute pod
+      - name: Wait for pods to be ready
         run: |
-          echo "⏳ Waiting for darwin-compute pod..."
+          echo "⏳ Waiting for darwin-compute and darwin-cluster-manager pods..."
 
-          # Use kubectl wait with fallback to manual check
+          # Wait for darwin-compute
+          echo "Waiting for darwin-compute..."
           if ! kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=compute -n darwin --timeout=300s 2>/dev/null; then
-            echo "Label selector failed, trying name-based lookup..."
             COMPUTE_POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep -E "darwin-compute" | head -1 | awk '{print $1}')
-            if [ -z "$COMPUTE_POD" ]; then
+            if [ -n "$COMPUTE_POD" ]; then
+              kubectl wait --for=condition=ready pod/$COMPUTE_POD -n darwin --timeout=300s || {
+                echo "❌ darwin-compute pod did not become ready"
+                kubectl describe pod/$COMPUTE_POD -n darwin || true
+                exit 1
+              }
+            else
               echo "❌ Could not find darwin-compute pod"
               kubectl get pods -n darwin || true
               exit 1
             fi
-            kubectl wait --for=condition=ready pod/$COMPUTE_POD -n darwin --timeout=300s || {
-              echo "❌ Pod did not become ready"
-              kubectl describe pod/$COMPUTE_POD -n darwin || true
-              kubectl logs $COMPUTE_POD -n darwin --tail=50 || true
-              exit 1
-            }
           fi
-
           echo "✅ darwin-compute pod is ready"
-          kubectl get pods -n darwin | grep compute
 
-      - name: Test health endpoint
+          # Wait for darwin-cluster-manager
+          echo "Waiting for darwin-cluster-manager..."
+          if ! kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=cluster-manager -n darwin --timeout=300s 2>/dev/null; then
+            DCM_POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep -E "darwin-cluster-manager" | head -1 | awk '{print $1}')
+            if [ -n "$DCM_POD" ]; then
+              kubectl wait --for=condition=ready pod/$DCM_POD -n darwin --timeout=300s || {
+                echo "❌ darwin-cluster-manager pod did not become ready"
+                kubectl describe pod/$DCM_POD -n darwin || true
+                exit 1
+              }
+            else
+              echo "❌ Could not find darwin-cluster-manager pod"
+              kubectl get pods -n darwin || true
+              exit 1
+            fi
+          fi
+          echo "✅ darwin-cluster-manager pod is ready"
+
+          kubectl get pods -n darwin | grep -E "compute|cluster-manager"
+
+      - name: Test health endpoints
         run: |
-          echo "🏥 Testing /health endpoint..."
+          echo "🏥 Testing health endpoints..."
 
-          # Start port-forward
-          kubectl port-forward svc/darwin-compute -n darwin 8000:8000 > /tmp/port-forward.log 2>&1 &
-          PORT_FORWARD_PID=$!
+          # Start port-forwards for both services
+          kubectl port-forward svc/darwin-compute -n darwin 8000:8000 > /tmp/compute-pf.log 2>&1 &
+          COMPUTE_PF_PID=$!
+          kubectl port-forward svc/darwin-cluster-manager -n darwin 8080:8080 > /tmp/dcm-pf.log 2>&1 &
+          DCM_PF_PID=$!
           sleep 5
 
-          # Wait for endpoint
+          # Test darwin-compute /health endpoint
+          echo ""
+          echo "━━━ Testing darwin-compute (/health on port 8000) ━━━"
           for i in $(seq 1 30); do
             if curl -f -s http://localhost:8000/health > /dev/null 2>&1; then
-              echo "✅ Endpoint accessible"
+              echo "✅ darwin-compute endpoint accessible"
               break
             fi
-            echo "Attempt $i/30: Waiting..."
+            [ $i -eq 30 ] && { echo "❌ darwin-compute endpoint not accessible"; cat /tmp/compute-pf.log || true; exit 1; }
             sleep 2
           done
 
-          # Test and validate response
-          response=$(curl -s http://localhost:8000/health)
-          echo "Response: $response"
+          compute_response=$(curl -s http://localhost:8000/health)
+          echo "Response: $compute_response"
 
           python3 << EOF
           import json
           import sys
-
           try:
-              data = json.loads('''$response''')
+              data = json.loads('''$compute_response''')
               status = data.get('status', '')
               if 'SUCCESS' not in status:
-                  print(f"❌ status is '{status}', expected 'SUCCESS'")
+                  print(f"❌ darwin-compute: status is '{status}', expected 'SUCCESS'")
                   sys.exit(1)
-              print("✅ Health check passed!")
-              print(f"   status: {status}")
-              print(f"   message: {data.get('message')}")
+              print("✅ darwin-compute health check passed!")
           except json.JSONDecodeError as e:
-              print(f"❌ Invalid JSON: {e}")
+              print(f"❌ darwin-compute: Invalid JSON: {e}")
               sys.exit(1)
           EOF
 
-          kill $PORT_FORWARD_PID 2>/dev/null || true
+          # Test darwin-cluster-manager /healthcheck endpoint
+          echo ""
+          echo "━━━ Testing darwin-cluster-manager (/healthcheck on port 8080) ━━━"
+          for i in $(seq 1 30); do
+            if curl -f -s http://localhost:8080/healthcheck > /dev/null 2>&1; then
+              echo "✅ darwin-cluster-manager endpoint accessible"
+              break
+            fi
+            [ $i -eq 30 ] && { echo "❌ darwin-cluster-manager endpoint not accessible"; cat /tmp/dcm-pf.log || true; exit 1; }
+            sleep 2
+          done
+
+          dcm_response=$(curl -s http://localhost:8080/healthcheck)
+          echo "Response: $dcm_response"
+
+          if [ "$dcm_response" = "Active" ]; then
+            echo "✅ darwin-cluster-manager health check passed!"
+          else
+            echo "❌ darwin-cluster-manager: expected 'Active', got '$dcm_response'"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All health checks passed!"
+
+          # Cleanup port-forwards
+          kill $COMPUTE_PF_PID $DCM_PF_PID 2>/dev/null || true
 
       - name: Cleanup
         if: always()
