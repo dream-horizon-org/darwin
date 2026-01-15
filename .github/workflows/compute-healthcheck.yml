@@ -48,23 +48,6 @@ jobs:
       - name: Setup Docker
         uses: docker/setup-buildx-action@v3
 
-      - name: Clean disk space
-        run: |
-          echo "🧹 Cleaning up disk space..."
-          echo "Current disk usage:"
-          df -h
-          echo ""
-          echo "Cleaning up Docker resources..."
-          docker system prune -a -f || true
-          docker volume prune -f || true
-          echo ""
-          echo "Cleaning up apt cache..."
-          sudo apt-get clean || true
-          sudo rm -rf /var/lib/apt/lists/* || true
-          echo ""
-          echo "Disk usage after cleanup:"
-          df -h
-
       - name: Install prerequisites
         run: |
           # Install kubectl
@@ -309,8 +292,21 @@ jobs:
         if: always()
         run: |
           echo "🧹 Cleaning up..."
+          echo "Current disk usage:"
+          df -h
+          echo ""
+          echo "Cleaning up kind cluster and port-forwards..."
           pkill -f "kubectl port-forward" || true
           kind delete cluster --name kind 2>/dev/null || true
+          echo ""
+          echo "Cleaning up Docker resources..."
           docker image prune -af --filter "label=maintainer=darwin" || true
           docker system prune -f || true
           docker volume prune -f || true
+          echo ""
+          echo "Cleaning up apt cache..."
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/* || true
+          echo ""
+          echo "Disk usage after cleanup:"
+          df -h
