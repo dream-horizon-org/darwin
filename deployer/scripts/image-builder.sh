@@ -65,6 +65,7 @@ docker build \
   --build-arg APP_BASE_DIR=$base_path \
   --build-arg APP_DIR=$path \
   --build-arg EXTRA_ENV_VARS="$env_vars" \
+  --label "project=darwin" \
   -t $application:latest \
   -f $DOCKERFILE .
   

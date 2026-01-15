@@ -69,8 +69,8 @@ jobs:
           echo "Current disk usage:"
           df -h
           echo ""
-          echo "Cleaning up Docker resources..."
-          docker system prune -a -f || true
+          echo "Cleaning up Docker resources (darwin-labeled images only)..."
+          docker image prune -a -f --filter "label=project=darwin" || true
           docker volume prune -f || true
           echo ""
           echo "Cleaning up apt cache..."
@@ -144,8 +144,7 @@ jobs:
           echo "🔨 Step 2: Running setup.sh to build images and setup cluster..."
           # Clean up Docker before building to free space (GitHub Actions runners have limited disk space)
           echo "🧹 Cleaning up Docker before build..."
-          docker system prune -f || true
-          docker image prune -f || true
+          docker image prune -f --filter "label=project=darwin" || true
           echo "Disk space before build:"
           df -h
           # Ensure ENV is set to local for cluster creation
@@ -169,8 +168,8 @@ jobs:
           fi
 
           # Clean up unused images after build to free space for deployment
-          echo "🧹 Cleaning up unused Docker images after build..."
-          docker image prune -f || true
+          echo "🧹 Cleaning up unused Darwin images after build..."
+          docker image prune -f --filter "label=project=darwin" || true
           echo "Disk space after build:"
           df -h
       - name: Verify cluster is ready
@@ -611,8 +610,8 @@ jobs:
           echo "🧹 Cleaning up..."
 
           # Clean up Docker to free space (important for GitHub Actions runners)
-          echo "Cleaning up Docker resources..."
-          docker system prune -a -f || true
+          echo "Cleaning up Docker resources (darwin-labeled images only)..."
+          docker image prune -a -f --filter "label=project=darwin" || true
           docker volume prune -f || true
 
           # Delete kind cluster if it exists
@@ -620,6 +619,6 @@ jobs:
             echo "Deleting kind cluster..."
             kind delete cluster --name kind || true
           fi
-
-          # Cleanup Docker resources
-          docker system prune -f || true
+          
+          # Cleanup Docker resources (darwin-labeled images only)
+          docker image prune -f --filter "label=project=darwin" || true

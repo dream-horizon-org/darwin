@@ -65,6 +65,7 @@ echo "  Registry: $REGISTRY"
 # Build the Docker image
 docker build \
     --platform=$PLATFORM \
+    --label "project=darwin" \
     -t "$IMAGE_NAME" \
     -f "$DOCKERFILE_PATH/Dockerfile" \
     "$DOCKERFILE_PATH"
