@@ -1,5 +1,6 @@
 import uuid
 
+import os
 from loguru import logger
 
 from fastapi import FastAPI, Request
@@ -22,7 +23,8 @@ from compute_script.main import run_job, manage_jupyter_pods, update_status_for_
 from compute_script.util.custom_metrics import CustomMetrics
 
 # TODO: Consider adding lifespan context manager for proper startup/shutdown handling
-app = FastAPI()
+root_path = os.environ.get("ROOT_PATH", "")
+app = FastAPI(root_path=root_path)
 
 # Add OpenTelemetry middleware FIRST (executes last in the middleware chain)
 app.add_middleware(OpenTelemetryMiddleware)

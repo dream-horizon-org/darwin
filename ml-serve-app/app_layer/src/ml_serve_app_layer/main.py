@@ -25,7 +25,8 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry import trace
 
 db_client = MysqlClient()
-app = FastAPI()
+root_path = environ.get("ROOT_PATH", "")
+app = FastAPI(root_path=root_path)
 env = environ.get(ENV_ENVIRONMENT_VARIABLE, "local")
 db_client.init_db(app)
 
@@ -92,10 +93,9 @@ router = APIRouter()
 
 
 @router.get("/healthcheck")
+@router.get("/health")
 async def healthcheck():
-    return {
-        "status": "ok"
-    }
+    return {"status": "SUCCESS", "message": "OK"}
 
 
 app.include_router(router)
