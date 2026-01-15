@@ -12,6 +12,7 @@ import (
 
 func mapAPIs() {
 	router.GET("/healthcheck", healthcheck.Healthcheck)
+	router.GET("/health", healthcheck.Healthcheck)
 
 	router.POST("compute/v2/cluster", clusterv2.Create)
 	router.PUT("compute/v2/cluster", clusterv2.Update)

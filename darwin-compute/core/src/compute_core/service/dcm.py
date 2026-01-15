@@ -72,15 +72,19 @@ class DarwinClusterManager:
         logger.debug(f"Generated Config File for cluster id {compute_definition.cluster_id}: {file.getvalue()}")
         return file
 
-    def healthcheck(self):
+    def healthcheck(self) -> dict:
         """
         Healthcheck for Darwin Cluster Manager
         Returns:
-            str: Active/Inactive
+            dict: JSON response from DCM (best-effort). Typically: {"status": "SUCCESS", "message": "OK"}
         """
         url = urljoin(self.client, "/healthcheck")
         resp = requests.get(url, timeout=15)
-        return resp.text
+        resp.raise_for_status()
+        try:
+            return resp.json()
+        except ValueError:
+            return {"status": "UNKNOWN", "message": resp.text}
 
     def create_cluster(
         self,

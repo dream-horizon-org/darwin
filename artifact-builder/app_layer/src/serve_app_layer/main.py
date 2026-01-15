@@ -60,7 +60,8 @@ async def lifespan(app: FastAPI):
 
 
 # --- Create app instance ---
-app = FastAPI(lifespan=lifespan)
+root_path = os.environ.get("ROOT_PATH", "")
+app = FastAPI(lifespan=lifespan, root_path=root_path)
 
 # --- Initialize MySQL client (non-async setup) ---
 db_client.init_db(app)
@@ -74,6 +75,7 @@ except RuntimeError:
 
 
 @app.get("/healthcheck")
+@app.get("/health")
 async def health_check():
     """
     Health check endpoint to ensure the service is running.
@@ -84,7 +86,7 @@ async def health_check():
             status_code=503,
             detail={"status": "unavailable", "message": "Docker daemon is not running or not accessible"}
         )
-    return {"status": "ok"}
+    return {"status": "SUCCESS", "message": "OK"}
 
 
 @app.post("/build_with_dockerfile")

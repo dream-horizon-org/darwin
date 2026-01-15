@@ -12,7 +12,8 @@ from src.util.event_utils import get_ui_events
 from src.transformers.utils.register_utils import register_transformers
 
 db_client = MysqlClient()
-app = FastAPI()
+root_path = environ.get("ROOT_PATH", "")
+app = FastAPI(root_path=root_path)
 otel_instrumentor(app=app)
 env = environ.get(ENV_ENVIRONMENT_VARIABLE, "local")
 db_client.init_db(app)
@@ -29,10 +30,9 @@ router = APIRouter()
 
 
 @router.get("/healthcheck")
+@router.get("/health")
 async def healthcheck():
-    return {
-        "status": "ok"
-    }
+    return {"status": "SUCCESS", "message": "OK"}
 
 
 @router.get("/severities")

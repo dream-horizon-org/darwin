@@ -82,6 +82,8 @@ services:
     extraEnvVars:
       - name: DARWIN_MYSQL_DATABASE
         value: "darwin"
+      - name: ROOT_PATH
+        value: "/workspace"
 
   chronos:
     enabled: false
@@ -110,6 +112,8 @@ services:
     extraEnvVars:
       - name: ENV
         value: "local"
+      - name: ROOT_PATH
+        value: "/chronos"
       - name: DEPLOYMENT_TYPE
         value: "container"
       - name: AWS_ACCESS_KEY_ID
@@ -146,6 +150,8 @@ services:
     extraEnvVars:
       - name: ENV
         value: "local"
+      - name: ROOT_PATH
+        value: "/chronos-consumer"
       - name: DEPLOYMENT_TYPE
         value: "container"
       - name: AWS_ACCESS_KEY_ID
@@ -175,6 +181,8 @@ services:
     extraEnvVars:
       - name: ENV
         value: "local"
+      - name: ROOT_PATH
+        value: "/workflow"
       - name: DEPLOYMENT_TYPE
         value: "container"
       - name: SERVICE_NAME
@@ -260,6 +268,8 @@ services:
     extraEnvVars:
       - name: ENV
         value: "darwin-local"
+      - name: ROOT_PATH
+        value: "/compute"
       - name: VAULT_SERVICE_MYSQL_USERNAME
         value: "darwin"
       - name: VAULT_SERVICE_MYSQL_PASSWORD
@@ -335,6 +345,8 @@ services:
       # Environment Configuration
       - name: ENV
         value: "local"
+      - name: ROOT_PATH
+        value: "/ml-serve"
       # Also include MYSQL_* variants for backward compatibility
       - name: MYSQL_HOST
         value: "darwin-mysql"
@@ -448,6 +460,8 @@ services:
         value: "local"
       - name: DEV
         value: "true"
+      - name: ROOT_PATH
+        value: "/artifact-builder"
       # Directory for build artifacts
       - name: BUILD_ARTIFACTS_ROOT
         value: "build_artifacts"
@@ -638,6 +652,8 @@ services:
     extraEnvVars:
       - name: ENV
         value: "darwin-local"
+      - name: ROOT_PATH
+        value: "/mlflow-app"
       - name: CONFIG_SERVICE_S3_PATH
         value: "s3://darwin-mlflow-bucket"
       - name: CONFIG_SERVICE_MYSQL_MASTERHOST
