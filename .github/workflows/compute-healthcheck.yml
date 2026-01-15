@@ -311,5 +311,6 @@ jobs:
           echo "🧹 Cleaning up..."
           pkill -f "kubectl port-forward" || true
           kind delete cluster --name kind 2>/dev/null || true
-          docker system prune -a -f || true
+          docker image prune -af --filter "label=maintainer=darwin" || true
+          docker system prune -f || true
           docker volume prune -f || true

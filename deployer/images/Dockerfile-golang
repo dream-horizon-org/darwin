@@ -66,4 +66,3 @@ ENV BASE_DIR=/app \
 
 # Entrypoint
 ENTRYPOINT ["bash", "-c", "/app/.odin/start.sh"]
-
