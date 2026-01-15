@@ -30,7 +30,7 @@ echo ""
 echo "Step 1: Building Docker image..."
 # Build from workflow root directory (where model, core, airflow directories are)
 cd "$WORKFLOW_DIR"
-docker build --platform linux/amd64 -f Dockerfile.airflow -t ${IMAGE_NAME}:${IMAGE_TAG} .
+docker build --platform linux/amd64 -f Dockerfile.airflow -t ${IMAGE_NAME}:${IMAGE_TAG} --label "maintainer=darwin" .
 if [ $? -ne 0 ]; then
     echo "❌ Docker build failed"
     exit 1

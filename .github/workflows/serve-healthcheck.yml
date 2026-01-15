@@ -1,15 +1,16 @@
-name: Darwin Workflow - Health Check
+name: Serve - Health Check (ML Serve App & Artifact Builder)
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - 'darwin-workflow/**'
-      - 'init.sh'
-      - 'setup.sh'
-      - 'start.sh'
-      - 'services.yaml'
-  workflow_dispatch:  # Allow manual triggering
+      - "ml-serve-app/**"
+      - "artifact-builder/**"
+      - "init.sh"
+      - "setup.sh"
+      - "start.sh"
+      - "services.yaml"
+  workflow_dispatch: # Allow manual triggering
 
 jobs:
   health-check:
@@ -89,27 +90,26 @@ jobs:
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
           yq --version
-      - name: Initialize submodules
-        run: |
-          git submodule sync --recursive
-          git submodule update --init --recursive --remote || true
       - name: Step 1 - Initialize configuration (init.sh)
         run: |
           echo "📋 Step 1: Running init.sh to configure services..."
-          
+
           # Clean up any existing config to avoid overwrite prompt
           rm -f .setup/enabled-services.yaml
-          
-          # Answers (13 prompts total):
-          # 1-7: compute, workspace, feature_store, mlflow, serve, catalog, chronos (all n)
-          # 8: workflow (y) - will auto-enable darwin-compute and darwin-cluster-manager as dependencies
-          # 9: confirm (y)
-          # 10: darwin sdk runtime (n)
-          # 11: ray:2.37.0 (n)
-          # 12: ray:2.53.0 (n)
-          # 13: hermes-cli (n)
-          # Use printf with explicit newlines and ensure stdin is properly closed
-          printf "n\nn\nn\nn\nn\nn\nn\ny\ny\nn\nn\nn\nn\n" | ./init.sh || {
+
+          # Answers for init.sh prompts:
+          # 1. Enable Compute? (n)
+          # 2. Enable Workspace? (n)
+          # 3. Enable Feature Store? (n)
+          # 4. Enable MLflow? (n)
+          # 5. Enable Serve? (y) - THIS ENABLES ml-serve-app and artifact-builder
+          #    Dependencies auto-enabled: darwin-cluster-manager, darwin-mlflow-app, darwin-mlflow
+          # 6. Enable Catalog? (n)
+          # 7. Enable Chronos? (n)
+          # 8. Enable Workflow? (n)
+          # 9. Proceed with this configuration? (y)
+          # 10. Enable hermes-cli? (n)
+          printf "n\nn\nn\nn\ny\nn\nn\nn\ny\nn\n" | ./init.sh || {
             echo "❌ init.sh failed with exit code $?"
             echo "Checking if config was created..."
             if [ -f .setup/enabled-services.yaml ]; then
@@ -120,19 +120,19 @@ jobs:
             fi
             exit 1
           }
-          
+
           echo "✅ Configuration created by init.sh"
           cat .setup/enabled-services.yaml
       - name: Step 2 - Build images and setup cluster (setup.sh)
         run: |
           echo "🔨 Step 2: Running setup.sh to build images and setup cluster..."
-          
+
           # Ensure ENV is set to local for cluster creation
           export ENV=local
           # Run setup.sh with auto-yes flag (it will auto-answer yes to cluster setup and clean build)
           # setup.sh will handle errors gracefully - if cluster creation fails but KUBECONFIG exists, it will continue
           ./setup.sh -y
-          
+
           # Verify config.env was created (setup.sh should create it at project root)
           echo "🔍 Verifying config.env was created..."
           if [ -f config.env ]; then
@@ -146,16 +146,16 @@ jobs:
             find . -name "config.env" -type f 2>/dev/null | head -5 || echo "Not found"
             exit 1
           fi
-          
+
       - name: Verify cluster is ready
         run: |
           echo "🔍 Verifying cluster status..."
-          
+
           if [ ! -f "$KUBECONFIG" ]; then
             echo "❌ KUBECONFIG not found at $KUBECONFIG, cluster may not be ready"
             exit 1
           fi
-          
+
           # Wait for cluster to be ready
           max_attempts=30
           attempt=0
@@ -169,7 +169,7 @@ jobs:
             sleep 5
             attempt=$((attempt+1))
           done
-          
+
           if [ $attempt -eq $max_attempts ]; then
             echo "❌ Cluster is not accessible"
             exit 1
@@ -177,9 +177,9 @@ jobs:
       - name: Step 3 - Deploy to Kubernetes (start.sh)
         run: |
           echo "🚀 Step 3: Running start.sh to deploy to Kubernetes..."
-          
+
           echo "📋 Running start.sh (it will source config.env automatically)..."
-          
+
           # Start a background process to periodically show status and keep runner alive
           (
             while true; do
@@ -194,16 +194,16 @@ jobs:
             done
           ) &
           STATUS_MONITOR_PID=$!
-          
+
           # Capture output and exit code
           set +e  # Don't exit on error immediately, we want to capture diagnostics
           ./start.sh 2>&1 | tee /tmp/start.sh.log
           START_EXIT_CODE=${PIPESTATUS[0]}
           set -e
-          
+
           # Stop the status monitor
           kill $STATUS_MONITOR_PID 2>/dev/null || true
-          
+
           if [ $START_EXIT_CODE -ne 0 ]; then
             echo "❌ start.sh failed with exit code $START_EXIT_CODE"
             echo ""
@@ -247,98 +247,98 @@ jobs:
             helm test darwin -n darwin || true
             exit 1
           fi
-          
+
           # Verify deployment was successful
           echo "🔍 Verifying deployment..."
           if ! helm list -n darwin | grep -q darwin; then
             echo "❌ Helm release 'darwin' not found after start.sh completed"
             exit 1
           fi
-          
+
           echo "✅ Deployment completed successfully"
-      - name: Wait for darwin-workflow pod to be ready
+      - name: Wait for ml-serve-app pod to be ready
         run: |
-          echo "⏳ Waiting for darwin-workflow pod to be ready..."
-          
-          # Try to find the pod using multiple label selectors
-          # The pod is labeled with app.kubernetes.io/component=workflow, not app.kubernetes.io/name=darwin-workflow
-          WORKFLOW_POD=""
-          WORKFLOW_SELECTOR=""
-          
+          echo "⏳ Waiting for ml-serve-app pod to be ready..."
+
+          # The pod is labeled with app.kubernetes.io/component=ml-serve-app
+          # and component-name=darwin-ml-serve-app
+          ML_SERVE_POD=""
+          ML_SERVE_SELECTOR=""
+
           # Try different label selectors
-          if kubectl get pods -n darwin -l app.kubernetes.io/component=workflow --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
-            WORKFLOW_SELECTOR="app.kubernetes.io/component=workflow"
-            WORKFLOW_POD=$(kubectl get pods -n darwin -l app.kubernetes.io/component=workflow --no-headers 2>/dev/null | head -1 | awk '{print $1}')
-          elif kubectl get pods -n darwin -l component-name=darwin-workflow --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
-            WORKFLOW_SELECTOR="component-name=darwin-workflow"
-            WORKFLOW_POD=$(kubectl get pods -n darwin -l component-name=darwin-workflow --no-headers 2>/dev/null | head -1 | awk '{print $1}')
-          elif kubectl get pods -n darwin | grep -E "darwin-workflow|workflow" | head -1 | awk '{print $1}' | grep -q .; then
-            WORKFLOW_POD=$(kubectl get pods -n darwin | grep -E "darwin-workflow|workflow" | head -1 | awk '{print $1}')
-            WORKFLOW_SELECTOR="name"
+          if kubectl get pods -n darwin -l app.kubernetes.io/component=ml-serve-app --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
+            ML_SERVE_SELECTOR="app.kubernetes.io/component=ml-serve-app"
+            ML_SERVE_POD=$(kubectl get pods -n darwin -l app.kubernetes.io/component=ml-serve-app --no-headers 2>/dev/null | head -1 | awk '{print $1}')
+          elif kubectl get pods -n darwin -l component-name=darwin-ml-serve-app --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
+            ML_SERVE_SELECTOR="component-name=darwin-ml-serve-app"
+            ML_SERVE_POD=$(kubectl get pods -n darwin -l component-name=darwin-ml-serve-app --no-headers 2>/dev/null | head -1 | awk '{print $1}')
+          elif kubectl get pods -n darwin | grep -E "ml-serve-app" | head -1 | awk '{print $1}' | grep -q .; then
+            ML_SERVE_POD=$(kubectl get pods -n darwin | grep -E "ml-serve-app" | head -1 | awk '{print $1}')
+            ML_SERVE_SELECTOR="name"
           fi
-          
-          if [ -z "$WORKFLOW_POD" ]; then
-            echo "⚠️  Could not find darwin-workflow pod with any label selector"
+
+          if [ -z "$ML_SERVE_POD" ]; then
+            echo "⚠️  Could not find ml-serve-app pod with any label selector"
             echo "Checking all pods in darwin namespace:"
             kubectl get pods -n darwin || true
             echo ""
             echo "Checking deployments:"
-            kubectl get deployments -n darwin | grep workflow || true
+            kubectl get deployments -n darwin | grep ml-serve || true
             exit 1
           fi
-          
-          echo "Found workflow pod: $WORKFLOW_POD (using selector: $WORKFLOW_SELECTOR)"
-          
+
+          echo "Found ml-serve-app pod: $ML_SERVE_POD (using selector: $ML_SERVE_SELECTOR)"
+
           max_attempts=60
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
             # Check if pod exists and is ready
-            if [ "$WORKFLOW_SELECTOR" = "name" ]; then
-              POD_STATUS=$(kubectl get pod "$WORKFLOW_POD" -n darwin -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
-              READY=$(kubectl get pod "$WORKFLOW_POD" -n darwin -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+            if [ "$ML_SERVE_SELECTOR" = "name" ]; then
+              POD_STATUS=$(kubectl get pod "$ML_SERVE_POD" -n darwin -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+              READY=$(kubectl get pod "$ML_SERVE_POD" -n darwin -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
             else
-              POD_STATUS=$(kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
-              READY=$(kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR" -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+              POD_STATUS=$(kubectl get pods -n darwin -l "$ML_SERVE_SELECTOR" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+              READY=$(kubectl get pods -n darwin -l "$ML_SERVE_SELECTOR" -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
             fi
             
             if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
-              echo "✅ darwin-workflow pod is ready"
-              if [ "$WORKFLOW_SELECTOR" = "name" ]; then
-                kubectl get pod "$WORKFLOW_POD" -n darwin
+              echo "✅ ml-serve-app pod is ready"
+              if [ "$ML_SERVE_SELECTOR" = "name" ]; then
+                kubectl get pod "$ML_SERVE_POD" -n darwin
               else
-                kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR"
+                kubectl get pods -n darwin -l "$ML_SERVE_SELECTOR"
               fi
               break
             fi
             
             echo "Attempt $((attempt+1))/$max_attempts: Waiting for pod... (Status: $POD_STATUS, Ready: $READY)"
-            if [ "$WORKFLOW_SELECTOR" = "name" ]; then
-              kubectl get pod "$WORKFLOW_POD" -n darwin || true
+            if [ "$ML_SERVE_SELECTOR" = "name" ]; then
+              kubectl get pod "$ML_SERVE_POD" -n darwin || true
             else
-              kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR" || true
+              kubectl get pods -n darwin -l "$ML_SERVE_SELECTOR" || true
             fi
             sleep 5
             attempt=$((attempt+1))
           done
-          
+
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-workflow pod did not become ready after $max_attempts attempts"
+            echo "❌ ml-serve-app pod did not become ready after $max_attempts attempts"
             echo ""
             echo "Pod status:"
-            if [ "$WORKFLOW_SELECTOR" = "name" ]; then
-              kubectl get pod "$WORKFLOW_POD" -n darwin || true
-              kubectl describe pod "$WORKFLOW_POD" -n darwin || true
+            if [ "$ML_SERVE_SELECTOR" = "name" ]; then
+              kubectl get pod "$ML_SERVE_POD" -n darwin || true
+              kubectl describe pod "$ML_SERVE_POD" -n darwin || true
               echo ""
               echo "Pod logs:"
-              kubectl logs "$WORKFLOW_POD" -n darwin --tail=50 || true
+              kubectl logs "$ML_SERVE_POD" -n darwin --tail=50 || true
             else
-              kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR" || true
-              WORKFLOW_POD_NAME=$(kubectl get pods -n darwin -l "$WORKFLOW_SELECTOR" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
-              if [ -n "$WORKFLOW_POD_NAME" ]; then
-                kubectl describe pod "$WORKFLOW_POD_NAME" -n darwin || true
+              kubectl get pods -n darwin -l "$ML_SERVE_SELECTOR" || true
+              ML_SERVE_POD_NAME=$(kubectl get pods -n darwin -l "$ML_SERVE_SELECTOR" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+              if [ -n "$ML_SERVE_POD_NAME" ]; then
+                kubectl describe pod "$ML_SERVE_POD_NAME" -n darwin || true
                 echo ""
                 echo "Pod logs:"
-                kubectl logs "$WORKFLOW_POD_NAME" -n darwin --tail=50 || true
+                kubectl logs "$ML_SERVE_POD_NAME" -n darwin --tail=50 || true
               fi
             fi
             echo ""
@@ -346,14 +346,14 @@ jobs:
             kubectl get pods -n darwin || true
             exit 1
           fi
-      - name: Verify Services Are Healthy (as per root README)
+      - name: Verify Services Are Healthy
         run: |
-          echo "✅ Verifying services are healthy (as per root README)..."
-          
-          # Check all pods are running (as per README: kubectl get pods -n darwin)
+          echo "✅ Verifying services are healthy..."
+
+          # Check all pods are running
           echo "📦 Checking all pods are running:"
           kubectl get pods -n darwin
-          
+
           # Wait for ingress to be ready (if available)
           echo "⏳ Waiting for ingress controller to be ready..."
           max_attempts=30
@@ -366,25 +366,18 @@ jobs:
             sleep 2
             attempt=$((attempt+1))
           done
-          
-          # Test health check via ingress (as per README: curl http://localhost/workflow/healthcheck)
-          echo "🏥 Testing health check via ingress..."
-          # Note: In CI, we may need to use port-forward instead if ingress isn't accessible
-          # Try ingress first, fallback to port-forward
-          
-          # Start port-forward in background (as per README alternative: kubectl port-forward svc/darwin-workflow -n darwin 8001:8001)
-          kubectl port-forward svc/darwin-workflow -n darwin 8001:8001 > /tmp/port-forward.log 2>&1 &
-          PORT_FORWARD_PID=$!
-          echo "Port-forward started with PID: $PORT_FORWARD_PID"
-          
-          # Wait for port-forward to be ready
-          sleep 5
-          
-          # Test health check endpoint (as per README: curl http://localhost:8001/healthcheck)
+
+          # Test health check via ingress
+          echo "🏥 Testing ML Serve App health check via ingress..."
+
+          HEALTH_URL="http://localhost/ml-serve/healthcheck"
+          echo "Testing endpoint: $HEALTH_URL"
+
+          # Wait for health check endpoint to be accessible
           max_attempts=30
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            if curl -f -s http://localhost:8001/healthcheck > /dev/null 2>&1; then
+            if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
               echo "✅ Health check endpoint is accessible"
               break
             fi
@@ -392,69 +385,200 @@ jobs:
             sleep 2
             attempt=$((attempt+1))
           done
-          
+
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Health check endpoint not accessible"
-            echo "Port-forward logs:"
-            cat /tmp/port-forward.log || true
-            kill $PORT_FORWARD_PID 2>/dev/null || true
+            echo "❌ Health check endpoint not accessible at $HEALTH_URL"
             exit 1
           fi
-          
-          # Test health check endpoint and verify response (as per README expected response)
-          echo "Testing /healthcheck endpoint..."
-          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost:8001/healthcheck)
+
+          # Test health check endpoint and verify response
+          echo "Testing health check endpoint..."
+          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$HEALTH_URL")
           http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
           body=$(echo "$response" | grep -v "HTTP_CODE")
-          
+
           echo "HTTP Status Code: $http_code"
           echo "Response Body: $body"
-          
+
           if [ "$http_code" != "200" ]; then
             echo "❌ Health check returned HTTP $http_code, expected 200"
-            kill $PORT_FORWARD_PID 2>/dev/null || true
             exit 1
           fi
-          
-          # Verify response structure matches README expected response
+
+          # Verify response structure
           python3 << EOF
           import json
           import sys
-          
+
           try:
               data = json.loads('''$body''')
-              required_fields = ['app_layer', 'core', 'db']
-              missing_fields = [f for f in required_fields if f not in data]
+              print(f"   Response: {data}")
               
-              if missing_fields:
-                  print(f"❌ Missing required fields: {missing_fields}")
+              if 'status' in data:
+                  print(f"   Status: {data.get('status')}")
+                  print("✅ ML Serve App health check passed!")
+              else:
+                  print("❌ Response missing 'status' field")
                   sys.exit(1)
-              
-              print("✅ Health check response structure is valid")
-              print(f"   app_layer: {data.get('app_layer')}")
-              print(f"   core: {data.get('core')}")
-              print(f"   db: {data.get('db')}")
-              
-              # Verify values match expected format from README
-              if data.get('app_layer') != 'OK':
-                  print(f"⚠️  app_layer is '{data.get('app_layer')}', expected 'OK'")
-              
-              if data.get('core') != 'OK':
-                  print(f"⚠️  core is '{data.get('core')}', expected 'OK'")
-              
-              # db can be True/False (string or boolean)
-              db_value = data.get('db')
-              if db_value not in [True, False, 'True', 'False', 'true', 'false']:
-                  print(f"⚠️  db value '{db_value}' is unexpected")
-              
-              print("\n✅ Health check passed! Service is healthy (as per root README).")
           except json.JSONDecodeError as e:
               print(f"❌ Invalid JSON response: {e}")
               sys.exit(1)
           EOF
-          
-          # Cleanup port-forward
-          kill $PORT_FORWARD_PID 2>/dev/null || true
+      - name: Wait for artifact-builder pod to be ready
+        run: |
+          echo "⏳ Waiting for artifact-builder pod to be ready..."
+
+          # The pod is labeled with app.kubernetes.io/component=artifact-builder
+          ARTIFACT_BUILDER_POD=""
+          ARTIFACT_BUILDER_SELECTOR=""
+
+          # Try different label selectors
+          if kubectl get pods -n darwin -l app.kubernetes.io/component=artifact-builder --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
+            ARTIFACT_BUILDER_SELECTOR="app.kubernetes.io/component=artifact-builder"
+            ARTIFACT_BUILDER_POD=$(kubectl get pods -n darwin -l app.kubernetes.io/component=artifact-builder --no-headers 2>/dev/null | head -1 | awk '{print $1}')
+          elif kubectl get pods -n darwin -l component-name=darwin-artifact-builder --no-headers 2>/dev/null | head -1 | awk '{print $1}' | grep -q .; then
+            ARTIFACT_BUILDER_SELECTOR="component-name=darwin-artifact-builder"
+            ARTIFACT_BUILDER_POD=$(kubectl get pods -n darwin -l component-name=darwin-artifact-builder --no-headers 2>/dev/null | head -1 | awk '{print $1}')
+          elif kubectl get pods -n darwin | grep -E "artifact-builder" | head -1 | awk '{print $1}' | grep -q .; then
+            ARTIFACT_BUILDER_POD=$(kubectl get pods -n darwin | grep -E "artifact-builder" | head -1 | awk '{print $1}')
+            ARTIFACT_BUILDER_SELECTOR="name"
+          fi
+
+          if [ -z "$ARTIFACT_BUILDER_POD" ]; then
+            echo "⚠️  Could not find artifact-builder pod with any label selector"
+            echo "Checking all pods in darwin namespace:"
+            kubectl get pods -n darwin || true
+            echo ""
+            echo "Checking deployments:"
+            kubectl get deployments -n darwin | grep artifact-builder || true
+            exit 1
+          fi
+
+          echo "Found artifact-builder pod: $ARTIFACT_BUILDER_POD (using selector: $ARTIFACT_BUILDER_SELECTOR)"
+
+          max_attempts=60
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            # Check if pod exists and is ready
+            if [ "$ARTIFACT_BUILDER_SELECTOR" = "name" ]; then
+              POD_STATUS=$(kubectl get pod "$ARTIFACT_BUILDER_POD" -n darwin -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+              READY=$(kubectl get pod "$ARTIFACT_BUILDER_POD" -n darwin -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+            else
+              POD_STATUS=$(kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+              READY=$(kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR" -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+            fi
+            
+            if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
+              echo "✅ artifact-builder pod is ready"
+              if [ "$ARTIFACT_BUILDER_SELECTOR" = "name" ]; then
+                kubectl get pod "$ARTIFACT_BUILDER_POD" -n darwin
+              else
+                kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR"
+              fi
+              break
+            fi
+            
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for pod... (Status: $POD_STATUS, Ready: $READY)"
+            if [ "$ARTIFACT_BUILDER_SELECTOR" = "name" ]; then
+              kubectl get pod "$ARTIFACT_BUILDER_POD" -n darwin || true
+            else
+              kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR" || true
+            fi
+            sleep 5
+            attempt=$((attempt+1))
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ artifact-builder pod did not become ready after $max_attempts attempts"
+            echo ""
+            echo "Pod status:"
+            if [ "$ARTIFACT_BUILDER_SELECTOR" = "name" ]; then
+              kubectl get pod "$ARTIFACT_BUILDER_POD" -n darwin || true
+              kubectl describe pod "$ARTIFACT_BUILDER_POD" -n darwin || true
+              echo ""
+              echo "Pod logs:"
+              kubectl logs "$ARTIFACT_BUILDER_POD" -n darwin --tail=50 || true
+            else
+              kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR" || true
+              ARTIFACT_BUILDER_POD_NAME=$(kubectl get pods -n darwin -l "$ARTIFACT_BUILDER_SELECTOR" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+              if [ -n "$ARTIFACT_BUILDER_POD_NAME" ]; then
+                kubectl describe pod "$ARTIFACT_BUILDER_POD_NAME" -n darwin || true
+                echo ""
+                echo "Pod logs:"
+                kubectl logs "$ARTIFACT_BUILDER_POD_NAME" -n darwin --tail=50 || true
+              fi
+            fi
+            echo ""
+            echo "All pods in darwin namespace:"
+            kubectl get pods -n darwin || true
+            exit 1
+          fi
+      - name: Verify artifact-builder is healthy
+        run: |
+          echo "✅ Verifying artifact-builder is healthy..."
+
+          # Test health check via ingress
+          echo "🏥 Testing Artifact Builder health check via ingress..."
+
+          HEALTH_URL="http://localhost/artifact-builder/healthcheck"
+          echo "Testing endpoint: $HEALTH_URL"
+
+          # Wait for health check endpoint to be accessible
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
+              echo "✅ Artifact Builder health check endpoint is accessible"
+              break
+            fi
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for artifact-builder health check..."
+            sleep 2
+            attempt=$((attempt+1))
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Artifact Builder health check endpoint not accessible at $HEALTH_URL"
+            exit 1
+          fi
+
+          # Test health check endpoint and verify response
+          echo "Testing artifact-builder health check endpoint..."
+          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$HEALTH_URL")
+          http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
+          body=$(echo "$response" | grep -v "HTTP_CODE")
+
+          echo "HTTP Status Code: $http_code"
+          echo "Response Body: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "❌ Artifact Builder health check returned HTTP $http_code, expected 200"
+            exit 1
+          fi
+
+          # Verify response structure
+          python3 << EOF
+          import json
+          import sys
+
+          try:
+              data = json.loads('''$body''')
+              print(f"   Response: {data}")
+              
+              if 'status' in data:
+                  print(f"   Status: {data.get('status')}")
+                  print("✅ Artifact Builder health check passed!")
+              else:
+                  print("❌ Response missing 'status' field")
+                  sys.exit(1)
+          except json.JSONDecodeError as e:
+              print(f"❌ Invalid JSON response: {e}")
+              sys.exit(1)
+          EOF
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Both ML Serve App and Artifact Builder are healthy!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       
       - name: Cleanup
         if: always()

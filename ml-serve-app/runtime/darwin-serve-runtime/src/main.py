@@ -144,9 +144,10 @@ app = FastAPI(root_path=root_path, lifespan=lifespan)
 
 
 @app.get("/healthcheck")
+@app.get("/health")
 async def healthcheck():
     """Health check endpoint to verify service is running (liveness probe)."""
-    return {"status": "healthy"}
+    return {"status": "SUCCESS", "message": "OK"}
 
 
 @app.get("/ready")

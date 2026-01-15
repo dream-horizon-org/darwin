@@ -13,7 +13,9 @@ class ComputeService:
 
     def __init__(self, cluster_id: str):
         self.cluster_id = cluster_id
-        self.application_config_client = ApplicationConfigClient(get_application_config_path())
+        self.application_config_client = ApplicationConfigClient(
+            get_application_config_path()
+        )
 
     @retry(
         retries=3,
@@ -31,7 +33,12 @@ class ComputeService:
         """
         try:
             return ClusterResponse.from_dict(
-                requests.get(self.application_config_client.get_compute_url() + f"/cluster/{self.cluster_id}/").json()
+                requests.get(
+                    self.application_config_client.get_compute_url()
+                    + f"/cluster/{self.cluster_id}/"
+                ).json()
             )
         except Exception as e:
-            raise UnableToFetchComputeMetadataError("Unable to fetch compute metadata") from e
+            raise UnableToFetchComputeMetadataError(
+                "Unable to fetch compute metadata"
+            ) from e

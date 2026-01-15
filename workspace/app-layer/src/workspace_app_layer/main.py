@@ -33,7 +33,8 @@ compute = Compute(env=ENV)
 workspace = WorkspacesSDK(env=ENV)
 log_file_root = Config(env=ENV).log_file_root
 
-app = FastAPI()
+root_path = os.environ.get("ROOT_PATH", "")
+app = FastAPI(root_path=root_path)
 
 app.add_middleware(OpenTelemetryMiddleware)
 
@@ -47,9 +48,10 @@ if not os.getenv("DEV"):
         app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+@app.get("/healthcheck")
 @app.get("/health")
 def health():
-    return {"status": "Success"}
+    return {"status": "SUCCESS", "message": "OK"}
 
 
 @app.get("/get-projects")

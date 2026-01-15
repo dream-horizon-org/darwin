@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, TypeVar, Any, Literal
 from urllib.parse import urljoin
 
+import aiomysql
 import pytz
 from workflow_core.models.dao_response import DaoResponse
 from workflow_core.models.identifier import Identifier
@@ -215,6 +216,58 @@ class WorkflowCoreImpl(WorkflowCoreInterface):
         except Exception as e:
             self.logger.warning(f"Health check error: {e}")
             return "OK", "False"
+
+    async def deep_healthcheck(self) -> dict:
+        """
+        Simple deep healthcheck for key dependencies.
+        Returns a small, structured dict suitable to return directly from the API.
+        """
+        def ok() -> dict:
+            return {"status": "SUCCESS", "message": "OK"}
+
+        def fail(err: Exception) -> dict:
+            return {"status": "FAILURE", "message": str(err)}
+
+        data: dict = {}
+
+        # Elasticsearch
+        try:
+            _, es_health_str = self.health_check_core()  # ("OK", "True"/"False")
+            data["elasticsearch"] = ok() if str(es_health_str).lower() == "true" else {"status": "FAILURE", "message": "Unhealthy"}
+        except Exception as e:
+            data["elasticsearch"] = fail(e)
+
+        # Workflow DB
+        try:
+            cfg = getattr(self.darwin_workflow_dao, "workflow_config", None) or {}
+            conn = await aiomysql.connect(
+                host=cfg.get("host", "localhost"),
+                port=int(cfg.get("port", 3306)),
+                user=cfg.get("username", "root"),
+                password=cfg.get("password", "root"),
+                db=cfg.get("database", "darwin_workflow"),
+            )
+            try:
+                async with conn.cursor() as cur:
+                    await cur.execute("SELECT 1")
+                    await cur.fetchone()
+            finally:
+                conn.close()
+                await conn.wait_closed()
+            data["workflow_db"] = ok()
+        except Exception as e:
+            data["workflow_db"] = fail(e)
+
+        # Airflow DB (optional)
+        try:
+            await self.airflow_dao.initialize()
+            await self.airflow_dao._mysql_dao.healthcheck()  # simple SELECT 1
+            data["airflow_db"] = ok()
+        except Exception as e:
+            data["airflow_db"] = fail(e)
+
+        overall = "SUCCESS" if all(v.get("status") == "SUCCESS" for v in data.values()) else "DEGRADED"
+        return {"status": overall, "message": "OK", "data": data}
 
     async def initialize_db(self):
         await self.airflow_dao.initialize()

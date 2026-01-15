@@ -8,6 +8,9 @@ import (
 
 func Healthcheck(c *gin.Context) {
 	requestId := c.GetString("requestID")
-	c.String(http.StatusOK, "Active")
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "SUCCESS",
+		"message": "OK",
+	})
 	logger.InfoR(requestId, "Healthcheck Active")
 }

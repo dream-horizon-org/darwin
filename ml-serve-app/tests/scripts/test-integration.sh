@@ -28,7 +28,13 @@ if [ ! -d ".venv" ]; then
     $PYTHON_CMD -m venv .venv
     source .venv/bin/activate
     pip install -q --upgrade pip
-    for dir in model core app_layer; do (cd $dir && pip install -q -e .${dir/app_layer/[testing]}); done
+    for dir in model core app_layer; do
+        if [ "$dir" = "app_layer" ]; then
+            (cd $dir && pip install -q -e .[testing])
+        else
+            (cd $dir && pip install -q -e .)
+        fi
+    done
 else
     source .venv/bin/activate
 fi

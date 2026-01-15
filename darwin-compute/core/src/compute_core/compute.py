@@ -81,8 +81,7 @@ class Compute:
         try:
             dcm_health = self.dcm.healthcheck()
         except Exception as e:
-            # TODO: Swallowing exception silently - log the error or return the exception details
-            dcm_health = False
+            dcm_health = {"status": "FAILURE", "message": str(e)}
         return dcm_health
 
     def healthcheck(self):
