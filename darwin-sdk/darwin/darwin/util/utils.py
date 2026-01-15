@@ -34,18 +34,30 @@ def get_default_spark_config_path(version: Union[str, Version]) -> str:
             "configs",
             f"spark_configs_{version}_{get_env().value.lower()}.ini",
         )
-    return os.path.join(os.path.dirname(__file__), "..", "spark", "configs", f"spark_configs_{version}.ini")
+    return os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "spark",
+        "configs",
+        f"spark_configs_{version}.ini",
+    )
 
 
 def get_application_config_path() -> str:
-    return os.path.join(os.path.dirname(__file__), "..", "spark", "configs", "application_configs.ini")
+    return os.path.join(
+        os.path.dirname(__file__), "..", "spark", "configs", "application_configs.ini"
+    )
 
 
 def get_jars(directory: str) -> str:
     """Get Hive JARs for metastore integration."""
     files = os.listdir(directory)
     # Filter for Hive JARs needed for metastore
-    jar_files = [directory + "/" + f for f in files if f.endswith(".jar") and f.startswith("hive-")]
+    jar_files = [
+        directory + "/" + f
+        for f in files
+        if f.endswith(".jar") and f.startswith("hive-")
+    ]
     return ":".join(jar_files)
 
 
@@ -53,7 +65,9 @@ def overwrite_metastore_jars_3_5_0(local_dir: str, metastore_jars: str) -> str:
     metastore_jars = f"{local_dir}/parquet-column-1.13.1.jar" + ":" + metastore_jars
     metastore_jars = f"{local_dir}/parquet-common-1.13.1.jar" + ":" + metastore_jars
     metastore_jars = f"{local_dir}/parquet-encoding-1.13.1.jar" + ":" + metastore_jars
-    metastore_jars = f"{local_dir}/parquet-format-structures-1.13.1.jar" + ":" + metastore_jars
+    metastore_jars = (
+        f"{local_dir}/parquet-format-structures-1.13.1.jar" + ":" + metastore_jars
+    )
     metastore_jars = f"{local_dir}/parquet-hadoop-1.13.1.jar" + ":" + metastore_jars
     metastore_jars = f"{local_dir}/parquet-jackson-1.13.1.jar" + ":" + metastore_jars
     metastore_jars = f"{local_dir}/aws-java-sdk-core-1.12.31.jar" + ":" + metastore_jars
@@ -65,7 +79,9 @@ def overwrite_metastore_jars_3_5_0(local_dir: str, metastore_jars: str) -> str:
     return metastore_jars
 
 
-def overwrite_metastore_jars(local_dir: str, metastore_jars: str, pyspark_version: Version) -> str:
+def overwrite_metastore_jars(
+    local_dir: str, metastore_jars: str, pyspark_version: Version
+) -> str:
     """Some jars needs overwritten based on the spark version for glue, it works only this way."""
     if pyspark_version == Version("3.5.0"):
         return overwrite_metastore_jars_3_5_0(local_dir, metastore_jars)

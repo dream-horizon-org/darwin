@@ -1,6 +1,10 @@
 from enum import Enum
 
-from darwin.exceptions import InvalidEnvironmentError, InvalidDarwinInitModeError, InvalidSparkLoggingLevelError
+from darwin.exceptions import (
+    InvalidEnvironmentError,
+    InvalidDarwinInitModeError,
+    InvalidSparkLoggingLevelError,
+)
 
 
 class ComputeStatus(Enum):
