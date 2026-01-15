@@ -2,11 +2,11 @@ from unittest.mock import patch
 
 import pytest
 import responses
-from pyspark.sql import SparkSession, DataFrame
-
-import darwin
 from darwin.exceptions import NoActiveSparkSessionError
 from darwin.spark.spark_resources import SparkResources
+from pyspark.sql import DataFrame, SparkSession
+
+import darwin
 
 
 @responses.activate

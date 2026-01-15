@@ -1,4 +1,4 @@
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 from darwin.exceptions import UnsupportedSparkConfigError
 from darwin.util.utils import get_default_jars_path

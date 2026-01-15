@@ -8,8 +8,8 @@ To use these fixtures, run pytest with:
     pytest --confcutdir=tests tests/test_integration.py
 """
 
-import os
 import json
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest

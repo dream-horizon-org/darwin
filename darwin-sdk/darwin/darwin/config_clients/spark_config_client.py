@@ -4,12 +4,12 @@ from typing import Dict, List, Tuple
 
 from darwin.exceptions import ConfigNotFoundError
 from darwin.util.constants import (
-    SPARK_CONFIG_SECTION,
-    SPARK_JARS_SECTION,
-    SPARK_JARS_KEY,
-    SPARK_RSS_CONFIGS_SECTION,
-    SPARK_DYNAMIC_ALLOCATION_SECTION,
     EXTRA_JARS_PATH,
+    SPARK_CONFIG_SECTION,
+    SPARK_DYNAMIC_ALLOCATION_SECTION,
+    SPARK_JARS_KEY,
+    SPARK_JARS_SECTION,
+    SPARK_RSS_CONFIGS_SECTION,
 )
 from darwin.util.utils import get_default_jars_path
 

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
+from typing import Dict, List, Optional
+
 from dataclasses_json import DataClassJsonMixin
-from typing import List, Optional, Dict
 
 
 @dataclass

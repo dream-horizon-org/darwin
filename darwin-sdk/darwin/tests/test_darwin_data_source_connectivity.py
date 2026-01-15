@@ -4,10 +4,10 @@ from unittest.mock import patch
 import pytest
 import ray
 import responses
+from darwin.spark.spark_resources import SparkResources
 from pyspark.sql import SparkSession
 
 import darwin
-from darwin.spark.spark_resources import SparkResources
 
 
 @responses.activate

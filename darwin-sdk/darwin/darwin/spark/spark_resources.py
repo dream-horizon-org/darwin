@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 import ray
-
 from darwin.util.constants import SPARK_MEMORY_UTILIZATION_FACTOR
 
 

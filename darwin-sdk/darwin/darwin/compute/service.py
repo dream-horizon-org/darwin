@@ -1,5 +1,4 @@
 import requests
-
 from darwin.compute.get_cluster_response_dto import ClusterResponse
 from darwin.config_clients.application_config_client import ApplicationConfigClient
 from darwin.exceptions import UnableToFetchComputeMetadataError

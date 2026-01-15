@@ -1,16 +1,16 @@
-from typing import Dict
 import os
+from typing import Dict
 
 from darwin.config_clients.spark_config_client import SparkConfigClient
-from darwin.version import Version
+from darwin.util.enums import Environment
 from darwin.util.utils import (
+    get_default_jars_path,
     get_default_spark_config_path,
+    get_env,
     get_jars,
     overwrite_metastore_jars,
-    get_default_jars_path,
-    get_env,
 )
-from darwin.util.enums import Environment
+from darwin.version import Version
 
 
 class SparkGlueConfigsManager:

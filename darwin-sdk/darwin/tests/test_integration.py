@@ -8,9 +8,9 @@ They do NOT require external AWS resources like S3, Glue Catalog, etc.
 """
 
 import os
-import tempfile
 import shutil
-from unittest.mock import patch, MagicMock
+import tempfile
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -80,9 +80,10 @@ class TestRayClusterConnectivity:
 
     def test_ray_distributed_task_distribution(self):
         """Test that tasks are distributed across nodes (if multiple nodes available)."""
-        import ray
         import socket
         from collections import Counter
+
+        import ray
 
         if ray.is_initialized():
             ray.shutdown()
@@ -443,27 +444,28 @@ class TestDarwinSDKImports:
     def test_darwin_module_imports(self):
         """Test that all Darwin SDK modules can be imported."""
         # Core modules
-        import darwin
-        from darwin.darwin import init_spark, stop_spark, get_spark_session
+        from darwin.compute.get_cluster_response_dto import ClusterResponse
 
         # Compute service
         from darwin.compute.service import ComputeService
-        from darwin.compute.get_cluster_response_dto import ClusterResponse
-
-        # Spark modules
-        from darwin.spark.spark import start_spark, stop_raydp_spark
-        from darwin.spark.spark_resources import SparkResources
 
         # Config modules
         from darwin.config_clients.application_config_client import (
             ApplicationConfigClient,
         )
         from darwin.config_clients.spark_config_client import SparkConfigClient
+        from darwin.exceptions import NoActiveSparkSessionError
+
+        # Spark modules
+        from darwin.spark.spark import start_spark, stop_raydp_spark
+        from darwin.spark.spark_resources import SparkResources
+        from darwin.util.enums import SparkLoggingLevel
 
         # Utils
         from darwin.util.utils import get_cluster_id, get_jars
-        from darwin.util.enums import SparkLoggingLevel
-        from darwin.exceptions import NoActiveSparkSessionError
+
+        import darwin
+        from darwin.darwin import get_spark_session, init_spark, stop_spark
 
     def test_darwin_version(self):
         """Test that Darwin SDK version is available."""
@@ -478,8 +480,9 @@ class TestDarwinExceptions:
 
     def test_no_active_spark_session_error(self):
         """Test NoActiveSparkSessionError is raised when no session exists."""
-        import darwin
         from darwin.exceptions import NoActiveSparkSessionError
+
+        import darwin
 
         # Ensure no session exists
         try:

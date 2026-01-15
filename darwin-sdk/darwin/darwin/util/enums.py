@@ -1,8 +1,8 @@
 from enum import Enum
 
 from darwin.exceptions import (
-    InvalidEnvironmentError,
     InvalidDarwinInitModeError,
+    InvalidEnvironmentError,
     InvalidSparkLoggingLevelError,
 )
 

@@ -1,5 +1,4 @@
 import pytest
-
 from darwin.exceptions import UnsupportedSparkConfigError
 from darwin.spark.config_manager.spark_config_assembler import SparkConfigAssembler
 
