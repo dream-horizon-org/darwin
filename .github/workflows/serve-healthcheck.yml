@@ -63,22 +63,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Clean up disk space
-        run: |
-          echo "🧹 Cleaning up disk space before build..."
-          echo "Current disk usage:"
-          df -h
-          echo ""
-          echo "Cleaning up Docker resources..."
-          docker system prune -a -f || true
-          docker volume prune -f || true
-          echo ""
-          echo "Cleaning up apt cache..."
-          sudo apt-get clean || true
-          sudo rm -rf /var/lib/apt/lists/* || true
-          echo ""
-          echo "Disk usage after cleanup:"
-          df -h
       - name: Install prerequisites
         run: |
           # Install kubectl
@@ -142,12 +126,7 @@ jobs:
       - name: Step 2 - Build images and setup cluster (setup.sh)
         run: |
           echo "🔨 Step 2: Running setup.sh to build images and setup cluster..."
-          # Clean up Docker before building to free space (GitHub Actions runners have limited disk space)
-          echo "🧹 Cleaning up Docker before build..."
-          docker system prune -f || true
-          docker image prune -f || true
-          echo "Disk space before build:"
-          df -h
+
           # Ensure ENV is set to local for cluster creation
           export ENV=local
           # Run setup.sh with auto-yes flag (it will auto-answer yes to cluster setup and clean build)
@@ -168,11 +147,6 @@ jobs:
             exit 1
           fi
 
-          # Clean up unused images after build to free space for deployment
-          echo "🧹 Cleaning up unused Docker images after build..."
-          docker image prune -f || true
-          echo "Disk space after build:"
-          df -h
       - name: Verify cluster is ready
         run: |
           echo "🔍 Verifying cluster status..."
@@ -605,21 +579,26 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Both ML Serve App and Artifact Builder are healthy!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      
       - name: Cleanup
         if: always()
         run: |
           echo "🧹 Cleaning up..."
-
-          # Clean up Docker to free space (important for GitHub Actions runners)
+          echo "Current disk usage:"
+          df -h
+          echo ""
+          echo "Cleaning up kind cluster and port-forwards..."
+          pkill -f "kubectl port-forward" || true
+          kind delete cluster --name kind 2>/dev/null || true
+          echo ""
           echo "Cleaning up Docker resources..."
-          docker system prune -a -f || true
-          docker volume prune -f || true
-
-          # Delete kind cluster if it exists
-          if kind get clusters 2>/dev/null | grep -q kind; then
-            echo "Deleting kind cluster..."
-            kind delete cluster --name kind || true
-          fi
-
-          # Cleanup Docker resources
+          docker image prune -af --filter "label=maintainer=darwin" || true
           docker system prune -f || true
+          docker volume prune -f || true
+          echo ""
+          echo "Cleaning up apt cache..."
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/* || true
+          echo ""
+          echo "Disk usage after cleanup:"
+          df -h

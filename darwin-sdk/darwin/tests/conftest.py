@@ -18,7 +18,9 @@ def _set_aws_credentials():
     config.read(os.path.expanduser("~/.aws/credentials"))
     os.environ["AWS_ACCESS_KEY_ID"] = config.get("default", "aws_access_key_id")
     os.environ["AWS_SECRET_ACCESS_KEY"] = config.get("default", "aws_secret_access_key")
-    os.environ["AWS_SESSION_TOKEN"] = config.get("default", "aws_session_token", fallback="")
+    os.environ["AWS_SESSION_TOKEN"] = config.get(
+        "default", "aws_session_token", fallback=""
+    )
     os.environ["AWS_REGION"] = config.get("default", "region", fallback="us-east-1")
     os.environ["AWS_DEFAULT_REGION"] = os.environ["AWS_REGION"]
 
@@ -49,7 +51,9 @@ def mock_cluster_response(request):
 
 @pytest.fixture(scope="function")
 def patch_compute_service(monkeypatch, mock_compute_service):
-    monkeypatch.setattr("darwin.compute.service.ComputeService", lambda cluster_id: mock_compute_service)
+    monkeypatch.setattr(
+        "darwin.compute.service.ComputeService", lambda cluster_id: mock_compute_service
+    )
 
 
 @pytest.fixture
@@ -63,11 +67,17 @@ def mock_compute_service(mock_cluster_response, request):
     # Register the HTTP mock
     if mock_cluster_response.data.cluster_id == "UNKNOWN_CLUSTER_ID":
         responses.add(
-            responses.GET, f"{base_url}/cluster/{cluster_id}/", json={"detail": "Cluster not found"}, status=404
+            responses.GET,
+            f"{base_url}/cluster/{cluster_id}/",
+            json={"detail": "Cluster not found"},
+            status=404,
         )
     else:
         responses.add(
-            responses.GET, f"{base_url}/cluster/{cluster_id}/", json=mock_cluster_response.to_dict(), status=200
+            responses.GET,
+            f"{base_url}/cluster/{cluster_id}/",
+            json=mock_cluster_response.to_dict(),
+            status=200,
         )
     # Register cluster id
     os.environ["CLUSTER_ID"] = cluster_id

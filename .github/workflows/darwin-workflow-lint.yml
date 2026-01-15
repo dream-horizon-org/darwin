@@ -74,4 +74,3 @@ jobs:
             echo "⚠️  No src directory found in ${{ matrix.module }}, skipping mypy"
           fi
         continue-on-error: true
-

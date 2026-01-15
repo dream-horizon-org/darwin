@@ -66,6 +66,7 @@ docker build \
   --build-arg APP_DIR=$path \
   --build-arg EXTRA_ENV_VARS="$env_vars" \
   -t $application:latest \
+  --label "maintainer=darwin" \
   -f $DOCKERFILE .
   
 docker tag "$application":latest "$registry/$application":latest
