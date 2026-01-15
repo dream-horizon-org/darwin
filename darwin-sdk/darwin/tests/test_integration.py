@@ -444,6 +444,7 @@ class TestDarwinSDKImports:
     def test_darwin_module_imports(self):
         """Test that all Darwin SDK modules can be imported."""
         # Core modules
+        import darwin
         from darwin.compute.get_cluster_response_dto import ClusterResponse
 
         # Compute service
@@ -454,6 +455,7 @@ class TestDarwinSDKImports:
             ApplicationConfigClient,
         )
         from darwin.config_clients.spark_config_client import SparkConfigClient
+        from darwin.darwin import get_spark_session, init_spark, stop_spark
         from darwin.exceptions import NoActiveSparkSessionError
 
         # Spark modules
@@ -463,9 +465,6 @@ class TestDarwinSDKImports:
 
         # Utils
         from darwin.util.utils import get_cluster_id, get_jars
-
-        import darwin
-        from darwin.darwin import get_spark_session, init_spark, stop_spark
 
     def test_darwin_version(self):
         """Test that Darwin SDK version is available."""
@@ -480,9 +479,8 @@ class TestDarwinExceptions:
 
     def test_no_active_spark_session_error(self):
         """Test NoActiveSparkSessionError is raised when no session exists."""
-        from darwin.exceptions import NoActiveSparkSessionError
-
         import darwin
+        from darwin.exceptions import NoActiveSparkSessionError
 
         # Ensure no session exists
         try:

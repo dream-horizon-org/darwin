@@ -5,6 +5,7 @@ from typing import Dict, Optional, Union
 from urllib.parse import urlparse
 
 import boto3
+
 from darwin.compute.get_cluster_response_dto import ClusterResponse
 from darwin.exceptions import InvalidClusterAttachedError
 from darwin.util.constants import SPARK_EVENT_LOG_DIR

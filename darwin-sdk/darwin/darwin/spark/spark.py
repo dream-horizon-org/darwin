@@ -3,6 +3,8 @@ from typing import Any, Dict
 
 import pyspark
 import raydp
+from pyspark.sql import SparkSession
+
 from darwin.exceptions import NoActiveSparkSessionError
 from darwin.spark.config_manager.spark_config_assembler import SparkConfigAssembler
 from darwin.spark.config_manager.spark_glue_configs_manager import (
@@ -13,7 +15,6 @@ from darwin.util.constants import DARWIN_SPARK_DEFAULT_APP_NAME, INT_MAX
 from darwin.util.enums import Environment, SparkLoggingLevel
 from darwin.util.utils import get_env, run_jupyter_line_magic, set_events_log_dir
 from darwin.version import Version
-from pyspark.sql import SparkSession
 
 
 def _set_configs_from_resources(

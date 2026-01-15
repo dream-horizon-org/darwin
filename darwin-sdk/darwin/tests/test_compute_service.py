@@ -1,5 +1,6 @@
 import pytest
 import responses
+
 from darwin.compute.get_cluster_response_dto import ClusterResponse
 from darwin.exceptions import UnableToFetchComputeMetadataError
 

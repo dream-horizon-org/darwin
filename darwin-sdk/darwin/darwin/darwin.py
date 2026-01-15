@@ -1,5 +1,7 @@
 from typing import Optional
 
+from pyspark.sql import SparkSession
+
 from darwin.compute.get_cluster_response_dto import ClusterResponse
 from darwin.compute.service import ComputeService
 from darwin.spark.spark import get_raydp_spark_session, start_spark, stop_raydp_spark
@@ -9,7 +11,6 @@ from darwin.util.utils import (
     get_cluster_id,
     str_to_bool,
 )
-from pyspark.sql import SparkSession
 
 
 def init_spark(**kwargs) -> SparkSession:
