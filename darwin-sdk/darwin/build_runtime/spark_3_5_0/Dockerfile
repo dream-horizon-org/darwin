@@ -9,7 +9,13 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | b
         && nvm install 20.12.0 \
         && nvm use 20.12.0 \
         && node -v \
-    && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+        && ARCH=$(uname -m) \
+        && if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+            AWS_CLI_URL="https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip"; \
+        else \
+            AWS_CLI_URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"; \
+        fi \
+        && curl "$AWS_CLI_URL" -o "awscliv2.zip" \
         && unzip awscliv2.zip \
         && sudo ./aws/install \
         && sudo rm -rf awscliv2.zip \

@@ -34,7 +34,14 @@ RUNTIME_PATH=""
 PUSH=false
 REGISTRY="127.0.0.1:55000"
 TAG="2.37.0-darwin-sdk"
-PLATFORM="linux/amd64"
+# Auto-detect platform based on architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64|amd64) DEFAULT_PLATFORM="linux/amd64" ;;
+  arm64|aarch64) DEFAULT_PLATFORM="linux/arm64" ;;
+  *) DEFAULT_PLATFORM="linux/arm64" ;;  # Default to arm64 for unknown
+esac
+PLATFORM="${PLATFORM:-$DEFAULT_PLATFORM}"
 IMAGE_NAME="ray"
 SPARK_VERSION="3.5.0"
 USE_BUILTIN=true
