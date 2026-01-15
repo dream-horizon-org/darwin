@@ -8,6 +8,7 @@ import os
 import pickle
 import sys
 import tempfile
+from typing import Optional
 import yaml
 import mlflow
 from sklearn.datasets import load_iris
@@ -23,7 +24,7 @@ def _log_model_to_mlflow(
     python_full_version: str,
     conda_python: str,
     verbose: bool,
-) -> str | None:
+) -> Optional[str]:
     """
     Log a trained model to MLflow with the shared artifact layout.
     Returns the logged model URI on success, otherwise None.
@@ -88,7 +89,7 @@ def _log_model_to_mlflow(
 
 
 
-def setup_mlflow_test_models(mlflow_uri: str = None, verbose: bool = True) -> bool:
+def setup_mlflow_test_models(mlflow_uri: Optional[str] = None, verbose: bool = True) -> bool:
     """
     Setup MLflow test models for integration tests.
     
@@ -191,4 +192,3 @@ def setup_mlflow_test_models(mlflow_uri: str = None, verbose: bool = True) -> bo
 if __name__ == "__main__":
     success = setup_mlflow_test_models(verbose=True)
     sys.exit(0 if success else 1)
-
