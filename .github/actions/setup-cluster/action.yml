@@ -91,6 +91,38 @@ runs:
         
         echo "✅ Kubeconfig validation complete"
 
+    - name: Validate cluster prerequisites
+      if: steps.check-cluster.outputs.exists == 'true'
+      shell: bash
+      run: |
+        echo "📋 Validating cluster prerequisites..."
+        
+        # Check shared-storage directory
+        SHARED_STORAGE="./kind/shared-storage"
+        if [ ! -d "$SHARED_STORAGE" ]; then
+          echo "⚠️  $SHARED_STORAGE missing - creating it..."
+          mkdir -p "$SHARED_STORAGE"
+          echo "✅ Created $SHARED_STORAGE"
+        else
+          echo "✅ $SHARED_STORAGE exists"
+        fi
+        
+        # Check if darwin namespace exists with stuck PVCs
+        if kubectl get namespace darwin >/dev/null 2>&1; then
+          echo "📋 Checking PVC status in darwin namespace..."
+          PENDING_PVCS=$(kubectl get pvc -n darwin -o jsonpath='{.items[?(@.status.phase!="Bound")].metadata.name}' 2>/dev/null || echo "")
+          if [ -n "$PENDING_PVCS" ]; then
+            echo "⚠️  Found pending PVCs: $PENDING_PVCS"
+            kubectl get pvc -n darwin
+          else
+            echo "✅ All PVCs are bound (or no PVCs exist)"
+          fi
+        else
+          echo "✅ Darwin namespace doesn't exist yet (will be created during deployment)"
+        fi
+        
+        echo "✅ Cluster prerequisites validation complete"
+
     - name: Install prerequisites
       if: steps.check-cluster.outputs.exists == 'false' || inputs.skip_if_exists == 'false'
       shell: bash
