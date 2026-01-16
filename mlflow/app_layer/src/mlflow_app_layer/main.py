@@ -22,6 +22,7 @@ from typing import Union
 from fastapi import FastAPI, Request, Header
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from ddtrace import patch
+import os
 
 from mlflow_app_layer.controllers.experiment import (
     create_experiment_controller,
