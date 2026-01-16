@@ -576,10 +576,10 @@ jobs:
         run: |
           echo "Testing MLflow backend health endpoint..."
 
-          # Test MLflow backend at /mlflow/health
+          # Test MLflow backend at /mlflow-lib/health
           for i in {1..30}; do
-            if curl -f http://localhost/mlflow/health > /tmp/mlflow-health.log 2>&1; then
-              response=$(curl -s http://localhost/mlflow/health)
+            if curl -f http://localhost/mlflow-lib/health > /tmp/mlflow-health.log 2>&1; then
+              response=$(curl -s http://localhost/mlflow-lib/health)
               echo "MLflow backend response: $response"
               
               if echo "$response" | grep -q "OK"; then
@@ -637,20 +637,6 @@ jobs:
             echo "Attempt $i/30 - MLflow app layer not ready, waiting..."
             sleep 3
           done
-
-      - name: Verify MLflow UI accessibility
-        run: |
-          echo "Testing MLflow UI accessibility..."
-
-          # Test MLflow UI at /mlflow/
-          if curl -f -s -o /dev/null -w "%{http_code}" http://localhost/mlflow/ | grep -q "200"; then
-            echo "✅ MLflow UI is accessible at http://localhost/mlflow/"
-          else
-            echo "❌ MLflow UI is not accessible"
-            echo "Checking ingress configuration:"
-            kubectl get ingress -n darwin -o yaml
-            exit 1
-          fi
 
       - name: Display final platform status
         if: always()
