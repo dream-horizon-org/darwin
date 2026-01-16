@@ -62,11 +62,15 @@ echo "  Dockerfile path: $DOCKERFILE_PATH"
 echo "  Platform: $PLATFORM (detected arch: $ARCH)"
 echo "  Registry: $REGISTRY"
 
+# Extract service name from image name (e.g., "serve-md-runtime:latest" -> "serve-md-runtime")
+SERVICE_NAME="${IMAGE_NAME%%:*}"
+
 # Build the Docker image
 docker build \
     --platform=$PLATFORM \
     -t "$IMAGE_NAME" \
     --label "maintainer=darwin" \
+    --label "darwin.service=$SERVICE_NAME" \
     -f "$DOCKERFILE_PATH/Dockerfile" \
     "$DOCKERFILE_PATH"
 

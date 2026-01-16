@@ -1,0 +1,387 @@
+name: Infrastructure CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      # Infrastructure files
+      - "init.sh"
+      - "setup.sh"
+      - "start.sh"
+      - "services.yaml"
+      - "service-dependencies.yaml"
+      - "kind/**"
+      - "deployer/**"
+      - ".github/workflows/infrastructure-ci.yml"
+      - ".github/ci-test-service/**"
+      - ".github/actions/**"
+      # Service files - infrastructure runs first for any service change
+      - "ml-serve-app/**"
+      - "artifact-builder/**"
+      - ".github/workflows/ml-serve-ci.yml"
+      - ".github/workflows/artifact-builder-ci.yml"
+  workflow_call: # Allow other workflows to call this
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  # ============================================================================
+  # DETECT CHANGES - Determines which service CIs need to run
+  # ============================================================================
+  detect-changes:
+    name: Detect Changed Files
+    runs-on: ubuntu-latest
+    outputs:
+      ml_serve: ${{ steps.filter.outputs.ml_serve }}
+      artifact_builder: ${{ steps.filter.outputs.artifact_builder }}
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            infra:
+              - init.sh
+              - setup.sh
+              - start.sh
+              - services.yaml
+              - service-dependencies.yaml
+              - kind/**
+              - deployer/**
+              - .github/actions/**
+              - .github/ci-test-service/**
+            ml_serve:
+              - ml-serve-app/**
+              - .github/workflows/ml-serve-ci.yml
+            artifact_builder:
+              - artifact-builder/**
+              - .github/workflows/artifact-builder-ci.yml
+
+      - name: Log detected changes
+        run: |
+          echo "📋 Detected changes:"
+          echo "   Infrastructure: ${{ steps.filter.outputs.infra }}"
+          echo "   ML Serve App: ${{ steps.filter.outputs.ml_serve }}"
+          echo "   Artifact Builder: ${{ steps.filter.outputs.artifact_builder }}"
+
+  # ============================================================================
+  # INFRASTRUCTURE VALIDATION
+  # ============================================================================
+  lint-scripts:
+    name: Lint Shell Scripts
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Lint init.sh
+        run: |
+          echo "🔍 Linting init.sh..."
+          # shellcheck -x init.sh || echo "⚠️ Shellcheck found issues in init.sh"
+          echo "⚠️ Linting temporarily disabled - uncomment shellcheck command to enable"
+
+      - name: Lint setup.sh
+        run: |
+          echo "🔍 Linting setup.sh..."
+          # shellcheck -x setup.sh || echo "⚠️ Shellcheck found issues in setup.sh"
+          echo "⚠️ Linting temporarily disabled - uncomment shellcheck command to enable"
+
+      - name: Lint start.sh
+        run: |
+          echo "🔍 Linting start.sh..."
+          # shellcheck -x start.sh || echo "⚠️ Shellcheck found issues in start.sh"
+          echo "⚠️ Linting temporarily disabled - uncomment shellcheck command to enable"
+
+      - name: Lint deployer scripts
+        run: |
+          echo "🔍 Linting deployer scripts..."
+          # for script in deployer/scripts/*.sh; do
+          #   echo "  Checking $script..."
+          #   shellcheck -x "$script" || echo "⚠️ Shellcheck found issues in $script"
+          # done
+          echo "⚠️ Linting temporarily disabled - uncomment for loop to enable"
+
+      - name: Lint Kind scripts
+        run: |
+          echo "🔍 Linting Kind scripts..."
+          # for script in kind/*.sh; do
+          #   echo "  Checking $script..."
+          #   shellcheck -x "$script" || echo "⚠️ Shellcheck found issues in $script"
+          # done
+          echo "⚠️ Linting temporarily disabled - uncomment for loop to enable"
+
+  validate-yaml:
+    name: Validate YAML Files
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Validate services.yaml
+        run: |
+          echo "🔍 Validating services.yaml..."
+          yq eval '.' services.yaml > /dev/null && echo "✅ services.yaml is valid YAML"
+
+      - name: Validate service-dependencies.yaml
+        run: |
+          echo "🔍 Validating service-dependencies.yaml..."
+          yq eval '.' service-dependencies.yaml > /dev/null && echo "✅ service-dependencies.yaml is valid YAML"
+
+  cluster-test:
+    name: Kind Cluster Test
+    runs-on: [self-hosted, Linux, X64, darwin]
+    needs: [detect-changes, lint-scripts, validate-yaml]
+    env:
+      KUBECONFIG: ./kind/config/kindkubeconfig.yaml
+
+    steps:
+      - name: Runner identity (debug)
+        run: |
+          echo "Runner name: $RUNNER_NAME"
+          echo "Runner OS: $RUNNER_OS"
+          echo "Runner arch: $RUNNER_ARCH"
+          hostname
+
+      - name: Cleanup previous run artifacts
+        run: |
+          echo "🧹 Cleaning up previous run artifacts..."
+          # Clean up kind cluster if it exists
+          if command -v kind >/dev/null 2>&1; then
+            if kind get clusters 2>/dev/null | grep -q kind; then
+              echo "Deleting existing kind cluster..."
+              kind delete cluster --name kind || true
+            fi
+          fi
+          # Clean up workspace directories with permission issues
+          WORKSPACE_DIR="${{ github.workspace }}"
+          if [ -d "$WORKSPACE_DIR" ]; then
+            if [ -d "$WORKSPACE_DIR/kind" ]; then
+              echo "Cleaning up kind directory..."
+              sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null || true
+              sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null || true
+            fi
+          fi
+          echo "✅ Cleanup completed"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install prerequisites
+        run: |
+          # Install kubectl
+          KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+          echo "Installing kubectl version: $KUBECTL_VERSION"
+          curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          if ! file kubectl | grep -q "ELF\|executable"; then
+            rm -f kubectl
+            curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          fi
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+          # Install Helm
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
+
+          # Install Kind
+          curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x /tmp/kind
+          sudo mv /tmp/kind /usr/local/bin/kind
+          kind version
+
+          # Install yq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Create Kind cluster
+        run: |
+          echo "🔧 Creating Kind cluster..."
+          export ENV=local
+
+          # Create kind config
+          envsubst < ./kind/kind-config.yaml > ./kind/kind-config-tmp.yaml
+
+          export CLUSTER_NAME=kind
+          export KIND_CONFIG=./kind/kind-config-tmp.yaml
+          export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+
+          sh ./kind/start-cluster.sh
+
+          rm ./kind/kind-config-tmp.yaml
+
+          echo "✅ Kind cluster created"
+
+      - name: Verify cluster is ready
+        run: |
+          echo "🔍 Verifying cluster status..."
+
+          if [ ! -f "$KUBECONFIG" ]; then
+            echo "❌ KUBECONFIG not found at $KUBECONFIG"
+            exit 1
+          fi
+
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if kubectl get nodes >/dev/null 2>&1; then
+              echo "✅ Cluster is accessible"
+              kubectl get nodes
+              break
+            fi
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for cluster..."
+            sleep 5
+            attempt=$((attempt+1))
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Cluster is not accessible"
+            exit 1
+          fi
+
+      - name: Build CI test service
+        run: |
+          echo "🔨 Building CI test service..."
+
+          # Get registry from kind
+          DOCKER_REGISTRY=$(docker port kind-registry 5000 | head -1 | sed 's/0.0.0.0/127.0.0.1/')
+          echo "Registry: $DOCKER_REGISTRY"
+
+          # Build with darwin label
+          docker build \
+            --label "maintainer=darwin" \
+            -t ci-test-service:latest \
+            .github/ci-test-service/
+
+          # Tag and push to kind registry using dynamic port
+          docker tag ci-test-service:latest $DOCKER_REGISTRY/ci-test-service:latest
+          docker push $DOCKER_REGISTRY/ci-test-service:latest
+
+          # Also tag with localhost:5000 for Kind's internal registry redirect
+          docker tag ci-test-service:latest localhost:5000/ci-test-service:latest
+
+          echo "✅ CI test service built and pushed"
+
+      - name: Deploy CI test service
+        run: |
+          echo "🚀 Deploying CI test service..."
+
+          kubectl apply -f .github/ci-test-service/deployment.yaml
+
+          echo "⏳ Waiting for deployment to be ready..."
+          kubectl wait --for=condition=available --timeout=120s deployment/ci-test-service -n ci-test
+
+          echo "✅ CI test service deployed"
+          kubectl get pods -n ci-test
+
+      - name: Verify healthcheck
+        run: |
+          echo "🏥 Testing CI test service healthcheck..."
+
+          # Port-forward to test service
+          kubectl port-forward svc/ci-test-service -n ci-test 8888:8000 > /tmp/port-forward.log 2>&1 &
+          PORT_FORWARD_PID=$!
+          sleep 5
+
+          # Test healthcheck
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f -s http://localhost:8888/healthcheck > /dev/null 2>&1; then
+              echo "✅ Health check endpoint is accessible"
+              break
+            fi
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for healthcheck..."
+            sleep 2
+            attempt=$((attempt+1))
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Healthcheck not accessible"
+            cat /tmp/port-forward.log || true
+            kill $PORT_FORWARD_PID 2>/dev/null || true
+            exit 1
+          fi
+
+          # Verify response
+          response=$(curl -s http://localhost:8888/healthcheck)
+          echo "Response: $response"
+
+          if echo "$response" | grep -q '"status":"SUCCESS"'; then
+            echo "✅ Infrastructure CI validation passed!"
+          else
+            echo "❌ Unexpected response - expected status: SUCCESS"
+            exit 1
+          fi
+
+          kill $PORT_FORWARD_PID 2>/dev/null || true
+
+      - name: Cleanup CI test service
+        run: |
+          echo "🧹 Cleaning up CI test service..."
+          kubectl delete namespace ci-test --ignore-not-found=true || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "🧹 Running cleanup..."
+
+          # Always clean up port-forwards
+          pkill -f "kubectl port-forward" || true
+
+          # Clean up ONLY ci-test-service images (not all Darwin images)
+          # This prevents race conditions with parallel service CIs
+          echo "Cleaning up ci-test-service images only..."
+          docker rmi -f ci-test-service:latest 2>/dev/null || true
+          docker rmi -f localhost:5000/ci-test-service:latest 2>/dev/null || true
+          # Also remove any dynamically tagged images (127.0.0.1:<port>/ci-test-service)
+          docker images --format '{{.Repository}}:{{.Tag}}' | grep "127.0.0.1.*ci-test-service" | xargs -r docker rmi -f 2>/dev/null || true
+
+          # Do NOT delete Kind cluster here - service CIs will use it
+          # Do NOT prune all Darwin images - service CIs need them
+          # Do NOT prune volumes/containers - final-cleanup.yml handles that
+          echo "📋 Note: Cluster kept for service CIs. Full cleanup runs in final-cleanup.yml"
+
+          echo "✅ Cleanup completed"
+          echo ""
+          echo "Disk usage after cleanup:"
+          df -h
+
+  # ============================================================================
+  # SERVICE CIs - Called only if their files changed AND infrastructure passed
+  # ============================================================================
+  ml-serve-ci:
+    name: ML Serve App CI
+    needs: [detect-changes, cluster-test]
+    if: needs.detect-changes.outputs.ml_serve == 'true'
+    uses: ./.github/workflows/ml-serve-ci.yml
+    secrets: inherit
+
+  artifact-builder-ci:
+    name: Artifact Builder CI
+    needs: [detect-changes, cluster-test]
+    if: needs.detect-changes.outputs.artifact_builder == 'true'
+    uses: ./.github/workflows/artifact-builder-ci.yml
+    secrets: inherit

@@ -67,6 +67,7 @@ docker build \
   --build-arg EXTRA_ENV_VARS="$env_vars" \
   -t $application:latest \
   --label "maintainer=darwin" \
+  --label "darwin.service=$application" \
   -f $DOCKERFILE .
   
 docker tag "$application":latest "$registry/$application":latest

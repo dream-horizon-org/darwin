@@ -1,0 +1,71 @@
+# CI Test Service Kubernetes Manifests
+# Used for infrastructure CI validation
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ci-test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ci-test-service
+  namespace: ci-test
+  labels:
+    app: ci-test-service
+    app.kubernetes.io/name: ci-test-service
+    app.kubernetes.io/component: ci-test
+    maintainer: darwin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ci-test-service
+  template:
+    metadata:
+      labels:
+        app: ci-test-service
+    spec:
+      containers:
+        - name: ci-test-service
+          image: localhost:5000/ci-test-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ci-test-service
+  namespace: ci-test
+  labels:
+    app: ci-test-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    app: ci-test-service

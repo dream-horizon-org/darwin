@@ -1,0 +1,120 @@
+name: "Setup Kind Cluster"
+description: "Sets up a Kind Kubernetes cluster with local registry"
+
+inputs:
+  kubeconfig_path:
+    description: "Path to store the kubeconfig file"
+    required: false
+    default: "./kind/config/kindkubeconfig.yaml"
+  cluster_name:
+    description: "Name of the Kind cluster"
+    required: false
+    default: "kind"
+  skip_if_exists:
+    description: "Skip cluster creation if it already exists"
+    required: false
+    default: "false"
+
+outputs:
+  kubeconfig:
+    description: "Path to the kubeconfig file"
+    value: ${{ inputs.kubeconfig_path }}
+  registry:
+    description: "Docker registry URL"
+    value: "localhost:5000"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check if cluster exists
+      id: check-cluster
+      shell: bash
+      run: |
+        if kind get clusters 2>/dev/null | grep -q "${{ inputs.cluster_name }}"; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "✅ Cluster '${{ inputs.cluster_name }}' already exists"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "📋 Cluster '${{ inputs.cluster_name }}' does not exist"
+        fi
+
+    - name: Install prerequisites
+      if: steps.check-cluster.outputs.exists == 'false' || inputs.skip_if_exists == 'false'
+      shell: bash
+      run: |
+        # Install kubectl if not present
+        if ! command -v kubectl >/dev/null 2>&1; then
+          KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+          echo "Installing kubectl version: $KUBECTL_VERSION"
+          curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          if ! file kubectl | grep -q "ELF\|executable"; then
+            rm -f kubectl
+            curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          fi
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+        fi
+        kubectl version --client
+
+        # Install Helm if not present
+        if ! command -v helm >/dev/null 2>&1; then
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        fi
+        helm version
+
+        # Install Kind if not present
+        if ! command -v kind >/dev/null 2>&1; then
+          curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x /tmp/kind
+          sudo mv /tmp/kind /usr/local/bin/kind
+        fi
+        kind version
+
+        # Install yq if not present
+        if ! command -v yq >/dev/null 2>&1; then
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+        fi
+        yq --version
+
+    - name: Create Kind cluster
+      if: steps.check-cluster.outputs.exists == 'false'
+      shell: bash
+      run: |
+        echo "🔧 Creating Kind cluster..."
+        export ENV=local
+        
+        # Create kind config
+        envsubst < ./kind/kind-config.yaml > ./kind/kind-config-tmp.yaml
+        
+        export CLUSTER_NAME=${{ inputs.cluster_name }}
+        export KIND_CONFIG=./kind/kind-config-tmp.yaml
+        export KUBECONFIG=${{ inputs.kubeconfig_path }}
+        
+        sh ./kind/start-cluster.sh
+        
+        rm -f ./kind/kind-config-tmp.yaml
+        
+        echo "✅ Kind cluster created"
+
+    - name: Verify cluster
+      shell: bash
+      run: |
+        export KUBECONFIG=${{ inputs.kubeconfig_path }}
+        
+        echo "🔍 Verifying cluster status..."
+        max_attempts=30
+        attempt=0
+        while [ $attempt -lt $max_attempts ]; do
+          if kubectl get nodes >/dev/null 2>&1; then
+            echo "✅ Cluster is accessible"
+            kubectl get nodes
+            exit 0
+          fi
+          echo "Attempt $((attempt+1))/$max_attempts: Waiting for cluster..."
+          sleep 5
+          attempt=$((attempt+1))
+        done
+        
+        echo "❌ Cluster is not accessible after $max_attempts attempts"
+        exit 1
