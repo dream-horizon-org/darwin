@@ -611,8 +611,8 @@ jobs:
 
           # Test MLflow app layer at /mlflow-app/health
           for i in {1..30}; do
-            if curl -f http://localhost/mlflow-app/health > /tmp/mlflow-app-health.log 2>&1; then
-              response=$(curl -s http://localhost/mlflow-app/health)
+            if curl -f http://localhost/mlflow-app/healthcheck > /tmp/mlflow-app-health.log 2>&1; then
+              response=$(curl -s http://localhost/mlflow-app/healthcheck)
               echo "MLflow app layer response: $response"
               
               if echo "$response" | grep -q '"status":"SUCCESS"' || echo "$response" | grep -q '"status": "SUCCESS"'; then
