@@ -274,13 +274,21 @@ jobs:
 
           dcm_response=$(curl -s http://localhost:8080/healthcheck)
           echo "Response: $dcm_response"
-
-          if [ "$dcm_response" = "Active" ]; then
-            echo "✅ darwin-cluster-manager health check passed!"
-          else
-            echo "❌ darwin-cluster-manager: expected 'Active', got '$dcm_response'"
-            exit 1
-          fi
+          
+          python3 << EOF
+          import json
+          import sys
+          try:
+              data = json.loads('''$dcm_response''')
+              status = data.get('status', '')
+              if 'SUCCESS' not in status:
+                  print(f"❌ darwin-cluster-manager: status is '{status}', expected 'SUCCESS'")
+                  sys.exit(1)
+              print("✅ darwin-cluster-manager health check passed!")
+          except json.JSONDecodeError as e:
+              print(f"❌ darwin-cluster-manager: Invalid JSON: {e}")
+              sys.exit(1)
+          EOF
 
           echo ""
           echo "✅ All health checks passed!"
