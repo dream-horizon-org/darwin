@@ -20,9 +20,11 @@ Darwin CI uses a **two-tier architecture** with a **final cleanup workflow**:
 
 ### Tier 1: Infrastructure CI
 
-Validates the core infrastructure scripts that all services depend on.
+Validates the core infrastructure scripts that all services depend on. **Runs first before any service CI.**
 
-**Triggers:** Changes to `init.sh`, `setup.sh`, `start.sh`, `services.yaml`
+**Triggers:** Changes to:
+- Infrastructure files: `init.sh`, `setup.sh`, `start.sh`, `services.yaml`, `kind/**`, `deployer/**`
+- OR any service files: `ml-serve-app/**`, `artifact-builder/**`, etc.
 
 **Purpose:**
 - Lint shell scripts
@@ -34,9 +36,9 @@ Validates the core infrastructure scripts that all services depend on.
 
 ### Tier 2: Service CI
 
-Per-service pipelines that run in parallel after infrastructure validation.
+Per-service pipelines that run in parallel **after Infrastructure CI passes**.
 
-**Triggers:** Changes to service-specific directories (e.g., `ml-serve-app/**`, `darwin-workflow/**`)
+**Triggers:** Called via `workflow_call` from Infrastructure CI (only runs if service files changed AND infra passed)
 
 **Purpose:**
 - Linting
@@ -48,13 +50,15 @@ Per-service pipelines that run in parallel after infrastructure validation.
 
 ### Final Cleanup
 
-A separate workflow (`final-cleanup.yml`) triggered by `workflow_run` after any CI completes.
+A separate workflow (`final-cleanup.yml`) that runs after all CIs complete.
 
 **Purpose:**
 - Prune ALL Darwin-labeled images
 - Delete Kind cluster
 - Clean up containers and volumes
 - Clean up workspace directories
+
+**Key:** Uses `if: always()` to ensure it runs even if previous jobs failed or were skipped.
 
 ### Flow Diagram
 
@@ -64,44 +68,78 @@ A separate workflow (`final-cleanup.yml`) triggered by `workflow_run` after any 
                     └─────────────────────────────────┘
                                    │
                                    ▼
-                    ┌─────────────────────────────────┐
-                    │     infrastructure-ci.yml       │
-                    │ (validates cluster, deploys     │
-                    │  ci-test-service, cleans up     │
-                    │  ci-test-service only)          │
-                    └─────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    infrastructure-ci.yml                        │
+│            (ONLY workflow triggered by PR)                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────────┐                                           │
+│  │  detect-changes  │ ← Uses dorny/paths-filter                 │
+│  │  (paths-filter)  │   Outputs: ml_serve, artifact_builder     │
+│  └────────┬─────────┘                                           │
+│           │                                                     │
+│           ▼                                                     │
+│  ┌──────────────────┐                                           │
+│  │   lint-scripts   │                                           │
+│  │   validate-yaml  │                                           │
+│  └────────┬─────────┘                                           │
+│           │                                                     │
+│           ▼                                                     │
+│  ┌──────────────────┐                                           │
+│  │   cluster-test   │ ← Validates Kind cluster works            │
+│  └────────┬─────────┘                                           │
+│           │                                                     │
+│      ┌────┴────┐                                                │
+│      ▼         ▼                                                │
+│  SUCCESS     FAIL ────────────────────────────► (no service CIs)│
+│      │                                                          │
+│      ▼                                                          │
+│  ┌──────────────────────────────────────────┐                   │
+│  │  Service CIs (via workflow_call)         │                   │
+│  │  Only called if their files changed      │                   │
+│  ├──────────────────────────────────────────┤                   │
+│  │ ml-serve-ci:                             │                   │
+│  │   if: detect-changes.outputs.ml_serve    │                   │
+│  │   uses: ./.github/workflows/ml-serve-ci  │                   │
+│  │                                          │                   │
+│  │ artifact-builder-ci:                     │                   │
+│  │   if: detect-changes.outputs.artifact... │                   │
+│  │   uses: ./.github/workflows/artifact...  │                   │
+│  └──────────────────────────────────────────┘                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
                                    │
-                    ┌──────────────┴──────────────┐
-                    ▼                             ▼
-         ┌─────────────────┐            ┌─────────────────┐
-         │ No service      │            │ Service files   │
-         │ files changed   │            │ also changed    │
-         └────────┬────────┘            └────────┬────────┘
-                  │                              │
-                  │                              ▼
-                  │               ┌───────────────────────────┐
-                  │               │   Service CIs (parallel)  │
-                  │               │   Each cleans up ONLY     │
-                  │               │   its own images/deploy   │
-                  │               ├───────────────────────────┤
-                  │               │ • ml-serve-ci.yml         │
-                  │               │ • artifact-builder-ci.yml │
-                  │               │ • darwin-workflow-ci.yml  │
-                  │               │ • hermes-cli-ci.yml       │
-                  │               └───────────┬───────────────┘
-                  │                           │
-                  └────────────┬──────────────┘
-                               │
-                               ▼
-                    ┌─────────────────────────────────┐
-                    │       final-cleanup.yml         │
-                    │  (triggered by workflow_run)    │
-                    ├─────────────────────────────────┤
-                    │ • Prune ALL Darwin images       │
-                    │ • Delete Kind cluster           │
-                    │ • Clean up volumes/containers   │
-                    └─────────────────────────────────┘
+                                   ▼
+                    ┌──────────────────────────────────────┐
+                    │  final-cleanup (via workflow_call)   | 
+                    |        if: always()                  │
+                    │ needs: [cluster-test, service-CIs...]│
+                    ├──────────────────────────────────────┤
+                    │ • Prune ALL Darwin images            │
+                    │ • Delete Kind cluster                │
+                    │ • Clean up volumes/containers        │
+                    └──────────────────────────────────────┘
 ```
+
+### Key Behavior
+
+| Scenario | What Happens |
+|----------|--------------|
+| Infrastructure CI fails | Service CIs **never called** → Final cleanup runs |
+| Only infra files changed | No service CIs called → Final cleanup runs |
+| Only ml-serve files changed | Only ml-serve-ci called → Final cleanup runs |
+| Both services changed | Both CIs run in **parallel** → Final cleanup runs |
+| One service CI fails | Other service CI unaffected (parallel) → Final cleanup runs |
+
+### Why This Design?
+
+| Benefit | Explanation |
+|---------|-------------|
+| Single PR trigger | Only `infrastructure-ci.yml` listens to `pull_request` |
+| No wasted runs | Service CIs never start if not needed |
+| Clear dependencies | `needs: [cluster-test]` ensures infra passes first |
+| Fast detection | `dorny/paths-filter` checks files without API calls |
+| Parallel services | Service CIs run independently via `workflow_call` |
 
 ---
 
@@ -117,9 +155,15 @@ A separate workflow (`final-cleanup.yml`) triggered by `workflow_run` after any 
 
 ### Standard CI Job Structure
 
-Each service CI should follow this structure.
+Service CIs are reusable workflows called via `workflow_call`. They are simple and focused.
 
 ```yaml
+name: <Service Name> - CI
+
+on:
+  workflow_call:  # Called by infrastructure-ci.yml
+  workflow_dispatch:  # Manual trigger
+
 jobs:
   lint:
     name: Linting
@@ -162,6 +206,8 @@ jobs:
     steps:
       - Service-specific cleanup (own images/deployment only)
 ```
+
+**Note:** No `check-trigger` job needed! Infrastructure CI handles all gating logic.
 
 ### Cleanup Action Usage
 
@@ -304,20 +350,77 @@ When adding CI for a new service, follow these steps:
 
 ### 1. Create the Workflow File
 
-Create `.github/workflows/<service-name>-ci.yml` following the [Standard CI Job Structure](#standard-ci-job-structure) above.
-
-Example trigger configuration:
+Create `.github/workflows/<service-name>-ci.yml` as a **reusable workflow** using `workflow_call`:
 
 ```yaml
 name: <Service Name> - CI
 
 on:
+  workflow_call:  # Called by infrastructure-ci.yml
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  lint:
+    # ... your lint job ...
+  
+  unit-tests:
+    # ... your unit tests job ...
+  
+  deploy-and-healthcheck:
+    needs: [lint, unit-tests]
+    # ... your deploy job ...
+  
+  integration-tests:
+    needs: [deploy-and-healthcheck]
+    # ... your integration tests job ...
+  
+  cleanup:
+    if: always()
+    needs: [integration-tests]
+    # ... your cleanup job ...
+```
+
+**Note:** No trigger logic needed! Infrastructure CI handles all gating.
+
+### 2. Add Service to Infrastructure CI
+
+Add your service to `infrastructure-ci.yml` in TWO places:
+
+**a) Add to paths filter (triggers Infrastructure CI):**
+
+```yaml
+# In .github/workflows/infrastructure-ci.yml
+on:
   pull_request:
-    types: [opened, synchronize, reopened]
     paths:
+      # ... existing paths ...
       - "<service-directory>/**"
       - ".github/workflows/<service-name>-ci.yml"
-  workflow_dispatch:
+```
+
+**b) Add to detect-changes job:**
+
+```yaml
+  detect-changes:
+    steps:
+      - uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            # ... existing filters ...
+            <service_name>:
+              - <service-directory>/**
+              - .github/workflows/<service-name>-ci.yml
+```
+
+**c) Add workflow_call job:**
+
+```yaml
+  <service-name>-ci:
+    name: <Service Name> CI
+    needs: [detect-changes, cluster-test]
+    if: needs.detect-changes.outputs.<service_name> == 'true'
+    uses: ./.github/workflows/<service-name>-ci.yml
+    secrets: inherit
 ```
 
 ### 2. Add Docker Labels
@@ -344,24 +447,7 @@ Add the cleanup step with your service name:
     prune_darwin_images: "true"
 ```
 
-### 4. Add to Final Cleanup Triggers
-
-Update `.github/workflows/final-cleanup.yml` to include your workflow name.
-
-**Why is this required?** The `workflow_run` event only triggers when one of the listed workflows completes. If your service CI is not listed, the final cleanup won't run after your workflow finishes, leaving orphaned resources.
-
-```yaml
-on:
-  workflow_run:
-    workflows:
-      - "Infrastructure CI"
-      - "ML Serve App - CI"
-      - "Artifact Builder - CI"
-      - "<Your Service> - CI"  # Add your workflow name here
-    types: [completed]
-```
-
-### 5. Add Healthcheck Endpoint
+### 4. Add Healthcheck Endpoint
 
 Ensure the service has a `/healthcheck` endpoint that returns:
 
@@ -369,7 +455,7 @@ Ensure the service has a `/healthcheck` endpoint that returns:
 {"status": "SUCCESS", "message": "OK"}
 ```
 
-### 6. Add Ingress Path
+### 5. Add Ingress Path
 
 Add the service to the ingress configuration in `helm/darwin/charts/services/values.yaml`:
 
@@ -380,9 +466,22 @@ paths:
     port: 8000
 ```
 
-### 7. Update Documentation
+### 6. Add to Final Cleanup Dependencies
 
-Add the new workflow to the Workflow Files Reference table below.
+Update `infrastructure-ci.yml` to include your service in the `final-cleanup` needs array:
+
+```yaml
+  final-cleanup:
+    needs:
+      - cluster-test
+      - ml-serve-ci
+      - artifact-builder-ci
+      - <your-service>-ci  # ADD THIS
+    if: always()
+    uses: ./.github/workflows/final-cleanup.yml
+```
+
+> **Why is this required?** GitHub Actions has no "wait for all jobs" option. The `needs` array is the only way to ensure `final-cleanup` waits for your service CI before running. This is a one-time addition per service.
 
 ---
 
