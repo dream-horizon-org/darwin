@@ -223,18 +223,11 @@ jobs:
         run: |
           echo "🏥 Testing health endpoints..."
 
-          # Start port-forwards for both services
-          kubectl port-forward svc/darwin-compute -n darwin 8000:8000 > /tmp/compute-pf.log 2>&1 &
-          COMPUTE_PF_PID=$!
-          kubectl port-forward svc/darwin-cluster-manager -n darwin 8080:8080 > /tmp/dcm-pf.log 2>&1 &
-          DCM_PF_PID=$!
-          sleep 5
-
           # Test darwin-compute /health endpoint
           echo ""
-          echo "━━━ Testing darwin-compute (/health on port 8000) ━━━"
+          echo "━━━ Testing darwin-compute (/compute/health) ━━━"
           for i in $(seq 1 30); do
-            if curl -f -s http://localhost:8000/health > /dev/null 2>&1; then
+            if curl -f -s http://localhost/compute/health > /dev/null 2>&1; then
               echo "✅ darwin-compute endpoint accessible"
               break
             fi
@@ -242,7 +235,7 @@ jobs:
             sleep 2
           done
 
-          compute_response=$(curl -s http://localhost:8000/health)
+          compute_response=$(curl -s http://localhost/compute/health)
           echo "Response: $compute_response"
 
           python3 << EOF
@@ -262,9 +255,9 @@ jobs:
 
           # Test darwin-cluster-manager /healthcheck endpoint
           echo ""
-          echo "━━━ Testing darwin-cluster-manager (/healthcheck on port 8080) ━━━"
+          echo "━━━ Testing darwin-cluster-manager (/cluster-manager/healthcheck) ━━━"
           for i in $(seq 1 30); do
-            if curl -f -s http://localhost:8080/healthcheck > /dev/null 2>&1; then
+            if curl -f -s http://localhost/cluster-manager/healthcheck > /dev/null 2>&1; then
               echo "✅ darwin-cluster-manager endpoint accessible"
               break
             fi
@@ -272,7 +265,7 @@ jobs:
             sleep 2
           done
 
-          dcm_response=$(curl -s http://localhost:8080/healthcheck)
+          dcm_response=$(curl -s http://localhost/cluster-manager/healthcheck)
           echo "Response: $dcm_response"
           
           python3 << EOF
@@ -292,9 +285,6 @@ jobs:
 
           echo ""
           echo "✅ All health checks passed!"
-
-          # Cleanup port-forwards
-          kill $COMPUTE_PF_PID $DCM_PF_PID 2>/dev/null || true
 
       - name: Cleanup
         if: always()
