@@ -385,3 +385,19 @@ jobs:
     if: needs.detect-changes.outputs.artifact_builder == 'true'
     uses: ./.github/workflows/artifact-builder-ci.yml
     secrets: inherit
+
+  # ============================================================================
+  # FINAL CLEANUP - Runs after all CIs complete (even if they fail)
+  # ============================================================================
+  final-cleanup:
+    name: Final Cleanup
+    needs:
+      - cluster-test
+      - ml-serve-ci
+      - artifact-builder-ci
+      # Add future service CIs here:
+      # - darwin-workflow-ci
+      # - chronos-ci
+    if: always() # Run even if any previous job failed or was skipped
+    uses: ./.github/workflows/final-cleanup.yml
+    secrets: inherit

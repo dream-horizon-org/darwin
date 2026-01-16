@@ -5,6 +5,7 @@ on:
     workflows:
       - "Infrastructure CI"
     types: [completed]
+  workflow_call:
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -15,11 +16,18 @@ jobs:
     if: always()
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
+          sparse-checkout-cone-mode: false
+
       - name: Runner identity (debug)
         run: |
           echo "Runner name: $RUNNER_NAME"
           echo "Runner OS: $RUNNER_OS"
-          echo "Triggered by: ${{ github.event.workflow_run.name || 'manual' }}"
+          echo "Triggered by: ${{ github.event.workflow_run.name || 'workflow_call' }}"
           echo "Triggering workflow status: ${{ github.event.workflow_run.conclusion || 'N/A' }}"
           hostname
 
