@@ -260,6 +260,20 @@ jobs:
           # Test darwin-cluster-manager /healthcheck endpoint
           echo ""
           echo "━━━ Testing darwin-cluster-manager (/cluster-manager/healthcheck) ━━━"
+          
+          # Print cluster-manager pod logs before testing
+          DCM_POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep -E "darwin-cluster-manager" | head -1 | awk '{print $1}')
+          if [ -n "$DCM_POD" ]; then
+            echo "📋 darwin-cluster-manager pod logs (previous, if any):"
+            kubectl logs -n darwin "$DCM_POD" --previous --tail=50 2>/dev/null || echo "No previous logs available"
+            echo ""
+            echo "📋 darwin-cluster-manager pod logs (current):"
+            kubectl logs -n darwin "$DCM_POD" --tail=50 2>/dev/null || echo "Could not fetch logs"
+          else
+            echo "Could not find darwin-cluster-manager pod"
+          fi
+          echo ""
+          
           for i in $(seq 1 30); do
             if curl -f -s http://localhost/cluster-manager/healthcheck > /dev/null 2>&1; then
               echo "✅ darwin-cluster-manager endpoint accessible"
