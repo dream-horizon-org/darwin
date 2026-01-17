@@ -231,7 +231,7 @@ jobs:
               echo "✅ darwin-compute endpoint accessible"
               break
             fi
-            [ $i -eq 30 ] && { echo "❌ darwin-compute endpoint not accessible"; cat /tmp/compute-pf.log || true; exit 1; }
+            [ $i -eq 30 ] && { echo "❌ darwin-compute endpoint not accessible"; exit 1; }
             sleep 2
           done
 
@@ -261,7 +261,7 @@ jobs:
               echo "✅ darwin-cluster-manager endpoint accessible"
               break
             fi
-            [ $i -eq 30 ] && { echo "❌ darwin-cluster-manager endpoint not accessible"; cat /tmp/dcm-pf.log || true; exit 1; }
+            [ $i -eq 30 ] && { echo "❌ darwin-cluster-manager endpoint not accessible"; exit 1; }
             sleep 2
           done
 
