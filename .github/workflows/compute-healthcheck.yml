@@ -80,9 +80,10 @@ jobs:
       - name: Configure services (init.sh)
         run: |
           echo "📋 Running init.sh to configure services..."
+          df -h
           ls -la
           rm -f .setup/enabled-services.yaml
-          ls -la .setup
+
           # Answers (13 prompts):
           # 1: compute (y) - service under test
           # 2-8: workspace, feature_store, mlflow, serve, catalog, chronos, workflow (all n)
