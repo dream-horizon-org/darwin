@@ -83,8 +83,7 @@ jobs:
       - name: Configure services (init.sh)
         run: |
           echo "📋 Running init.sh to configure services..."
-          df -h
-          ls -la
+
           rm -f .setup/enabled-services.yaml
 
           # Answers (13 prompts):
