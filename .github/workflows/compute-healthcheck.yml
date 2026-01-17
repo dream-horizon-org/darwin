@@ -38,12 +38,15 @@ jobs:
             sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null || true
             sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null || true
           fi
+          
+          # Completely clean workspace to fix sparse checkout issues from previous runs
+          echo "🗑️ Removing entire workspace for fresh checkout..."
+          cd /
+          sudo rm -rf "$WORKSPACE_DIR" || true
+          mkdir -p "$WORKSPACE_DIR"
 
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          clean: true
-          fetch-depth: 0
 
       - name: Setup Docker
         uses: docker/setup-buildx-action@v3
