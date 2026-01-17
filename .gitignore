@@ -131,7 +131,6 @@ lerna-debug.log*
 # Kubernetes
 # ===========================
 *.kubeconfig
-kubeconfig*
 .kube/
 
 # ===========================

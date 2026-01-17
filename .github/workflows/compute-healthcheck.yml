@@ -83,7 +83,6 @@ jobs:
       - name: Configure services (init.sh)
         run: |
           echo "📋 Running init.sh to configure services..."
-
           rm -f .setup/enabled-services.yaml
 
           # Answers (13 prompts):
@@ -202,17 +201,6 @@ jobs:
             fi
           fi
           echo "✅ darwin-compute pod is ready"
-
-          # Print cluster-manager pod logs
-          DCM_POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep -E "darwin-cluster-manager" | head -1 | awk '{print $1}')
-          if [ -n "$DCM_POD" ]; then
-            echo "📋 darwin-cluster-manager pod logs (previous, if any):"
-            kubectl logs -n darwin "$DCM_POD" --previous --tail=50 2>/dev/null || echo "No previous logs available"
-            echo ""
-            echo "📋 darwin-cluster-manager pod logs (current):"
-            kubectl logs -n darwin "$DCM_POD" --tail=50 2>/dev/null || echo "Could not fetch logs"
-          fi
-          echo ""
 
           # Wait for darwin-cluster-manager
           echo "Waiting for darwin-cluster-manager..."
