@@ -110,4 +110,3 @@ jobs:
           echo ""
           echo "=== Events (last 20) ==="
           kubectl get events -A --sort-by='.lastTimestamp' | tail -20 || true
-

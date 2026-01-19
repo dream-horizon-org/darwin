@@ -19,7 +19,8 @@ jobs:
       run:
         working-directory: .
     env:
-      KUBECONFIG: ./kind/config/kindkubeconfig.yaml
+      KUBECONFIG: ./.setup/kindkubeconfig.yaml
+      CONFIG_ENV: ./.setup/config.env
 
     steps:
       - name: Runner identity (debug)
@@ -135,15 +136,15 @@ jobs:
 
           # Verify config.env was created (setup.sh should create it at project root)
           echo "🔍 Verifying config.env was created..."
-          if [ -f config.env ]; then
-            echo "✅ config.env exists"
+          if [ -f $CONFIG_ENV ]; then
+            echo "✅ $CONFIG_ENV exists"
             echo "Contents:"
-            cat config.env
+            cat $CONFIG_ENV
           else
-            echo "❌ config.env not found! setup.sh may have failed."
+            echo "❌ $CONFIG_ENV not found! setup.sh may have failed."
             echo "Current directory: $(pwd)"
-            echo "Looking for config.env..."
-            find . -name "config.env" -type f 2>/dev/null | head -5 || echo "Not found"
+            echo "Looking for $CONFIG_ENV..."
+            find . -name "$CONFIG_ENV" -type f 2>/dev/null | head -5 || echo "Not found"
             exit 1
           fi
 
