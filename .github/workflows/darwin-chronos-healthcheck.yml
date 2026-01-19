@@ -33,16 +33,16 @@ jobs:
           if command -v kind >/dev/null 2>&1; then
             if kind get clusters 2>/dev/null | grep -q kind; then
               echo "Deleting existing kind cluster..."
-              kind delete cluster --name kind || true
+              kind delete cluster --name kind 
             fi
           fi
           
           WORKSPACE_DIR="${{ github.workspace }}"
           if [ -d "$WORKSPACE_DIR" ]; then
             if [ -d "$WORKSPACE_DIR/kind" ]; then
-              sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null || true
-              sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null || true
-              find "$WORKSPACE_DIR/kind" -type d -name "shared-storage" -exec sudo rm -rf {} + 2>/dev/null || true
+              sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null 
+              sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null 
+              find "$WORKSPACE_DIR/kind" -type d -name "shared-storage" -exec sudo rm -rf {} + 2>/dev/null 
             fi
           fi
 
@@ -60,10 +60,8 @@ jobs:
         run: |
           echo "Current disk usage:"
           df -h
-          docker system prune -a -f || true
-          docker volume prune -f || true
-          sudo apt-get clean || true
-          sudo rm -rf /var/lib/apt/lists/* || true
+          sudo apt-get clean 
+          sudo rm -rf /var/lib/apt/lists/* 
           echo "Disk usage after cleanup:"
           df -h
 
@@ -101,7 +99,7 @@ jobs:
       - name: Initialize submodules
         run: |
           git submodule sync --recursive
-          git submodule update --init --recursive --remote || true
+          git submodule update --init --recursive --remote 
 
       - name: Initialize configuration (init.sh)
         run: |
@@ -120,8 +118,6 @@ jobs:
 
       - name: Build images and setup cluster (setup.sh)
         run: |
-          docker system prune -f || true
-          docker image prune -f || true
           df -h
           
           export ENV=local
@@ -135,7 +131,6 @@ jobs:
             exit 1
           fi
           
-          docker image prune -f || true
           df -h
 
       - name: Verify cluster is ready
@@ -169,8 +164,8 @@ jobs:
             while true; do
               sleep 30
               echo "[$(date +%H:%M:%S)] Deployment in progress..."
-              helm list -n darwin 2>/dev/null | head -3 || true
-              kubectl get pods -n darwin --no-headers 2>/dev/null | head -5 || true
+              helm list -n darwin 2>/dev/null | head -3 
+              kubectl get pods -n darwin --no-headers 2>/dev/null | head -5 
             done
           ) &
           STATUS_MONITOR_PID=$!
@@ -180,19 +175,19 @@ jobs:
           START_EXIT_CODE=${PIPESTATUS[0]}
           set -e
           
-          kill $STATUS_MONITOR_PID 2>/dev/null || true
+          kill $STATUS_MONITOR_PID 2>/dev/null 
           
           if [ $START_EXIT_CODE -ne 0 ]; then
             echo "start.sh failed with exit code $START_EXIT_CODE"
-            cat /tmp/start.sh.log || true
-            helm list -n darwin || true
-            helm status darwin -n darwin || true
-            kubectl get pods -n darwin || true
-            kubectl get pods -n darwin -o json | jq -r '.items[] | select(.status.phase != "Running" and .status.phase != "Succeeded") | "\(.metadata.name): \(.status.phase)"' || true
-            kubectl get events -n darwin --sort-by='.lastTimestamp' | tail -20 || true
+            cat /tmp/start.sh.log 
+            helm list -n darwin 
+            helm status darwin -n darwin 
+            kubectl get pods -n darwin 
+            kubectl get pods -n darwin -o json | jq -r '.items[] | select(.status.phase != "Running" and .status.phase != "Succeeded") | "\(.metadata.name): \(.status.phase)"' 
+            kubectl get events -n darwin --sort-by='.lastTimestamp' | tail -20 
             for pod in $(kubectl get pods -n darwin -o jsonpath='{.items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")].metadata.name}'); do
-              kubectl describe pod -n darwin "$pod" || true
-              kubectl logs -n darwin "$pod" --tail=50 || true
+              kubectl describe pod -n darwin "$pod" 
+              kubectl logs -n darwin "$pod" --tail=50 
             done
             exit 1
           fi
@@ -241,8 +236,8 @@ jobs:
             echo "$POD_NAME pod did not become ready"
             POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep -E "$POD_PATTERN" | head -1 | awk '{print $1}')
             if [ -n "$POD" ]; then
-              kubectl describe pod "$POD" -n darwin || true
-              kubectl logs "$POD" -n darwin --tail=50 || true
+              kubectl describe pod "$POD" -n darwin 
+              kubectl logs "$POD" -n darwin --tail=50 
             fi
             return 1
           }
@@ -278,7 +273,7 @@ jobs:
           
           if [ $attempt -eq $max_attempts ]; then
             echo "chronos pod did not become ready"
-            kubectl get pods -n darwin | grep chronos || true
+            kubectl get pods -n darwin | grep chronos 
             exit 1
           fi
           
@@ -303,8 +298,8 @@ jobs:
           
           if [ $attempt -eq $max_attempts ]; then
             echo "Ingress not accessible"
-            kubectl get ingress -n darwin || true
-            kubectl describe ingress -n darwin || true
+            kubectl get ingress -n darwin 
+            kubectl describe ingress -n darwin 
             exit 1
           fi
           
@@ -378,11 +373,11 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          docker system prune -a -f || true
-          docker volume prune -f || true
+          docker image prune -af --filter "label=maintainer=darwin"
+          docker system prune -f
+          docker volume prune -f
           
           if kind get clusters 2>/dev/null | grep -q kind; then
-            kind delete cluster --name kind || true
+            kind delete cluster --name kind
           fi
           
-          docker system prune -f || true
