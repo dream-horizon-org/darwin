@@ -34,16 +34,22 @@ OUTPUT_FILE=".setup/enabled-services.yaml"
 
 # Parse command line arguments
 ALL_YES=false
+DEV_MODE=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --all)
       ALL_YES=true
       shift
       ;;
+    --dev-mode)
+      DEV_MODE=true
+      shift
+      ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: $0 [--all]"
-      echo "  --all: Enable all services without prompts"
+      echo "Usage: $0 [--all] [--dev-mode]"
+      echo "  --all:      Enable all services without prompts"
+      echo "  --dev-mode: Enable granular service-by-service selection"
       exit 1
       ;;
   esac
@@ -68,9 +74,14 @@ fi
 
 if [ "$ALL_YES" = "true" ]; then
   echo "Running in --all mode: Enabling all services without prompts."
-else
-  echo "This wizard will help you select which features to enable."
+elif [ "$DEV_MODE" = "true" ]; then
+  echo "Running in --dev-mode: Granular service-by-service selection."
   echo "Dependencies will be automatically resolved."
+else
+  echo "This wizard will help you select your use case (Training / Inference)."
+  echo "Dependencies will be automatically resolved."
+  echo ""
+  echo "Tip: Use --dev-mode for granular service-by-service selection."
 fi
 echo ""
 
@@ -91,6 +102,20 @@ FEATURE_APPS_workflow="darwin-workflow"
 
 # List of all top-level features
 ALL_FEATURES="compute workspace feature_store mlflow serve catalog chronos workflow"
+
+# ============================================================================
+# PRESET DEFINITIONS (simplified mode)
+# ============================================================================
+# Presets map to combinations of features for common use cases
+PRESET_FEATURES_training="compute mlflow"
+PRESET_FEATURES_inference="serve mlflow"
+
+# Preset descriptions for user-friendly display
+PRESET_DESC_training="Training (Compute + MLFlow)"
+PRESET_DESC_inference="Inference (Serve + MLFlow)"
+
+# List of all presets
+ALL_PRESETS="training inference"
 
 # Service-to-service dependencies
 # Format: SERVICE_DEPS_<service>="dep1 dep2" (use underscores for hyphens in var names)
@@ -284,16 +309,82 @@ enable_feature() {
   done
 }
 
+# Get preset features by preset name
+get_preset_features() {
+  local preset="$1"
+  local var_name="PRESET_FEATURES_${preset}"
+  eval echo "\$$var_name"
+}
+
+# Enable a preset (enables all features in the preset)
+enable_preset() {
+  local preset="$1"
+  local features
+  features=$(get_preset_features "$preset")
+  
+  for feature in $features; do
+    if ! list_contains "$SELECTED_FEATURES" "$feature"; then
+      SELECTED_FEATURES=$(list_add "$SELECTED_FEATURES" "$feature")
+    fi
+  done
+}
+
+# Select presets (simplified mode)
+# Prompts user to select Training and/or Inference presets
+# Sets SELECTED_FEATURES based on preset selections
+select_presets() {
+  local selected_presets=""
+  local retries=0
+  local max_retries=3
+  
+  while [ -z "$selected_presets" ] && [ $retries -lt $max_retries ]; do
+    echo "Select which capabilities you need (you can enable both):"
+    echo ""
+    
+    for preset in $ALL_PRESETS; do
+      desc_var="PRESET_DESC_${preset}"
+      desc=$(eval echo "\$$desc_var")
+      
+      prompt_yn "  Enable $desc?" "n"
+      if [ "$PROMPT_RESULT" = "true" ]; then
+        selected_presets=$(list_add "$selected_presets" "$preset")
+      fi
+    done
+    
+    if [ -z "$selected_presets" ]; then
+      retries=$((retries + 1))
+      remaining=$((max_retries - retries))
+      if [ $remaining -gt 0 ]; then
+        echo ""
+        echo "  ⚠️  You must select at least one preset. ($remaining retries left)"
+        echo ""
+      fi
+    fi
+  done
+  
+  if [ -z "$selected_presets" ]; then
+    echo ""
+    echo "  ⚠️  No preset selected after $max_retries attempts. Defaulting to Training."
+    selected_presets="training"
+  fi
+  
+  # Enable all selected presets
+  for preset in $selected_presets; do
+    enable_preset "$preset"
+  done
+  
+  echo ""
+  echo "Selected presets:"
+  for preset in $selected_presets; do
+    desc_var="PRESET_DESC_${preset}"
+    desc=$(eval echo "\$$desc_var")
+    echo "   ✓ $desc"
+  done
+}
+
 # ============================================================================
 # FEATURE SELECTION
 # ============================================================================
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "                     SELECT FEATURES TO ENABLE"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "Select which features you want to enable. Dependencies will be"
-echo "automatically resolved (services and datastores)."
-echo ""
 
 # Feature descriptions for user-friendly display
 FEATURE_DESC_compute="Compute"
@@ -309,9 +400,22 @@ FEATURE_DESC_workflow="Workflow"
 SELECTED_FEATURES=""
 
 if [ "$ALL_YES" = "true" ]; then
-  # Enable all features
+  # --all mode: Enable all features
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "                     SELECT FEATURES TO ENABLE"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
   SELECTED_FEATURES="$ALL_FEATURES"
-else
+elif [ "$DEV_MODE" = "true" ]; then
+  # --dev-mode: Granular service-by-service selection (original behavior)
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "                 SELECT FEATURES TO ENABLE (Dev Mode)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  echo "Select which features you want to enable. Dependencies will be"
+  echo "automatically resolved (services and datastores)."
+  echo ""
+  
   for feature in $ALL_FEATURES; do
     # Get description
     desc_var="FEATURE_DESC_${feature}"
@@ -322,6 +426,17 @@ else
       SELECTED_FEATURES=$(list_add "$SELECTED_FEATURES" "$feature")
     fi
   done
+else
+  # Default mode: Simplified preset selection (Training / Inference)
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "                       SELECT USE CASE"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  echo "Choose your use case. Dependencies will be automatically resolved."
+  echo "(Use --dev-mode for granular service-by-service selection)"
+  echo ""
+  
+  select_presets
 fi
 
 # ============================================================================
