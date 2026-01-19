@@ -260,34 +260,34 @@ jobs:
           source $CONFIG_ENV
           
           echo "🚀 Deploying Ray test cluster..."
-          helm install ray-test ./darwin-cluster-manager/charts/ray-cluster \
+          helm install id-test ./darwin-cluster-manager/charts/ray-cluster \
             -n ray \
             -f darwin-sdk/darwin/ray-cluster-test-values.yaml \
             --wait \
             --timeout 10m
           
           echo "Ray cluster deployed. Checking status..."
-          kubectl get pods -n ray -l ray.io/cluster=ray-test
+          kubectl get pods -n ray -l ray.io/cluster=id-test
 
       - name: Wait for Ray cluster to be ready
         run: |
           source $CONFIG_ENV
           
           echo "⏳ Waiting for Ray head node..."
-          kubectl wait --for=condition=ready pod -l ray.io/node-type=head,ray.io/cluster=ray-test -n ray --timeout=300s
+          kubectl wait --for=condition=ready pod -l ray.io/node-type=head,ray.io/cluster=id-test -n ray --timeout=300s
           
           echo "⏳ Waiting for Ray worker nodes..."
-          kubectl wait --for=condition=ready pod -l ray.io/node-type=worker,ray.io/cluster=ray-test -n ray --timeout=300s
+          kubectl wait --for=condition=ready pod -l ray.io/node-type=worker,ray.io/cluster=id-test -n ray --timeout=300s
           
           echo "✅ Ray cluster is ready!"
-          kubectl get pods -n ray -l ray.io/cluster=ray-test
+          kubectl get pods -n ray -l ray.io/cluster=id-test
 
       - name: Setup port-forward for Ray cluster
         run: |
           source $CONFIG_ENV
           
           # Get Ray head pod name
-          RAY_HEAD_POD=$(kubectl get pods -n ray -l ray.io/node-type=head,ray.io/cluster=ray-test -o jsonpath='{.items[0].metadata.name}')
+          RAY_HEAD_POD=$(kubectl get pods -n ray -l ray.io/node-type=head,ray.io/cluster=id-test -o jsonpath='{.items[0].metadata.name}')
           echo "Ray head pod: $RAY_HEAD_POD"
           
           # Port forward Ray client port (10001)
@@ -317,7 +317,7 @@ jobs:
         env:
           RAY_ADDRESS: ray://localhost:10001
           ENV: CI
-          CLUSTER_ID: ray-test
+          CLUSTER_ID: id-test
         run: |
           echo "🔌 Testing Ray cluster connectivity..."
           python cluster_test.py
@@ -327,7 +327,7 @@ jobs:
         env:
           RAY_ADDRESS: ray://localhost:10001
           ENV: CI
-          CLUSTER_ID: ray-test
+          CLUSTER_ID: id-test
           DARWIN_COMPUTE_URL: http://localhost/compute
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
@@ -345,7 +345,7 @@ jobs:
         env:
           RAY_ADDRESS: ray://localhost:10001
           ENV: CI
-          CLUSTER_ID: ray-test
+          CLUSTER_ID: id-test
           DARWIN_COMPUTE_URL: http://localhost/compute
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
@@ -361,7 +361,7 @@ jobs:
           # Mock compute service response
           mock_response = {
               'data': {
-                  'cluster_id': 'ray-test',
+                  'cluster_id': 'id-test',
                   'name': 'test-cluster',
                   'status': 'RUNNING',
                   'has_ondemand_worker_group': True,
@@ -424,10 +424,10 @@ jobs:
         run: |
           source $CONFIG_ENV || true
           echo "=== Ray Head Pod Logs ==="
-          kubectl logs -n darwin -l ray.io/node-type=head,ray.io/cluster=ray-test --tail=100 || true
+          kubectl logs -n ray -l ray.io/node-type=head,ray.io/cluster=id-test --tail=100 || true
           echo ""
           echo "=== Ray Worker Pod Logs ==="
-          kubectl logs -n darwin -l ray.io/node-type=worker,ray.io/cluster=ray-test --tail=100 || true
+          kubectl logs -n ray -l ray.io/node-type=worker,ray.io/cluster=id-test --tail=100 || true
 
       - name: Show platform status on failure
         if: failure()
@@ -462,7 +462,7 @@ jobs:
           echo "### Ray Cluster Status" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           source $CONFIG_ENV || true
-          kubectl get pods -n darwin -l ray.io/cluster=ray-test 2>&1 || echo "Could not get Ray cluster status" >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n ray -l ray.io/cluster=id-test 2>&1 || echo "Could not get Ray cluster status" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Cleanup
@@ -473,7 +473,7 @@ jobs:
           df -h
           echo ""
           echo "Cleaning up Ray test cluster..."
-          helm uninstall ray-test -n darwin 2>/dev/null || true
+          helm uninstall id-test -n ray 2>/dev/null || true
           echo ""
           echo "Cleaning up kind cluster and port-forwards..."
           pkill -f "kubectl port-forward" || true
