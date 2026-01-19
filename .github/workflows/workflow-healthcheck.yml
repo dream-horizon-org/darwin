@@ -91,7 +91,7 @@ jobs:
           # 10-12: darwin sdk runtime, ray:2.37.0, ray:2.53.0 (all n)
           # 13: hermes-cli (n)
           # Use printf with explicit newlines and ensure stdin is properly closed
-          printf "n\nn\nn\nn\nn\nn\nn\ny\ny\nn\nn\nn\nn\n" | ./init.sh || {
+          printf "n\nn\nn\nn\nn\nn\nn\ny\ny\nn\nn\nn\nn\n" | ./init.sh --dev-mode || {
             echo "❌ init.sh failed"
             [ -f .setup/enabled-services.yaml ] && cat .setup/enabled-services.yaml
             exit 1

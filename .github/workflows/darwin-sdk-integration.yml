@@ -74,7 +74,7 @@ jobs:
       - name: Initialize Darwin configuration
         run: |
           # Enable only required services for darwin-sdk testing
-          ./init.sh --all
+          ./init.sh --dev-mode --all
 
       - name: Setup Darwin platform
         run: |

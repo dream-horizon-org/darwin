@@ -82,7 +82,7 @@ jobs:
           helm version
 
       - name: Initialize Darwin configuration
-        run: ./init.sh --all
+        run: ./init.sh --dev-mode --all
 
       - name: Setup Darwin platform (build images and create cluster)
         run: ./setup.sh -y
