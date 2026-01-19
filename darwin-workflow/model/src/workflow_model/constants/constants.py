@@ -1,3 +1,5 @@
+import os
+
 INACTIVE = "inactive"
 ACTIVE = "active"
 
@@ -9,3 +11,9 @@ BASIC = "basic"
 CREATING_ARTIFACT = "creating_artifact"
 DEFAULT_TIMEZONE = "UTC"
 DEFAULT_DISPLAY_TIMEZONE = "IST"
+GIT = "git"
+WORKSPACE = "workspace"
+JOB_CLUSTER = "job"
+BASIC_CLUSTER = "basic"
+FSX_BASE_PATH = os.getenv("FSX_BASE_PATH", "/var/www/fsx/workspace/")
+FSX_BASE_PATH_DYNAMIC_TRUE = os.getenv("FSX_BASE_PATH_DYNAMIC", "/home/ray/fsx/workspace/")

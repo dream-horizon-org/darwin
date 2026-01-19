@@ -19,7 +19,8 @@ from src.consumers.sqs_consumer_worker import SQSConsumerWorker
 from src.transformers.utils.register_utils import register_transformers
 
 
-app = FastAPI()
+root_path = environ.get("ROOT_PATH", "")
+app = FastAPI(root_path=root_path)
 otel_instrumentor(app=app)
 env = environ.get(ENV_ENVIRONMENT_VARIABLE, "local")
 db_client = MysqlClient()
@@ -66,10 +67,11 @@ async def close():
 
 
 @app.get("/healthcheck")
+@app.get("/health")
 def health():
     if queue_strategy == SQS_STRATEGY:
         if cm and not cm.is_worker_closed():
-            return {"status": "OK", "consumer": "running"}
+            return {"status": "SUCCESS", "message": "OK"}
         else:
             raise HTTPException(status_code=500, detail="SQS Consumer not running")
     elif queue_strategy == KAFKA_STRATEGY:
@@ -78,7 +80,7 @@ def health():
         kafka_admin = KafkaAdmin(bootstrap_servers)
         resp = kafka_admin.healthcheck(consumer_name)
         if resp["status"] == "OK":
-            return {"status": "OK"}
+            return {"status": "SUCCESS", "message": "OK"}
         else:
             raise HTTPException(status_code=500, detail=f"Kafka Consumer failed - {resp['state']}")
     else:

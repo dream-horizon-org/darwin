@@ -1,0 +1,20 @@
+# Entity configuration for Feature Store
+# Used with: darwin feature-store entity create --file
+entity:
+  table_name: test_user_entity
+  primary_keys:
+    - user_id
+  features:
+    - name: user_id
+      type: INT
+    - name: age
+      type: INT
+    - name: country
+      type: TEXT
+  ttl: 86400
+owner: test@example.com
+tags:
+  - test
+  - user
+description: Test user entity for CLI testing
+

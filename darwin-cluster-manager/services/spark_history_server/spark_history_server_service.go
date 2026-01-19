@@ -5,6 +5,7 @@ import (
 	"compute/cluster_manager/dto/spark_history_server"
 	"compute/cluster_manager/utils/helm_utils"
 	"compute/cluster_manager/utils/kube_utils"
+	"compute/cluster_manager/utils/kubeconfig_utils"
 	"compute/cluster_manager/utils/rest_errors"
 	"compute/cluster_manager/utils/s3_utils"
 )
@@ -13,7 +14,6 @@ var (
 	SparkHistoryServerChartPath               = constants.SparkHistoryServerChartPath
 	LocalArtifactPath                         = constants.LocalArtifactPath
 	LocalSparkHistoryServerArtifactValuesPath = constants.LocalSparkHistoryServerArtifactValuesPath
-	KubeConfigDir                             = constants.KubeConfigDir
 	ArtifactStoreS3Prefix                     = constants.SparkHistoryServerArtifactS3Prefix
 	ENV                                       = constants.ENV
 )
@@ -62,7 +62,10 @@ func (s *SparkHistoryServerService) StartSparkHistoryServer(requestParams spark_
 		return SparkHistoryServerResponse{Status: "ERROR", Message: "Internal Server Error", Data: rest_errors.NewInternalServerError("Failed to release helm ", err)}
 	}
 
-	ReleaseKubeConfigPath := KubeConfigDir + requestParams.KubeCluster
+	ReleaseKubeConfigPath, kubeConfigErr := kubeconfig_utils.GetKubeConfigPath(requestParams.KubeCluster)
+	if kubeConfigErr != nil {
+		return SparkHistoryServerResponse{Status: "ERROR", Message: "Internal Server Error", Data: kubeConfigErr}
+	}
 	_, err = helm_utils.InstallorUpgradeHelmChartWithRetries(ReleaseKubeConfigPath, path, requestParams.Id, requestParams.Namespace)
 	if err != nil {
 		return SparkHistoryServerResponse{Status: "ERROR", Message: "Internal Server Error", Data: rest_errors.NewInternalServerError("Unable to release helm ", err)}
@@ -77,7 +80,10 @@ func (s *SparkHistoryServerService) StartSparkHistoryServer(requestParams spark_
 }
 
 func (s *SparkHistoryServerService) StopSparkHistoryServer(requestParams spark_history_server.StopSparkHistoryServerParams) SparkHistoryServerResponse {
-	KubeConfigPath := KubeConfigDir + requestParams.KubeCluster
+	KubeConfigPath, kubeConfigErr := kubeconfig_utils.GetKubeConfigPath(requestParams.KubeCluster)
+	if kubeConfigErr != nil {
+		return SparkHistoryServerResponse{Status: "ERROR", Message: "Internal Server Error", Data: kubeConfigErr}
+	}
 	_, restError := helm_utils.DeleteHelmRelease(KubeConfigPath, requestParams.Id, requestParams.Namespace)
 	if restError != nil {
 		return SparkHistoryServerResponse{Status: "ERROR", Message: "Internal Server Error", Data: restError}
@@ -86,7 +92,10 @@ func (s *SparkHistoryServerService) StopSparkHistoryServer(requestParams spark_h
 }
 
 func (s *SparkHistoryServerService) GetSparkHistoryServer(id string, kubeCluster string, namespace string) SparkHistoryServerResponse {
-	KubeConfigPath := KubeConfigDir + kubeCluster
+	KubeConfigPath, kubeConfigErr := kubeconfig_utils.GetKubeConfigPath(kubeCluster)
+	if kubeConfigErr != nil {
+		return SparkHistoryServerResponse{Status: "ERROR", Message: "Internal Server Error", Data: kubeConfigErr}
+	}
 	resources, restError := kube_utils.GetPods(id, namespace, "app.kubernetes.io/name="+id, KubeConfigPath)
 	if restError != nil {
 		return SparkHistoryServerResponse{Status: "ERROR", Message: "Internal Server Error", Data: restError}

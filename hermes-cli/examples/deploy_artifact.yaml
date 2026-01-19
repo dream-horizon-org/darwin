@@ -1,0 +1,11 @@
+env: darwin-local                             # Required
+artifact_version: v1.0.0               # Required
+api_serve_deployment_config:           # Optional (for API serve)
+  deployment_strategy: rolling         # Optional
+  deployment_strategy_config: {}       # Optional
+  environment_variables:               # Optional
+    MODEL_PATH: /models/production
+    LOG_LEVEL: INFO
+workflow_serve_deployment_config:      # Optional (for workflow serve)
+  input_parameters:
+    start_date: "2024-01-01"

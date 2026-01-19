@@ -1,0 +1,15 @@
+# Feature read request configuration
+# Used with: darwin feature-store features read --file
+feature_group_name: test_engagement_fg
+feature_group_version: v1
+feature_columns:
+  - activity_score
+  - session_count
+primary_keys:
+  names:
+    - user_id
+  values:
+    - ["123"]
+    - ["456"]
+    - ["789"]
+

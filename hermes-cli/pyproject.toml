@@ -7,7 +7,7 @@ name = "hermes"
 dynamic = ["version"]
 description = "ML Serve cli to create base repository"
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.9"
 dependencies = [
     "annotated-types>=0.7.0",
     "anyio>=4.8.0",

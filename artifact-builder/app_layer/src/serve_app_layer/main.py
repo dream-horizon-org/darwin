@@ -2,7 +2,7 @@ from serve_app_layer import logger_config
 # Import OpenTelemetry first
 from serve_app_layer import otel_bootstrap
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from urllib.parse import quote
 import shutil
 from pathlib import Path
@@ -60,7 +60,8 @@ async def lifespan(app: FastAPI):
 
 
 # --- Create app instance ---
-app = FastAPI(lifespan=lifespan)
+root_path = os.environ.get("ROOT_PATH", "")
+app = FastAPI(lifespan=lifespan, root_path=root_path)
 
 # --- Initialize MySQL client (non-async setup) ---
 db_client.init_db(app)
@@ -74,16 +75,18 @@ except RuntimeError:
 
 
 @app.get("/healthcheck")
+@app.get("/health")
 async def health_check():
     """
     Health check endpoint to ensure the service is running.
-
-    :return: Health status.
+    Returns 503 if Docker is not available.
     """
-    if is_docker_running():
-        return {"status": "SUCCESS", "message": "OK"}
-    else:
-        return {"status": "FAILED", "message": "Docker is not running."}
+    if not is_docker_running():
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "unavailable", "message": "Docker daemon is not running or not accessible"}
+        )
+    return {"status": "SUCCESS", "message": "OK"}
 
 
 @app.post("/build_with_dockerfile")

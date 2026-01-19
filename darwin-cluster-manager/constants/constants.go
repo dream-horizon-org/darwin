@@ -41,6 +41,7 @@ const (
 	LocalJupyterArtifactValuesPath            = "./tmp/values/jupyter/"
 	LocalSparkHistoryServerArtifactValuesPath = "./tmp/values/spark-history-server/"
 	KubeConfigDir                             = "./configs/"
+	KubeConfigS3Prefix                        = "mlp/cluster_manager/configs/"
 	JupyterChartPath                          = "./charts/darwin-jupyter"
 	SparkHistoryServerChartPath               = "./charts/spark-history-server"
 	SparkHistoryServerArtifactS3Prefix        = "darwin/temp/spark_history_server/"

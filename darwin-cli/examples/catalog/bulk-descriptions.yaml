@@ -1,0 +1,18 @@
+# Bulk descriptions for Catalog
+# Used with: darwin catalog descriptions update --file
+asset_descriptions:
+  - asset_fqdn: datalake.analytics.user_events
+    description: User interaction events aggregated daily
+  - asset_fqdn: datalake.analytics.orders
+    description: Order transactions for analytics
+field_descriptions:
+  - asset_fqdn: datalake.analytics.user_events
+    field_name: user_id
+    description: Unique identifier for the user
+  - asset_fqdn: datalake.analytics.user_events
+    field_name: event_type
+    description: Type of user interaction
+  - asset_fqdn: datalake.analytics.orders
+    field_name: order_id
+    description: Unique order identifier
+

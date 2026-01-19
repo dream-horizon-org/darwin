@@ -585,5 +585,50 @@ else
   echo "⚠️  No operators defined in services.yaml"
 fi
 
+# ============================================================================
+# SETUP DARWIN CLI
+# ============================================================================
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "                    SETTING UP DARWIN CLI"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check if darwin-cli is enabled
+DARWIN_CLI_ENABLED=$(yq eval '.cli-tools.darwin-cli // false' "$ENABLED_FILE" 2>/dev/null || echo "false")
+
+if [ "$DARWIN_CLI_ENABLED" = "true" ]; then
+  DARWIN_CLI_PATH="darwin-cli"
+  if [ ! -d "$DARWIN_CLI_PATH" ]; then
+    echo "   ⚠️  darwin-cli directory not found at $DARWIN_CLI_PATH, skipping..."
+  else
+    VENV_PATH=".venv"
+    
+    # Create venv if it doesn't exist
+    if [ ! -d "$VENV_PATH" ]; then
+      echo "   Creating virtual environment..."
+      python3.9 -m venv "$VENV_PATH"
+    fi
+
+    # Install darwin-cli
+    echo "   Installing darwin-cli package..."
+    (
+      source "$VENV_PATH/bin/activate" && \
+      pip install --upgrade pip --quiet && \
+      cd "$DARWIN_CLI_PATH" && \
+      python setup.py sdist && \
+      pip install dist/darwin-cli-1.0.0.tar.gz --force-reinstall --quiet
+    )
+
+    if [ $? -eq 0 ]; then
+      echo "   ✅ darwin-cli installed successfully"
+    else
+      echo "   ❌ Failed to install darwin-cli"
+    fi
+  fi
+else
+  echo "⏭️  Skipping darwin-cli setup (disabled in configuration)"
+fi
+
 echo ""
 echo "✅ Setup completed!"

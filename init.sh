@@ -451,14 +451,14 @@ echo "                        CLI TOOLS"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-HERMES_CLI_ENABLED=false
+DARWIN_CLI_ENABLED=false
 
 if [ "$ALL_YES" = "true" ]; then
-  HERMES_CLI_ENABLED=true
+  DARWIN_CLI_ENABLED=true
 else
-  prompt_yn "  Enable hermes-cli (local installation)?" "n"
+  prompt_yn "  Enable darwin-cli (local installation)?" "n"
   if [ "$PROMPT_RESULT" = "true" ]; then
-    HERMES_CLI_ENABLED=true
+    DARWIN_CLI_ENABLED=true
   fi
 fi
 
@@ -597,7 +597,7 @@ echo "" >> "$OUTPUT_FILE"
 
 # Write cli-tools section
 echo "cli-tools:" >> "$OUTPUT_FILE"
-echo "  hermes-cli: $HERMES_CLI_ENABLED" >> "$OUTPUT_FILE"
+echo "  darwin-cli: $DARWIN_CLI_ENABLED" >> "$OUTPUT_FILE"
 
 # ============================================================================
 # SUMMARY
@@ -658,8 +658,8 @@ fi
 
 echo ""
 echo "🛠️  CLI Tools:"
-if [ "$HERMES_CLI_ENABLED" = "true" ]; then
-  echo "   ✓ hermes-cli"
+if [ "$DARWIN_CLI_ENABLED" = "true" ]; then
+  echo "   ✓ darwin-cli"
 else
   echo "   (none)"
 fi

@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from croniter import croniter
 
-from workflow_core.constants.constants import GIT, WORKSPACE, FSX_BASE_PATH, FSX_BASE_PATH_DYNAMIC_TRUE, JOB_CLUSTER, \
+from workflow_model.constants.constants import GIT, WORKSPACE, FSX_BASE_PATH, FSX_BASE_PATH_DYNAMIC_TRUE, JOB_CLUSTER, \
     BASIC_CLUSTER
 from workflow_model.constants.constants import DEFAULT_SCHEDULE, DEFAULT_INTEGER_VALUE, DEFAULT_TIMEZONE
 

@@ -1,0 +1,9 @@
+api_serve_config:
+  backend_type: fastapi               # Required: fastapi
+  additional_hosts: []                # Optional
+  fast_api_config:
+    cores: 4                          # Required
+    memory: 8                         # Required
+    node_capacity_type: spot          # Optional: spot|on-demand (default: spot)
+    min_replicas: 1                   # Required
+    max_replicas: 5                   # Required

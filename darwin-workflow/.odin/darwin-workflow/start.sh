@@ -43,7 +43,7 @@ if [ "$IS_LOCAL" == "true" ]; then
   cd /app/app_layer/src/workflow_app_layer || exit 1
   
   # Determine number of workers (use CORES env var or default to 1 for local)
-  CORES=${CORES:-1}
+  CORES=${CORES:-2}
   echo "   Starting uvicorn with $CORES worker(s)..."
   
   # Start uvicorn directly (no envconsul needed for local)

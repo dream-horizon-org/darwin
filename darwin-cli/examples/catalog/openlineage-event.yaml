@@ -1,0 +1,16 @@
+# OpenLineage event for lineage submission
+# Used with: darwin catalog lineage submit --file
+eventType: COMPLETE
+eventTime: '2024-01-15T10:30:00.000Z'
+run:
+  runId: run-12345
+job:
+  namespace: spark
+  name: daily-etl-job
+inputs:
+  - namespace: datalake
+    name: raw.user_events
+outputs:
+  - namespace: datalake
+    name: analytics.user_events_aggregated
+

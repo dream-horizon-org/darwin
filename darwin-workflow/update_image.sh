@@ -43,6 +43,7 @@ docker build \
   --build-arg EXTRA_ENV_VARS="ENV=local|DEV=true" \
   --no-cache \
   -t darwin-workflow:latest \
+  --label "maintainer=darwin" \
   -f deployer/images/Dockerfile .
 
 # Step 4: Load image into kind

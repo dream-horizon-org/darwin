@@ -3,6 +3,8 @@ import os
 USER_ENV = os.environ.get("ENV", 'prod')
 if USER_ENV == "uat":
   os.environ['TEAM_SUFFIX'] = '-uat'
+elif USER_ENV == "darwin-local":
+  os.environ['TEAM_SUFFIX'] = ''
 
 TEAM_SUFFIX = os.environ.get('TEAM_SUFFIX', '')
 VPC_SUFFIX = os.environ.get('VPC_SUFFIX', '')
@@ -11,11 +13,19 @@ DARWIN_OFS_V2_HOST = "http://darwin-ofs-v2" + TEAM_SUFFIX + ".dream11" + VPC_SUF
 DARWIN_OFS_V2_ADMIN_HOST = "http://darwin-ofs-v2-admin" + TEAM_SUFFIX + ".dream11" + VPC_SUFFIX + ".local"
 DARWIN_OFS_V2_WRITER_HOST = "http://darwin-ofs-v2-writer" + TEAM_SUFFIX + ".dream11" + VPC_SUFFIX + ".local"
 
+# darwin-local uses localhost ingress
+if USER_ENV == "darwin-local":
+  DARWIN_OFS_V2_HOST = "http://localhost/feature-store"
+  DARWIN_OFS_V2_ADMIN_HOST = "http://localhost/feature-store-admin"
+  DARWIN_OFS_V2_WRITER_HOST = "http://localhost/feature-store"
+
 # writer only on prod
-if USER_ENV != 'prod':
+if USER_ENV != 'prod' and USER_ENV != 'darwin-local':
   DARWIN_OFS_V2_WRITER_HOST = DARWIN_OFS_V2_HOST
 
 DARWIN_OFS_V2_KAFKA_HOST = "darwin-ofs-v2-kafka" + TEAM_SUFFIX + ".dream11" + VPC_SUFFIX + ".local"
+if USER_ENV == "darwin-local":
+  DARWIN_OFS_V2_KAFKA_HOST = "localhost:9092"
 
 SDK_ENV = os.environ.get("sdk.python.environment", '')
 if SDK_ENV == "test":

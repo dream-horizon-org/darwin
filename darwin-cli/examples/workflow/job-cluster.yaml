@@ -1,0 +1,38 @@
+# Job Cluster Definition Example
+# Used with: darwin workflow job-cluster create -file job-cluster.yaml
+
+cluster_name: test-job
+runtime: spark-conect-verf4
+tags:
+  - ml-training
+  - production
+terminate_after_minutes: 60
+
+head_node:
+  cores: 4
+  memory: 16
+  node_capacity_type: ondemand
+
+worker_group:
+  - cores_per_pods: 4
+    memory_per_pods: 16
+    min_pods: 1
+    max_pods: 3
+    node_capacity_type: spot
+
+advance_config:
+  spark_config:
+    spark.executor.memory: "4g"
+    spark.driver.memory: "2g"
+  init_script: "pip install pandas numpy scikit-learn"
+  environment_variables: ""
+  ray_params:
+    num_cpus_on_head: 0
+    num_gpus_on_head: 0
+    object_store_memory: 25
+  instance_role:
+    id: "1"
+    display_name: darwin-ds-role
+
+user: cli-user@darwin.local
+

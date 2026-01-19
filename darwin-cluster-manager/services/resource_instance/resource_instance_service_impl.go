@@ -5,13 +5,15 @@ import (
 	dto "compute/cluster_manager/dto/resource_instance"
 	"compute/cluster_manager/utils/helm_utils"
 	"compute/cluster_manager/utils/kube_utils"
+	"compute/cluster_manager/utils/kubeconfig_utils"
 	"compute/cluster_manager/utils/logger"
 	"compute/cluster_manager/utils/rest_errors"
 	"compute/cluster_manager/utils/s3_utils"
 	"fmt"
+	"path/filepath"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-	"path/filepath"
 )
 
 const (
@@ -180,7 +182,11 @@ func (c *ResourceInstanceService) StartResourceInstance(requestId string, resour
 
 	localArtifactPath := filepath.Join(LocalArtifactPath, resource.DarwinResource, resource.ArtifactId+".tgz")
 	s3ArtifactPath := filepath.Join(constants.ArtifactStoreS3Prefix, resource.DarwinResource, resource.ArtifactId+".tgz")
-	kubeConfigPath := constants.KubeConfigDir + resource.KubeCluster
+	kubeConfigPath, kubeConfigErr := kubeconfig_utils.GetKubeConfigPath(resource.KubeCluster)
+	if kubeConfigErr != nil {
+		logger.ErrorR(requestId, "Failed to get kubeconfig path", zap.Any("Error", kubeConfigErr))
+		return nil, kubeConfigErr
+	}
 
 	// Download artifact from s3
 	if s3Err := s3_utils.ArtifactsStore.DownloadFile(localArtifactPath, s3ArtifactPath); s3Err != nil {
@@ -204,7 +210,11 @@ func (c *ResourceInstanceService) StartResourceInstance(requestId string, resour
 }
 
 func (c *ResourceInstanceService) StopResourceInstance(requestId string, resource dto.StopResourceInstance) (*dto.ResourceInstanceResponse, rest_errors.RestErr) {
-	kubeConfigPath := constants.KubeConfigDir + resource.KubeCluster
+	kubeConfigPath, kubeConfigErr := kubeconfig_utils.GetKubeConfigPath(resource.KubeCluster)
+	if kubeConfigErr != nil {
+		logger.ErrorR(requestId, "Failed to get kubeconfig path", zap.Any("Error", kubeConfigErr))
+		return nil, kubeConfigErr
+	}
 
 	// Delete helm release
 	_, err := helm_utils.DeleteHelmRelease(kubeConfigPath, resource.ResourceId, resource.KubeNamespace)
@@ -218,7 +228,11 @@ func (c *ResourceInstanceService) StopResourceInstance(requestId string, resourc
 }
 
 func (c *ResourceInstanceService) ResourceInstanceStatus(requestId string, resource dto.ResourceInstanceStatus) (*dto.ResourceInstanceResponse, rest_errors.RestErr) {
-	kubeConfigPath := constants.KubeConfigDir + resource.KubeCluster
+	kubeConfigPath, kubeConfigErr := kubeconfig_utils.GetKubeConfigPath(resource.KubeCluster)
+	if kubeConfigErr != nil {
+		logger.ErrorR(requestId, "Failed to get kubeconfig path", zap.Any("Error", kubeConfigErr))
+		return nil, kubeConfigErr
+	}
 
 	labelSelector := fmt.Sprintf("%s=%s", LabelSelectorKey, resource.ResourceId)
 

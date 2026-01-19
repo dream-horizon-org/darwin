@@ -92,18 +92,29 @@ class APIServeConfig:
         return asdict(self)
 
     @staticmethod
-    def api_serve_config(config_str: Optional[str]) -> "APIServeConfig":
-        if config_str is None:
-            raise ValueError("Configuration string cannot be None")
+    def from_file(file_path: str) -> "APIServeConfig":
+        """Create APIServeConfig from a JSON/YAML file, supporting nested api_serve_config.fast_api_config structure."""
+        with open(file_path, "r") as f:
+            content = f.read()
         try:
-            config_data = json.loads(config_str)
+            config_data = json.loads(content)
         except json.JSONDecodeError:
             try:
-                config_data = yaml.safe_load(config_str)
+                config_data = yaml.safe_load(content)
             except yaml.YAMLError as e:
                 raise ValueError("Invalid JSON or YAML format") from e
-        # Validate config_data here if needed
-        return APIServeConfig(**config_data)
+        # Support nested api_serve_config.fast_api_config structure
+        api_cfg = config_data.get("api_serve_config", config_data)
+        fast_api_cfg = api_cfg.get("fast_api_config", api_cfg)
+        return APIServeConfig(
+            backend_type=api_cfg.get("backend_type"),
+            cores=fast_api_cfg.get("cores"),
+            memory=fast_api_cfg.get("memory"),
+            node_capacity_type=fast_api_cfg.get("node_capacity_type", "spot"),
+            min_replicas=fast_api_cfg.get("min_replicas"),
+            max_replicas=fast_api_cfg.get("max_replicas"),
+            additional_hosts=api_cfg.get("additional_hosts"),
+        )
 
 
 @dataclass

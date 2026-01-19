@@ -2,6 +2,7 @@
 # Darwin project files
 # ===========================
 .setup/
+.cursor/
 kind/shared-storage/
 shared-storage/
 
@@ -130,7 +131,6 @@ lerna-debug.log*
 # Kubernetes
 # ===========================
 *.kubeconfig
-kubeconfig*
 .kube/
 
 # ===========================

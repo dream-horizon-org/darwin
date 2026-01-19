@@ -41,9 +41,10 @@ from compute_core.constant.config import Config
 router = APIRouter(prefix="")
 
 
+@router.get("/healthcheck")
 @router.get("/health")
 async def health():
-    return Response.success_response(message="Healthy")
+    return {"status": "SUCCESS", "message": "OK"}
 
 
 @router.get("/health/deep")

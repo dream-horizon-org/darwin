@@ -4,6 +4,7 @@ import (
 	"compute/cluster_manager/constants"
 	"compute/cluster_manager/dto/jupyter"
 	"compute/cluster_manager/utils/helm_utils"
+	"compute/cluster_manager/utils/kubeconfig_utils"
 	"compute/cluster_manager/utils/rest_errors"
 	"fmt"
 )
@@ -12,7 +13,6 @@ var (
 	JupyterChartPath               = constants.JupyterChartPath
 	LocalArtifactPath              = constants.LocalArtifactPath
 	LocalJupyterArtifactValuesPath = constants.LocalJupyterArtifactValuesPath
-	KubeConfigDir                  = constants.KubeConfigDir
 	JupyterSuffix                  = constants.JupyterSuffix
 	ENV                            = constants.ENV
 	URL                            = constants.URL
@@ -36,9 +36,13 @@ type JupyterClientResponse struct {
 
 func (j *JupyterService) CreateJupyterClient(params jupyter.Params) JupyterClientResponse {
 	err := params.Validate()
-	ReleaseKubeConfigPath := KubeConfigDir + params.KubeConfig
 	if err != nil {
 		return JupyterClientResponse{Message: "", Err: rest_errors.NewInternalServerError("Invalid params", err), JupyterLink: ""}
+	}
+
+	ReleaseKubeConfigPath, kubeConfigErr := kubeconfig_utils.GetKubeConfigPath(params.KubeConfig)
+	if kubeConfigErr != nil {
+		return JupyterClientResponse{Message: "", Err: kubeConfigErr, JupyterLink: ""}
 	}
 
 	filePath, helmError := MakeHelmChart(params)
@@ -76,7 +80,14 @@ func (j *JupyterService) DeleteJupyterClient(params jupyter.DeleteParams) Jupyte
 		}
 	}
 
-	ReleaseKubeConfigPath := KubeConfigDir + params.KubeConfig
+	ReleaseKubeConfigPath, kubeConfigErr := kubeconfig_utils.GetKubeConfigPath(params.KubeConfig)
+	if kubeConfigErr != nil {
+		return JupyterClientResponse{
+			Message:     "",
+			Err:         kubeConfigErr,
+			JupyterLink: "",
+		}
+	}
 
 	_, err = helm_utils.DeleteHelmRelease(ReleaseKubeConfigPath, params.ReleaseName, params.Namespace)
 	if err != nil {

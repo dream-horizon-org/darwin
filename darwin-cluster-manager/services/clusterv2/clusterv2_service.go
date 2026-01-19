@@ -5,13 +5,15 @@ import (
 	"compute/cluster_manager/dto/clusters"
 	"compute/cluster_manager/utils/helm_utils"
 	"compute/cluster_manager/utils/kube_utils"
+	"compute/cluster_manager/utils/kubeconfig_utils"
 	"compute/cluster_manager/utils/logger"
 	"compute/cluster_manager/utils/rest_errors"
 	"compute/cluster_manager/utils/s3_utils"
 	"fmt"
+	"os"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"os"
 )
 
 var (
@@ -22,7 +24,6 @@ var (
 	ChartPath               = constants.ChartPath
 	ArtifactStoreS3Prefix   = constants.ArtifactStoreS3Prefix
 	LocalArtifactPath       = constants.LocalArtifactPath
-	KubeConfigDir           = constants.KubeConfigDir
 	ENV                     = constants.ENV
 	RayHeadNodeSelector     = constants.RayHeadNodeSelector
 	RayNodeReleaseNameLabel = constants.RayNodeReleaseNameLabel
@@ -94,8 +95,12 @@ func (s *clustersService) UpdateCluster(cluster clusters.Cluster) (*clusters.Clu
 }
 
 func (s *clustersService) StartCluster(clusterName string, artifactName string, namespace string, kubeCluster string) rest_errors.RestErr {
-	KubeConfigPath := KubeConfigDir + kubeCluster
-	restError := s3_utils.ArtifactsStore.Configure()
+	KubeConfigPath, restError := kubeconfig_utils.GetKubeConfigPath(kubeCluster)
+	if restError != nil {
+		logger.Error("Error getting kubeconfig path: %v", zap.Error(restError))
+		return restError
+	}
+	restError = s3_utils.ArtifactsStore.Configure()
 	if restError != nil {
 		logger.Error("Error configuring s3 store: %v", zap.Error(restError))
 		return restError
@@ -123,8 +128,11 @@ func (s *clustersService) StartCluster(clusterName string, artifactName string, 
 }
 
 func (s *clustersService) StopCluster(clusterName string, namespace string, kubeCluster string) rest_errors.RestErr {
-	KubeConfigPath := KubeConfigDir + kubeCluster
-	_, restError := helm_utils.DeleteHelmRelease(KubeConfigPath, clusterName, namespace)
+	KubeConfigPath, restError := kubeconfig_utils.GetKubeConfigPath(kubeCluster)
+	if restError != nil {
+		return restError
+	}
+	_, restError = helm_utils.DeleteHelmRelease(KubeConfigPath, clusterName, namespace)
 	if restError != nil {
 		return restError
 	}
@@ -132,8 +140,11 @@ func (s *clustersService) StopCluster(clusterName string, namespace string, kube
 }
 
 func (s *clustersService) RestartCluster(clusterName string, artifactName string, namespace string, kubeCluster string) rest_errors.RestErr {
-	KubeConfigPath := KubeConfigDir + kubeCluster
-	restError := s3_utils.ArtifactsStore.Configure()
+	KubeConfigPath, restError := kubeconfig_utils.GetKubeConfigPath(kubeCluster)
+	if restError != nil {
+		return restError
+	}
+	restError = s3_utils.ArtifactsStore.Configure()
 	if restError != nil {
 		return restError
 	}
@@ -154,7 +165,10 @@ func (s *clustersService) RestartCluster(clusterName string, artifactName string
 }
 
 func (s *clustersService) ClusterStatus(clusterName string, namespace string, kubeCluster string) (kube_utils.ClusterStatusDto, rest_errors.RestErr) {
-	KubeConfigPath := KubeConfigDir + kubeCluster
+	KubeConfigPath, restError := kubeconfig_utils.GetKubeConfigPath(kubeCluster)
+	if restError != nil {
+		return kube_utils.ClusterStatusDto{"", nil}, restError
+	}
 	resources, restError := kube_utils.GetResources(clusterName, namespace, KubeConfigPath)
 	if restError != nil {
 		return kube_utils.ClusterStatusDto{"", nil}, restError
@@ -163,7 +177,10 @@ func (s *clustersService) ClusterStatus(clusterName string, namespace string, ku
 }
 
 func (s *clustersService) GetAllClusters(namespace string, kubeCluster string, requestId string) ([]kube_utils.PodReleaseNameDto, rest_errors.RestErr) {
-	kubeConfigPath := KubeConfigDir + kubeCluster
+	kubeConfigPath, restError := kubeconfig_utils.GetKubeConfigPath(kubeCluster)
+	if restError != nil {
+		return nil, restError
+	}
 	selector := RayHeadNodeSelector + fmt.Sprintf(", environment_name=%s", ENV)
 	releaseNameLabel := RayNodeReleaseNameLabel
 	logger.DebugR(requestId, fmt.Sprintf("Getting all releases for %s from kube_config_path=%s using selector=%s", kubeConfigPath, selector, releaseNameLabel))

@@ -4,6 +4,8 @@ from typing import Dict, Any
 def print_hermes_response(response: Dict[str, Any]) -> None:
     """Print API response in a formatted way"""
     try:
+        if not response:
+            return
         # Print status and message
         print("\n=== Response Summary ===")
         print(f"Status: {response.get('status', 'N/A')}")
