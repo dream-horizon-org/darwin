@@ -60,20 +60,14 @@ def prepare_resources(spark_conf: dict) -> SparkResources:
     if not ray.is_initialized():
         ray.init("auto", logging_level=30, log_to_driver=False)
         if _is_dynamic_allocation_enabled(spark_conf):
-            spark_resources.num_executors = int(
-                spark_conf.get("spark.dynamicAllocation.minExecutors", 2)
-            )
+            spark_resources.num_executors = int(spark_conf.get("spark.dynamicAllocation.minExecutors", 2))
         else:
-            spark_resources.num_executors = spark_conf.get(
-                "spark.executor.instances", len(ray.nodes()) - 1
-            )
+            spark_resources.num_executors = spark_conf.get("spark.executor.instances", len(ray.nodes()) - 1)
 
     for node in ray.nodes():
         if "worker" in node["NodeManagerHostname"]:
             spark_resources.executor_cores = int(
-                spark_conf.get(
-                    "spark.executor.cores", int(node["Resources"]["CPU"] - 1)
-                )
+                spark_conf.get("spark.executor.cores", int(node["Resources"]["CPU"] - 1))
             )
             spark_resources.executor_memory = spark_conf.get(
                 "spark.executor.memory",

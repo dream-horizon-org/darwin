@@ -88,10 +88,7 @@ class ClusterData(DataClassJsonMixin):
         Check if the cluster has a worker group with node_capacity_type 'ondemand'.
         :return: True if an on-demand worker group exists, otherwise False.
         """
-        return any(
-            worker.node_capacity_type == "ondemand"
-            for worker in self.worker_node_configs
-        )
+        return any(worker.node_capacity_type == "ondemand" for worker in self.worker_node_configs)
 
     @property
     def min_pod(self) -> str:

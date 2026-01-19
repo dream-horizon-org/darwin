@@ -8,7 +8,6 @@ To use these fixtures, run pytest with:
     pytest --confcutdir=tests tests/test_integration.py
 """
 
-import json
 import os
 from unittest.mock import MagicMock, patch
 
@@ -19,12 +18,8 @@ def pytest_configure(config):
     """Configure pytest for CI environment."""
     # Register custom markers
     config.addinivalue_line("markers", "integration: mark test as an integration test")
-    config.addinivalue_line(
-        "markers", "ray_cluster: mark test as requiring a Ray cluster"
-    )
-    config.addinivalue_line(
-        "markers", "raydp: mark test as requiring RayDP (Spark on Ray)"
-    )
+    config.addinivalue_line("markers", "ray_cluster: mark test as requiring a Ray cluster")
+    config.addinivalue_line("markers", "raydp: mark test as requiring RayDP (Spark on Ray)")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -137,9 +132,7 @@ def mock_compute_service(mock_compute_response):
     mock_data.cluster_id = mock_compute_response["data"]["cluster_id"]
     mock_data.name = mock_compute_response["data"]["name"]
     mock_data.status = mock_compute_response["data"]["status"]
-    mock_data.has_ondemand_worker_group = mock_compute_response["data"][
-        "has_ondemand_worker_group"
-    ]
+    mock_data.has_ondemand_worker_group = mock_compute_response["data"]["has_ondemand_worker_group"]
     mock_data.spark_config = mock_compute_response["data"]["spark_config"]
     mock_data.worker_groups = mock_compute_response["data"]["worker_groups"]
 
@@ -258,7 +251,7 @@ def pytest_collection_modifyitems(config, items):
 def pytest_report_header(config):
     """Add CI environment info to pytest report header."""
     lines = []
-    lines.append(f"Darwin SDK CI Tests")
+    lines.append("Darwin SDK CI Tests")
     lines.append(f"  ENV: {os.getenv('ENV', 'not set')}")
     lines.append(f"  RAY_ADDRESS: {os.getenv('RAY_ADDRESS', 'not set')}")
     lines.append(f"  CLUSTER_ID: {os.getenv('CLUSTER_ID', 'not set')}")

@@ -19,20 +19,14 @@ def init_spark(**kwargs) -> SparkSession:
     :param kwargs: Additional keyword arguments for Spark session initialization.
     :return: SparkSession object
     """
-    compute_metadata: ClusterResponse = ComputeService(
-        get_cluster_id()
-    ).get_compute_metadata()
+    compute_metadata: ClusterResponse = ComputeService(get_cluster_id()).get_compute_metadata()
     assert_ondemand_worker_group_is_attached(compute_metadata)
     return start_spark(
         spark_conf=compute_metadata.data.spark_config,
         working_dir=compute_metadata.data.spark_config.get("spark.darwin.workingDir"),
-        enable_remote_shuffle=str_to_bool(
-            compute_metadata.data.spark_config.get("spark.darwin.enableRemoteShuffle")
-        ),
+        enable_remote_shuffle=str_to_bool(compute_metadata.data.spark_config.get("spark.darwin.enableRemoteShuffle")),
         dynamic_allocation=str_to_bool(
-            compute_metadata.data.spark_config.get(
-                "spark.darwin.dynamicAllocation.enabled"
-            )
+            compute_metadata.data.spark_config.get("spark.darwin.dynamicAllocation.enabled")
         ),
         spark_logging_level=SparkLoggingLevel.from_str(
             compute_metadata.data.spark_config.get("spark.darwin.loggingLevel", "ERROR")
@@ -54,9 +48,7 @@ def init_spark_with_configs(
     :param dynamic_allocation_with_remote_shuffle: Whether to enable dynamic allocation with remote shuffle.
     :return: SparkSession object
     """
-    compute_metadata: ClusterResponse = ComputeService(
-        get_cluster_id()
-    ).get_compute_metadata()
+    compute_metadata: ClusterResponse = ComputeService(get_cluster_id()).get_compute_metadata()
     assert_ondemand_worker_group_is_attached(compute_metadata)
     return start_spark(
         spark_conf=spark_configs,

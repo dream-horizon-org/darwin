@@ -44,9 +44,7 @@ class SparkConfigClient:
     def get_rss_config(self) -> Dict[str, str]:
         if not self.config_parser.has_section(SPARK_RSS_CONFIGS_SECTION):
             raise ConfigNotFoundError("Remote shuffle configs section not found")
-        rss_configs: Dict[str, str] = dict(
-            self.config_parser.items(SPARK_RSS_CONFIGS_SECTION)
-        )
+        rss_configs: Dict[str, str] = dict(self.config_parser.items(SPARK_RSS_CONFIGS_SECTION))
         return self._set_and_get_rss_configs(rss_configs)
 
     def get_dynamic_allocation_config(self) -> Dict[str, str]:
@@ -56,9 +54,7 @@ class SparkConfigClient:
 
     def set_jars(self) -> None:
         default_jars_path: str = get_default_jars_path()
-        jars: List[str] = [
-            f"{default_jars_path}/{jar}" for _, jar in self.get_default_jars()
-        ]
+        jars: List[str] = [f"{default_jars_path}/{jar}" for _, jar in self.get_default_jars()]
         self.default_spark_configs[SPARK_JARS_KEY] = ",".join(jars)
         self._set_extra_jars()
 
@@ -68,11 +64,7 @@ class SparkConfigClient:
         """
         if os.path.exists(EXTRA_JARS_PATH):
             jars_path = EXTRA_JARS_PATH
-            jars = [
-                f"{jars_path}/{jar}"
-                for jar in os.listdir(jars_path)
-                if jar.endswith(".jar")
-            ]
+            jars = [f"{jars_path}/{jar}" for jar in os.listdir(jars_path) if jar.endswith(".jar")]
             if jars:
                 self.default_spark_configs[SPARK_JARS_KEY] += "," + ",".join(jars)
 
@@ -80,9 +72,7 @@ class SparkConfigClient:
         """
         This is to set celeborn jars from default jars folder
         """
-        celeborn_jars_path: str = (
-            get_default_jars_path() + "/" + rss_configs.get("celeborn.jar")
-        )
+        celeborn_jars_path: str = get_default_jars_path() + "/" + rss_configs.get("celeborn.jar")
         rss_configs.pop("celeborn.jar")
         rss_configs["spark.executor.extraClassPath"] = celeborn_jars_path
         rss_configs["spark.driver.extraClassPath"] = celeborn_jars_path

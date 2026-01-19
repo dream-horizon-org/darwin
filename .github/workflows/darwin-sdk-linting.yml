@@ -61,6 +61,7 @@ jobs:
           flake8 darwin/ tests/ \
             --max-line-length=120 \
             --extend-ignore=E203,W503 \
+            --per-file-ignore=tests/test_integration.py:F401 \
             --exclude=__pycache__,.git,.venv,build,dist,*.egg-info \
             --statistics
 

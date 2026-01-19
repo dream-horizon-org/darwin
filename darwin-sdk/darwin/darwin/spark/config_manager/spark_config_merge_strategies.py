@@ -1,7 +1,6 @@
 from typing import Callable, Optional
 
 from darwin.exceptions import UnsupportedSparkConfigError
-from darwin.util.utils import get_default_jars_path
 
 # Define a type alias for the merge strategy function, similar to Enums
 MergeStrategy = Callable[[Optional[str], Optional[str]], str]
@@ -17,23 +16,17 @@ class SparkConfigMergeStrategies:
     """
     COMMA: MergeStrategy based on comma.
     """
-    COMMA: MergeStrategy = lambda default, user: (
-        user or "" if not default else f"{default},{user}"
-    )
+    COMMA: MergeStrategy = lambda default, user: (user or "" if not default else f"{default},{user}")
 
     """
     COLON: MergeStrategy for merging class paths.
     """
-    COLON: MergeStrategy = lambda default, user: (
-        user or "" if not default else f"{default}:{user}"
-    )
+    COLON: MergeStrategy = lambda default, user: (user or "" if not default else f"{default}:{user}")
 
     """
     Space: MergeStrategy for merging Java options.
     """
-    SPACE: MergeStrategy = lambda default, user: (
-        user or "" if not default else f"{default} {user}"
-    )
+    SPACE: MergeStrategy = lambda default, user: (user or "" if not default else f"{default} {user}")
 
     """
     Jars: For merging jars raise exception, if it contains user value, else return default.
@@ -41,7 +34,10 @@ class SparkConfigMergeStrategies:
     UNSUPPORTED: MergeStrategy = lambda default, user: (
         (_ for _ in ()).throw(
             UnsupportedSparkConfigError(
-                "Setting 'spark.jars' and 'spark.jars.packages' manually is not supported — it must be derived automatically. Use libraries to install jars."
+                (
+                    "Setting 'spark.jars' and 'spark.jars.packages' manually is not supported — "
+                    "it must be derived automatically. Use libraries to install jars."
+                )
             )
         )
         if user
