@@ -111,7 +111,7 @@ env: local
 user: test
 email: test@test.com
 cluster_name: ray-test
-kube_cluster_key: kind
+kube_cluster_key: kind-0
 domain: localhost
 terminate_after_minutes: 60
 cluster_id: ray-test
