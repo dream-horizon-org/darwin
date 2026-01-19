@@ -183,7 +183,7 @@ Darwin SDK Runtime includes Spark integration for distributed data processing.
 
 **Cluster not reachable:**
 ```bash
-source config.env
+source .setup/config.env
 kubectl cluster-info
 ```
 

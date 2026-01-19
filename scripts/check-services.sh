@@ -15,7 +15,7 @@ NC='\033[0m'
 # Configuration
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "${SCRIPT_DIR}/.." && pwd )"
-KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/kind/config/kindkubeconfig.yaml}"
+KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/.setup/kindkubeconfig.yaml}"
 DEPENDENCY_FILE="${PROJECT_ROOT}/service-dependencies.yaml"
 SERVICE_NAME="${1}"
 

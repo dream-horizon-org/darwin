@@ -57,10 +57,10 @@ def kubeconfig_path() -> str:
     if not kubeconfig:
         # Compute path relative to project root (darwin directory)
         # This file is at: darwin/ml-serve-app/tests/integration/conftest.py
-        # We need to go up to: darwin/kind/config/kindkubeconfig.yaml
+        # We need to go up to: darwin/.setup/kindkubeconfig.yaml
         current_file = os.path.abspath(__file__)
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        kubeconfig = os.path.join(project_root, "kind", "config", "kindkubeconfig.yaml")
+        kubeconfig = os.path.join(project_root, ".setup", "kindkubeconfig.yaml")
     
     if not os.path.exists(kubeconfig):
         pytest.skip(f"Kubeconfig not found at {kubeconfig}")
