@@ -92,7 +92,7 @@ while [ $attempt -lt $max_attempts ]; do
 done
 
 if [ $attempt -eq $max_attempts ]; then
-    echo "❌ Elasticsearch is not available after ${max_attempts} attempts"
+    echo "❌ Elasticsearch is not available after ${max_attempts} attempts."
     exit 1
 fi
 
