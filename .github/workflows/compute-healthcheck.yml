@@ -9,7 +9,6 @@ on:
       - 'init.sh'
       - 'setup.sh'
       - 'start.sh'
-      - 'services.yaml'
       - '.github/workflows/compute-healthcheck.yml'
   workflow_dispatch:  # Allow manual triggering
 
@@ -39,15 +38,12 @@ jobs:
             sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null || true
             sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null || true
           fi
-          
-          # Completely clean workspace to fix sparse checkout issues from previous runs
-          echo "🗑️ Removing entire workspace for fresh checkout..."
-          cd /
-          sudo rm -rf "$WORKSPACE_DIR" || true
-          mkdir -p "$WORKSPACE_DIR"
 
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 1
 
       - name: Setup Docker
         uses: docker/setup-buildx-action@v3
@@ -227,19 +223,26 @@ jobs:
         run: |
           echo "🏥 Testing health endpoints..."
 
+          # Start port-forwards for both services
+          kubectl port-forward svc/darwin-compute -n darwin 8000:8000 > /tmp/compute-pf.log 2>&1 &
+          COMPUTE_PF_PID=$!
+          kubectl port-forward svc/darwin-cluster-manager -n darwin 8080:8080 > /tmp/dcm-pf.log 2>&1 &
+          DCM_PF_PID=$!
+          sleep 5
+
           # Test darwin-compute /health endpoint
           echo ""
-          echo "━━━ Testing darwin-compute (/compute/health) ━━━"
+          echo "━━━ Testing darwin-compute (/health on port 8000) ━━━"
           for i in $(seq 1 30); do
-            if curl -f -s http://localhost/compute/health > /dev/null 2>&1; then
+            if curl -f -s http://localhost:8000/health > /dev/null 2>&1; then
               echo "✅ darwin-compute endpoint accessible"
               break
             fi
-            [ $i -eq 30 ] && { echo "❌ darwin-compute endpoint not accessible"; exit 1; }
+            [ $i -eq 30 ] && { echo "❌ darwin-compute endpoint not accessible"; cat /tmp/compute-pf.log || true; exit 1; }
             sleep 2
           done
 
-          compute_response=$(curl -s http://localhost/compute/health)
+          compute_response=$(curl -s http://localhost:8000/health)
           echo "Response: $compute_response"
 
           python3 << EOF
@@ -259,17 +262,17 @@ jobs:
 
           # Test darwin-cluster-manager /healthcheck endpoint
           echo ""
-          echo "━━━ Testing darwin-cluster-manager (/cluster-manager/healthcheck) ━━━"
+          echo "━━━ Testing darwin-cluster-manager (/healthcheck on port 8080) ━━━"
           for i in $(seq 1 30); do
-            if curl -f -s http://localhost/cluster-manager/healthcheck > /dev/null 2>&1; then
+            if curl -f -s http://localhost:8080/healthcheck > /dev/null 2>&1; then
               echo "✅ darwin-cluster-manager endpoint accessible"
               break
             fi
-            [ $i -eq 30 ] && { echo "❌ darwin-cluster-manager endpoint not accessible"; exit 1; }
+            [ $i -eq 30 ] && { echo "❌ darwin-cluster-manager endpoint not accessible"; cat /tmp/dcm-pf.log || true; exit 1; }
             sleep 2
           done
 
-          dcm_response=$(curl -s http://localhost/cluster-manager/healthcheck)
+          dcm_response=$(curl -s http://localhost:8080/healthcheck)
           echo "Response: $dcm_response"
           
           python3 << EOF
@@ -289,6 +292,9 @@ jobs:
 
           echo ""
           echo "✅ All health checks passed!"
+
+          # Cleanup port-forwards
+          kill $COMPUTE_PF_PID $DCM_PF_PID 2>/dev/null || true
 
       - name: Cleanup
         if: always()

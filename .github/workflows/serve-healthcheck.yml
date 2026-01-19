@@ -126,7 +126,11 @@ jobs:
       - name: Step 2 - Build images and setup cluster (setup.sh)
         run: |
           echo "🔨 Step 2: Running setup.sh to build images and setup cluster..."
+<<<<<<<< HEAD:.github/workflows/serve-healthcheck.yml
 
+========
+          
+>>>>>>>> e7620074d34ef03c9c913b2a8c07a22ba2965670:.github/workflows/darwin-workflow-healthcheck.yml
           # Ensure ENV is set to local for cluster creation
           export ENV=local
           # Run setup.sh with auto-yes flag (it will auto-answer yes to cluster setup and clean build)
@@ -146,7 +150,11 @@ jobs:
             find . -name "config.env" -type f 2>/dev/null | head -5 || echo "Not found"
             exit 1
           fi
+<<<<<<<< HEAD:.github/workflows/serve-healthcheck.yml
 
+========
+          
+>>>>>>>> e7620074d34ef03c9c913b2a8c07a22ba2965670:.github/workflows/darwin-workflow-healthcheck.yml
       - name: Verify cluster is ready
         run: |
           echo "🔍 Verifying cluster status..."
@@ -424,6 +432,7 @@ jobs:
               print(f"❌ Invalid JSON response: {e}")
               sys.exit(1)
           EOF
+<<<<<<<< HEAD:.github/workflows/serve-healthcheck.yml
       - name: Wait for artifact-builder pod to be ready
         run: |
           echo "⏳ Waiting for artifact-builder pod to be ready..."
@@ -579,6 +588,11 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Both ML Serve App and Artifact Builder are healthy!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+========
+          
+          # Cleanup port-forward
+          kill $PORT_FORWARD_PID 2>/dev/null || true
+>>>>>>>> e7620074d34ef03c9c913b2a8c07a22ba2965670:.github/workflows/darwin-workflow-healthcheck.yml
       
       - name: Cleanup
         if: always()
