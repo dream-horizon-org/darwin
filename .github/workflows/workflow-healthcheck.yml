@@ -237,7 +237,9 @@ jobs:
               print(f"❌ darwin-workflow: Invalid JSON: {e}")
               sys.exit(1)
           EOF
-          print("✅ darwin-workflow health check passed!")
+
+          echo ""
+          echo "✅ All health checks passed!"
 
       - name: Cleanup
         if: always()
