@@ -698,7 +698,7 @@ If a service returns connection errors, ensure:
 ### Check Service Status
 
 ```bash
-export KUBECONFIG=kind/config/kindkubeconfig.yaml
+export KUBECONFIG=.setup/kindkubeconfig.yaml
 kubectl get pods -n darwin
 ```
 

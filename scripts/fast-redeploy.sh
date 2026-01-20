@@ -8,7 +8,7 @@ set -e
 NAMESPACE="${NAMESPACE:-darwin}"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "${SCRIPT_DIR}/.." && pwd )"
-KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/kind/config/kindkubeconfig.yaml}"
+KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/.setup/kindkubeconfig.yaml}"
 SERVICES_YAML="${PROJECT_ROOT}/services.yaml"
 DOCKER_REGISTRY="${DOCKER_REGISTRY:-localhost:5000}"
 
@@ -17,7 +17,7 @@ RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
 # Checks
 [ $# -eq 0 ] && { echo -e "${RED}Usage: $0 <service-name>...${NC}"; exit 1; }
-[ -f "${PROJECT_ROOT}/config.env" ] && source "${PROJECT_ROOT}/config.env"
+[ -f "${PROJECT_ROOT}/.setup/config.env" ] && source "${PROJECT_ROOT}/.setup/config.env"
 command -v yq >/dev/null || { echo -e "${RED}Missing yq${NC}"; exit 1; }
 command -v docker >/dev/null || { echo -e "${RED}Missing docker${NC}"; exit 1; }
 kubectl --kubeconfig="$KUBECONFIG" cluster-info >/dev/null 2>&1 || { echo -e "${RED}Cluster unreachable${NC}"; exit 1; }

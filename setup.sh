@@ -94,7 +94,7 @@ ENV=local
 ENV_CREATION=false
 
 # Set default KUBECONFIG path
-KUBECONFIG=./kind/config/kindkubeconfig.yaml
+KUBECONFIG=./.setup/kindkubeconfig.yaml
 
 ensure_docker_api_version
 

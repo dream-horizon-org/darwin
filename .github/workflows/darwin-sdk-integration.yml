@@ -150,6 +150,8 @@ jobs:
       - name: Verify cluster is ready
         run: |
           echo "🔍 Verifying cluster status..."
+          source $CONFIG_ENV
+          echo "Waiting for Darwin platform to be ready..."
           
           if [ ! -f "$KUBECONFIG" ]; then
             echo "❌ KUBECONFIG not found at $KUBECONFIG, cluster may not be ready"

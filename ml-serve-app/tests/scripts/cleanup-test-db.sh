@@ -58,7 +58,7 @@ EOFPYTHON
 
 # Run cleanup
 source .venv/bin/activate
-export KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/kind/config/kindkubeconfig.yaml}"
+export KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/.setup/kindkubeconfig.yaml}"
 
 # Port forward if needed
 if kubectl get pod -n darwin -l app.kubernetes.io/name=mysql &>/dev/null; then
