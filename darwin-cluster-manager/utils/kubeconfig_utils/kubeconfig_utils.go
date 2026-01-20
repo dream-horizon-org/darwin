@@ -17,10 +17,14 @@ func getClusterLock(clusterName string) *sync.Mutex {
 	return lock.(*sync.Mutex)
 }
 
-// fileExists checks if a file exists at the given path
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+// fileExistsAndValid checks if a file exists at the given path and has content.
+// Returns false for empty files to prevent using corrupted/incomplete downloads.
+func fileExistsAndValid(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.Size() > 0
 }
 
 // GetKubeConfigPath returns the path to the kubeconfig file for the given cluster.
@@ -29,8 +33,8 @@ func fileExists(path string) bool {
 func GetKubeConfigPath(kubeCluster string) (string, rest_errors.RestErr) {
 	localPath := constants.KubeConfigDir + kubeCluster
 
-	// Fast path: file already exists locally
-	if fileExists(localPath) {
+	// Fast path: file already exists locally and has valid content
+	if fileExistsAndValid(localPath) {
 		return localPath, nil
 	}
 
@@ -40,7 +44,7 @@ func GetKubeConfigPath(kubeCluster string) (string, rest_errors.RestErr) {
 	defer lock.Unlock()
 
 	// Double-check after acquiring lock (another goroutine may have downloaded it)
-	if fileExists(localPath) {
+	if fileExistsAndValid(localPath) {
 		return localPath, nil
 	}
 
