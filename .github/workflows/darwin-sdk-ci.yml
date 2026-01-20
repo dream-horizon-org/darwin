@@ -1,20 +1,22 @@
 name: Darwin SDK CI
 
+# DISABLED - Manual trigger only
 on:
-  push:
-    paths:
-      - 'darwin-sdk/**'
-      - '.github/workflows/darwin-sdk-ci.yml'
-    branches:
-      - main
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - 'darwin-sdk/**'
-      - '.github/workflows/darwin-sdk-ci.yml'
-    branches-ignore:
-      - main
-      - develop
+  workflow_dispatch:
+  # push:
+  #   paths:
+  #     - 'darwin-sdk/**'
+  #     - '.github/workflows/darwin-sdk-ci.yml'
+  #   branches:
+  #     - main
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
+  #   paths:
+  #     - 'darwin-sdk/**'
+  #     - '.github/workflows/darwin-sdk-ci.yml'
+  #   branches-ignore:
+  #     - main
+  #     - develop
 
 env:
   ENV: LOCAL

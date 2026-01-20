@@ -59,22 +59,6 @@ jobs:
       - name: Setup Docker
         uses: docker/setup-buildx-action@v3
 
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-
-      - name: Set up JDK 11
-        uses: actions/setup-java@v4
-        with:
-          java-version: '11'
-          distribution: 'temurin'
-
-      - name: Set up Go 1.18
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.18'
-
       - name: Install prerequisites
         run: |
           # Install kubectl
@@ -103,14 +87,6 @@ jobs:
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
           yq --version
-
-      - name: Cache Darwin SDK dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-darwin-sdk-${{ hashFiles('darwin-sdk/darwin/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-darwin-sdk-
 
       - name: Configure services (init.sh)
         run: |
@@ -150,8 +126,6 @@ jobs:
       - name: Verify cluster is ready
         run: |
           echo "🔍 Verifying cluster status..."
-          source $CONFIG_ENV
-          echo "Waiting for Darwin platform to be ready..."
           
           if [ ! -f "$KUBECONFIG" ]; then
             echo "❌ KUBECONFIG not found at $KUBECONFIG, cluster may not be ready"
@@ -257,43 +231,152 @@ jobs:
 
           kubectl get pods -n darwin | grep -E "compute|cluster-manager"
 
-      - name: Deploy Ray test cluster
+      - name: Test compute service health
+        run: |
+          echo "🏥 Testing compute service health before cluster creation..."
+          
+          for i in $(seq 1 30); do
+            if curl -f -s http://localhost/compute/health > /dev/null 2>&1; then
+              echo "✅ Compute service is healthy"
+              curl -s http://localhost/compute/health | python3 -m json.tool
+              break
+            fi
+            [ $i -eq 30 ] && { echo "❌ Compute service not accessible"; exit 1; }
+            echo "Attempt $i/30: Waiting for compute service..."
+            sleep 2
+          done
+
+      - name: Create Ray test cluster via API
+        id: create_cluster
         run: |
           source $CONFIG_ENV
           
-          echo "🚀 Deploying Ray test cluster..."
-          helm install id-test ./darwin-cluster-manager/charts/ray-cluster \
-            -n ray \
-            -f darwin-sdk/darwin/ray-cluster-test-values.yaml \
-            --wait \
-            --timeout 10m
+          echo "🚀 Creating Ray test cluster via Compute API..."
           
-          echo "Ray cluster deployed. Checking status..."
-          kubectl get pods -n ray -l ray.io/cluster=id-test
+          # Create cluster request payload
+          CLUSTER_REQUEST=$(cat <<'EOF'
+          {
+            "cluster_name": "sdk-integration-test",
+            "tags": ["local", "ci-test"],
+            "runtime": "1.0",
+            "inactive_time": 60,
+            "start_cluster": true,
+            "head_node_config": {
+              "cores": 2,
+              "memory": 4
+            },
+            "worker_node_configs": [
+              {
+                "cores_per_pods": 1,
+                "memory_per_pods": 2,
+                "min_pods": 2,
+                "max_pods": 2
+              }
+            ],
+            "user": "ci-test@darwin.local"
+          }
+          EOF
+          )
+          
+          echo "Request payload:"
+          echo "$CLUSTER_REQUEST" | python3 -m json.tool
+          
+          # Create cluster via API
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -d "$CLUSTER_REQUEST" \
+            http://localhost/compute/cluster)
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Response (HTTP $HTTP_CODE):"
+          echo "$BODY" | python3 -m json.tool || echo "$BODY"
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Failed to create cluster (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          
+          # Extract cluster_id from response
+          CLUSTER_ID=$(echo "$BODY" | python3 -c "import sys, json; print(json.load(sys.stdin)['data']['cluster_id'])")
+          echo "✅ Cluster created with ID: $CLUSTER_ID"
+          
+          # Save cluster_id for subsequent steps
+          echo "CLUSTER_ID=$CLUSTER_ID" >> $GITHUB_ENV
+          echo "cluster_id=$CLUSTER_ID" >> $GITHUB_OUTPUT
 
       - name: Wait for Ray cluster to be ready
         run: |
           source $CONFIG_ENV
           
-          echo "⏳ Waiting for Ray head node..."
-          kubectl wait --for=condition=ready pod -l ray.io/node-type=head,ray.io/cluster=id-test -n ray --timeout=300s
+          echo "⏳ Waiting for cluster $CLUSTER_ID to become ACTIVE..."
           
-          echo "⏳ Waiting for Ray worker nodes..."
-          kubectl wait --for=condition=ready pod -l ray.io/node-type=worker,ray.io/cluster=id-test -n ray --timeout=300s
+          max_attempts=60
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            METADATA=$(curl -s http://localhost/compute/cluster/$CLUSTER_ID/metadata)
+            STATUS=$(echo "$METADATA" | python3 -c "import sys, json; print(json.load(sys.stdin).get('data', {}).get('status', 'UNKNOWN'))" 2>/dev/null || echo "UNKNOWN")
+            
+            echo "Attempt $((attempt+1))/$max_attempts: Cluster status is $STATUS"
+            
+            if [ "$STATUS" = "ACTIVE" ]; then
+              echo "✅ Cluster is ACTIVE!"
+              echo "$METADATA" | python3 -m json.tool
+              break
+            elif [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "ERROR" ]; then
+              echo "❌ Cluster creation failed with status: $STATUS"
+              echo "$METADATA" | python3 -m json.tool
+              exit 1
+            fi
+            
+            sleep 10
+            attempt=$((attempt+1))
+          done
           
-          echo "✅ Ray cluster is ready!"
-          kubectl get pods -n ray -l ray.io/cluster=id-test
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Timeout waiting for cluster to become ACTIVE"
+            exit 1
+          fi
+          
+          # Also verify pods are running
+          echo ""
+          echo "Verifying Ray pods..."
+          kubectl get pods -n ray -l ray.io/cluster=$CLUSTER_ID || kubectl get pods -A | grep -i $CLUSTER_ID || true
 
       - name: Setup port-forward for Ray cluster
         run: |
           source $CONFIG_ENV
           
-          # Get Ray head pod name
-          RAY_HEAD_POD=$(kubectl get pods -n ray -l ray.io/node-type=head,ray.io/cluster=id-test -o jsonpath='{.items[0].metadata.name}')
+          echo "🔌 Setting up port-forward for cluster $CLUSTER_ID..."
+          
+          # Get Ray head pod name - try different label patterns
+          RAY_HEAD_POD=$(kubectl get pods -n ray -l ray.io/node-type=head -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+          
+          if [ -z "$RAY_HEAD_POD" ]; then
+            echo "Trying alternative pod discovery..."
+            RAY_HEAD_POD=$(kubectl get pods -A -l ray.io/node-type=head -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+          fi
+          
+          if [ -z "$RAY_HEAD_POD" ]; then
+            echo "Searching for head pod by cluster ID..."
+            RAY_HEAD_POD=$(kubectl get pods -n ray --no-headers 2>/dev/null | grep -E "head|$CLUSTER_ID" | head -1 | awk '{print $1}' || true)
+          fi
+          
+          if [ -z "$RAY_HEAD_POD" ]; then
+            echo "❌ Could not find Ray head pod"
+            kubectl get pods -A
+            exit 1
+          fi
+          
           echo "Ray head pod: $RAY_HEAD_POD"
           
+          # Determine namespace
+          RAY_NAMESPACE=$(kubectl get pods -A -o jsonpath="{.items[?(@.metadata.name=='$RAY_HEAD_POD')].metadata.namespace}" 2>/dev/null || echo "ray")
+          echo "Ray namespace: $RAY_NAMESPACE"
+          
           # Port forward Ray client port (10001)
-          kubectl port-forward -n ray pod/$RAY_HEAD_POD 10001:10001 &
+          kubectl port-forward -n $RAY_NAMESPACE pod/$RAY_HEAD_POD 10001:10001 &
           
           # Wait for port-forward to be ready
           sleep 5
@@ -319,9 +402,10 @@ jobs:
         env:
           RAY_ADDRESS: ray://localhost:10001
           ENV: CI
-          CLUSTER_ID: id-test
+          DARWIN_COMPUTE_URL: http://localhost/compute
         run: |
           echo "🔌 Testing Ray cluster connectivity..."
+          echo "Using CLUSTER_ID: $CLUSTER_ID"
           python cluster_test.py
 
       - name: Run integration tests
@@ -329,7 +413,6 @@ jobs:
         env:
           RAY_ADDRESS: ray://localhost:10001
           ENV: CI
-          CLUSTER_ID: id-test
           DARWIN_COMPUTE_URL: http://localhost/compute
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
@@ -337,6 +420,7 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
         run: |
           echo "🧪 Running Darwin SDK integration tests..."
+          echo "Using CLUSTER_ID: $CLUSTER_ID"
           pytest tests/test_integration.py \
             -v \
             --tb=short \
@@ -347,7 +431,6 @@ jobs:
         env:
           RAY_ADDRESS: ray://localhost:10001
           ENV: CI
-          CLUSTER_ID: id-test
           DARWIN_COMPUTE_URL: http://localhost/compute
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
@@ -355,16 +438,19 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
         run: |
           echo "🧪 Testing darwin.init() with mocked compute service..."
+          echo "Using CLUSTER_ID: $CLUSTER_ID"
           python -c "
           import os
           from unittest.mock import MagicMock, patch
           import darwin
           
+          cluster_id = os.environ.get('CLUSTER_ID', 'sdk-integration-test')
+          
           # Mock compute service response
           mock_response = {
               'data': {
-                  'cluster_id': 'id-test',
-                  'name': 'test-cluster',
+                  'cluster_id': cluster_id,
+                  'name': 'sdk-integration-test',
                   'status': 'RUNNING',
                   'has_ondemand_worker_group': True,
                   'spark_config': {
@@ -426,10 +512,13 @@ jobs:
         run: |
           source $CONFIG_ENV || true
           echo "=== Ray Head Pod Logs ==="
-          kubectl logs -n ray -l ray.io/node-type=head,ray.io/cluster=id-test --tail=100 || true
+          kubectl logs -n ray -l ray.io/node-type=head --tail=100 || true
           echo ""
           echo "=== Ray Worker Pod Logs ==="
-          kubectl logs -n ray -l ray.io/node-type=worker,ray.io/cluster=id-test --tail=100 || true
+          kubectl logs -n ray -l ray.io/node-type=worker --tail=100 || true
+          echo ""
+          echo "=== Cluster Metadata ==="
+          curl -s http://localhost/compute/cluster/$CLUSTER_ID/metadata 2>/dev/null | python3 -m json.tool || true
 
       - name: Show platform status on failure
         if: failure()
@@ -455,6 +544,8 @@ jobs:
         run: |
           echo "## Darwin SDK Integration Test Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Cluster ID:** \`$CLUSTER_ID\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f darwin-sdk/darwin/integration-test-results.xml ]; then
             echo "✅ Integration tests completed" >> $GITHUB_STEP_SUMMARY
           else
@@ -464,7 +555,7 @@ jobs:
           echo "### Ray Cluster Status" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           source $CONFIG_ENV || true
-          kubectl get pods -n ray -l ray.io/cluster=id-test 2>&1 || echo "Could not get Ray cluster status" >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n ray 2>&1 || echo "Could not get Ray cluster status"
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Cleanup
@@ -474,8 +565,21 @@ jobs:
           echo "Current disk usage:"
           df -h
           echo ""
-          echo "Cleaning up Ray test cluster..."
-          helm uninstall id-test -n ray 2>/dev/null || true
+          echo "Stopping Ray test cluster via API..."
+          if [ -n "$CLUSTER_ID" ]; then
+            curl -s -X POST \
+              -H "msd-user: {\"email\": \"ci-test@darwin.local\"}" \
+              "http://localhost/compute/cluster/stop-cluster/$CLUSTER_ID" || true
+            echo "Cluster stop request sent for: $CLUSTER_ID"
+            
+            # Wait briefly for cluster to start stopping
+            sleep 5
+            
+            # Check final status
+            curl -s "http://localhost/compute/cluster/$CLUSTER_ID/metadata" 2>/dev/null | python3 -m json.tool || true
+          else
+            echo "No CLUSTER_ID found, skipping API cleanup"
+          fi
           echo ""
           echo "Cleaning up kind cluster and port-forwards..."
           pkill -f "kubectl port-forward" || true
