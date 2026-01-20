@@ -27,17 +27,7 @@ if [[ "$DEPLOYMENT_TYPE" == "container" ]]; then
   source bin/activate
   bin/python3 -m pip install --upgrade pip
   export PATH=$PATH:"$BASE_DIR"/bin
-  bin/pip3 install -e app_layer/. --force-reinstall
-  # Install mlflow first, then override dependencies with pinned versions
-  bin/pip3 install "mlflow[auth]==2.12.2" --force-reinstall
-  bin/pip3 install mlflow==2.12.2 --force-reinstall
-  # Override dependencies with pinned versions after mlflow installation
-  bin/pip3 install urllib3==1.26.6 --force-reinstall
-  bin/pip3 install protobuf==3.20.3 --force-reinstall
-  bin/pip3 install requests==2.31.0 --force-reinstall
-  bin/pip3 install pymysql==1.0.2 --force-reinstall
-  bin/pip3 install cryptography==43.0.1 --force-reinstall
-  bin/pip3 install boto3 --force-reinstall
+  bin/pip3 install -e app_layer/.
   echo "Requirements installed"
 else
   # In local mode, check if SERVICE_NAME subdirectory exists
@@ -47,16 +37,6 @@ else
   else
     cd "$BASE_DIR" || exit
   fi
-  pip3 install -e app_layer/. --force-reinstall
-  # Install mlflow first, then override dependencies with pinned versions
-  pip install "mlflow[auth]==2.12.2" --force-reinstall
-  pip3 install mlflow==2.12.2 --force-reinstall
-  # Override dependencies with pinned versions after mlflow installation
-  pip3 install urllib3==1.26.6 --force-reinstall
-  pip3 install protobuf==3.20.3 --force-reinstall
-  pip3 install requests==2.31.0 --force-reinstall
-  pip3 install pymysql==1.0.2 --force-reinstall
-  pip3 install cryptography==43.0.1 --force-reinstall
-  pip3 install boto3 --force-reinstall
+  pip3 install -e app_layer/.
   echo "Requirements installed"
 fi

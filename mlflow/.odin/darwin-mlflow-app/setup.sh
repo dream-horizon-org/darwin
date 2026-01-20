@@ -30,16 +30,6 @@ if [[ "$DEPLOYMENT_TYPE" == "container" ]]; then
   echo "Installing app_layer package..."
   if [ -d "app_layer" ]; then
     bin/pip3 install -e app_layer/.
-    # Install mlflow first, then override dependencies with pinned versions
-    bin/pip3 install "mlflow[auth]==2.12.2" --force-reinstall
-    bin/pip3 install mlflow==2.12.2 --force-reinstall
-    # Override dependencies with pinned versions after mlflow installation
-    bin/pip3 install urllib3==1.26.6 --force-reinstall
-    bin/pip3 install protobuf==3.20.3 --force-reinstall
-    bin/pip3 install requests==2.31.0 --force-reinstall
-    bin/pip3 install boto3 --force-reinstall
-    # Ensure uvicorn is available
-    bin/pip3 install uvicorn==0.23.2
     uvicorn --version
     echo "Requirements installed successfully"
   else
@@ -63,16 +53,7 @@ else
   
   echo "Installing app_layer package..."
   if [ -d "app_layer" ]; then
-    pip3 install -e app_layer/. --force-reinstall
-    # Install mlflow first, then override dependencies with pinned versions
-    pip install "mlflow[auth]==2.12.2" --force-reinstall
-    pip3 install mlflow==2.12.2 --force-reinstall
-    # Override dependencies with pinned versions after mlflow installation
-    pip3 install urllib3==1.26.6 --force-reinstall
-    pip3 install protobuf==3.20.3 --force-reinstall
-    pip3 install requests==2.31.0 --force-reinstall
-    pip3 install boto3 --force-reinstall
-    pip3 install uvicorn==0.23.2
+    pip3 install -e app_layer/.
     uvicorn --version
     echo "Requirements installed successfully"
   else
