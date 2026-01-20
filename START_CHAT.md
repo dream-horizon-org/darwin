@@ -7,13 +7,25 @@ Darwin is an enterprise-grade, end-to-end machine learning platform. This reposi
 ## 🚀 Setup Workflow
 
 ```bash
-1. ./init.sh      # Interactive service selection wizard (creates .setup/enabled-services.yaml)
+1. ./init.sh      # Interactive use case selection (creates .setup/enabled-services.yaml)
 2. ./setup.sh     # Build images, create Kind cluster, push to local registry
 3. ./start.sh     # Deploy to Kubernetes via Helm
 ```
 
-**Flags:**
-- `./init.sh --all` - Enable all services without prompts
+**init.sh Modes:**
+| Mode | Command | Description |
+|------|---------|-------------|
+| Default | `./init.sh` | Simplified preset selection (Training / Inference) |
+| Dev Mode | `./init.sh --dev-mode` | Granular service-by-service selection |
+| All | `./init.sh --all` | Enable all services without prompts |
+
+**Presets (Default Mode):**
+| Preset | Features Enabled | Use Case |
+|--------|------------------|----------|
+| **Training** | Compute + MLFlow | Model training, experiments, distributed compute |
+| **Inference** | Serve + MLFlow | Model deployment, real-time predictions |
+
+**Other Flags:**
 - `./setup.sh -y` - Skip prompts (auto-answer yes)
 
 ---
@@ -211,7 +223,8 @@ AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws s3 ls --endpoint-url=http:
 
 | Task | Steps |
 |------|-------|
-| **First-time setup** | Run `./init.sh` → `./setup.sh` → `./start.sh` |
+| **First-time setup (simple)** | Run `./init.sh` → Select Training/Inference → `./setup.sh` → `./start.sh` |
+| **First-time setup (advanced)** | Run `./init.sh --dev-mode` → Select individual services → `./setup.sh` → `./start.sh` |
 | **Add new microservice** | Edit `services.yaml` → Add Helm chart → Update `init.sh`/`start.sh` |
 | **Enable/disable service** | Edit `.setup/enabled-services.yaml` → Run `./start.sh` |
 | **Rebuild images** | Run `./setup.sh -y` |

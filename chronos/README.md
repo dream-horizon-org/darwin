@@ -5,7 +5,7 @@ Chronos is an event processing platform that ingests raw events from multiple so
 ## 📖 API Documentation
 
 - **Swagger UI**: [http://localhost/chronos/docs](http://localhost/chronos/docs)
-## 🏗️ Architecture
+## 🏗️ Architecture 
 
 ```
 Raw Events (API) → Queue (SQS/Kafka) → Consumer → Transformers → Processed Events

@@ -110,7 +110,7 @@ jobs:
           # 8. Enable Workflow? (n)
           # 9. Proceed with this configuration? (y)
           # 10. Enable hermes-cli? (n)
-          printf "n\nn\nn\nn\ny\nn\nn\nn\ny\nn\n" | ./init.sh || {
+          printf "n\nn\nn\nn\ny\nn\nn\nn\ny\nn\n" | ./init.sh --dev-mode || {
             echo "❌ init.sh failed with exit code $?"
             echo "Checking if config was created..."
             if [ -f .setup/enabled-services.yaml ]; then

@@ -114,8 +114,8 @@ jobs:
 
       - name: Initialize Darwin Platform (init.sh)
         run: |
-          echo "Running init.sh --all to enable all services..."
-          ./init.sh --all
+          echo "Running init.sh --dev-mode --all to enable all services..."
+          ./init.sh --dev-mode --all
 
       - name: Setup Darwin Platform (setup.sh)
         run: |
