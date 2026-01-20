@@ -199,7 +199,7 @@ echo "🚀 Starting kind-registry..."
 # This script is in kind/, so go up one level to get project root
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-CONFIG_ENV="$PROJECT_ROOT/config.env"
+CONFIG_ENV="$PROJECT_ROOT/.setup/config.env"
 
 if docker ps | grep -q "kind-registry"; then
   echo "✅ kind-registry is already running"

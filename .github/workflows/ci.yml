@@ -92,7 +92,7 @@ jobs:
 
       - name: Verify deployment
         run: |
-          source config.env
+          source .setup/config.env
           echo "Waiting for pods to be ready..."
           sleep 30
           kubectl get pods -A
@@ -101,7 +101,7 @@ jobs:
       - name: Show deployment status
         if: always()
         run: |
-          source config.env || true
+          source .setup/config.env || true
           echo "=== Pods Status ==="
           kubectl get pods -A || true
           echo ""
@@ -110,4 +110,3 @@ jobs:
           echo ""
           echo "=== Events (last 20) ==="
           kubectl get events -A --sort-by='.lastTimestamp' | tail -20 || true
-

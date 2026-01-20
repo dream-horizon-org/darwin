@@ -19,7 +19,8 @@ on:
 env:
   ENV: LOCAL
   CLUSTER_ID: ray-test
-  KUBECONFIG: ./kind/config/kindkubeconfig.yaml
+  KUBECONFIG: ./.setup/kindkubeconfig.yaml
+  CONFIG_ENV: ./.setup/config.env
 
 jobs:
   unit-tests:
@@ -316,4 +317,3 @@ jobs:
           name: darwin-sdk-${{ github.run_number }}
           path: darwin-sdk/darwin/dist/*.tar.gz
           retention-days: 7
-

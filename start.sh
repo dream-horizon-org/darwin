@@ -5,7 +5,7 @@ set -e
 # This ensures config.env is always read from the same location
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
-CONFIG_ENV="$PROJECT_ROOT/config.env"
+CONFIG_ENV="$PROJECT_ROOT/.setup/config.env"
 
 # Check for init configuration
 ENABLED_SERVICES_FILE=".setup/enabled-services.yaml"

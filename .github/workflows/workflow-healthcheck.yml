@@ -19,8 +19,8 @@ jobs:
       run:
         working-directory: .
     env:
-      KUBECONFIG: ./kind/config/kindkubeconfig.yaml
-
+      KUBECONFIG: ./.setup/kindkubeconfig.yaml
+      CONFIG_ENV: ./.setup/config.env
     steps:
       - name: Runner identity
         run: |
@@ -106,9 +106,9 @@ jobs:
           export ENV=local
           ./setup.sh -y
 
-          if [ -f config.env ]; then
+          if [ -f $CONFIG_ENV ]; then
             echo "✅ config.env created:"
-            cat config.env
+            cat $CONFIG_ENV
           else
             echo "❌ config.env not found"
             exit 1

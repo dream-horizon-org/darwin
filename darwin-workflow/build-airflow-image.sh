@@ -7,7 +7,7 @@ echo "=========================================="
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-CONFIG_ENV="$PROJECT_ROOT/config.env"
+CONFIG_ENV="$PROJECT_ROOT/.setup/config.env"
 WORKFLOW_DIR="${SCRIPT_DIR}"
 AIRFLOW_DIR="${WORKFLOW_DIR}/airflow"
 
