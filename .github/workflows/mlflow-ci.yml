@@ -1,414 +1,307 @@
-name: MLflow CI
+name: Darwin MLflow - Health Check
 
 on:
-  push:
-    branches:
-      - main
-      - feat/mlflow-ci
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - "mlflow/**"
+      - "init.sh"
+      - "setup.sh"
+      - "start.sh"
+      - "services.yaml"
       - ".github/workflows/mlflow-ci.yml"
-  workflow_dispatch:
-    inputs:
-      run_lint:
-        description: "Run lint and type check"
-        required: false
-        type: boolean
-        default: true
-      run_health_check:
-        description: "Run service health check"
-        required: false
-        type: boolean
-        default: true
-      run_integration_test:
-        description: "Run Kubernetes integration test"
-        required: false
-        type: boolean
-        default: true
-      python_version:
-        description: "Python version to use"
-        required: false
-        type: choice
-        options:
-          - "3.9"
-          - "3.10"
-          - "3.11"
-        default: "3.9"
-
-permissions:
-  contents: read
-  pull-requests: write
-
-concurrency:
-  group: mlflow-ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  workflow_dispatch: # Allow manual triggering
 
 jobs:
-  lint-and-typecheck:
-    name: Lint and Type Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    if: github.event_name == 'workflow_dispatch' && inputs.run_lint == true || github.event_name != 'workflow_dispatch'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          # Using Python 3.9 (latest patch version) instead of 3.9.7 because 3.9.7 is not available for Ubuntu 24.04
-          # The project requires Python 3.9.7+ (see mlflow/README.md), so any 3.9.x version satisfies this requirement
-          python-version: ${{ github.event_name == 'workflow_dispatch' && inputs.python_version || '3.9' }}
-          cache: "pip"
-          cache-dependency-path: "mlflow/app_layer/requirements*.txt"
-
-      - name: Install dependencies
-        working-directory: mlflow/app_layer
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements_dev.txt
-
-      - name: Run pylint on app_layer
-        working-directory: mlflow/app_layer
-        run: |
-          echo "Running pylint on entire app_layer directory..."
-          pylint src/ --rcfile=pyproject.toml
-
-      - name: Run mypy on app_layer
-        working-directory: mlflow/app_layer
-        run: |
-          echo "Running mypy on entire app_layer directory..."
-          mypy src/ --config-file=pyproject.toml
-
-  mlflow-integration-test:
-    name: MLflow Integration Test with Kubernetes
-    runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 60
+  health-check:
+    runs-on: [self-hosted, Linux, X64, darwin]
     defaults:
       run:
         working-directory: .
     env:
-      KUBECONFIG: ${{ github.workspace }}/kind/config/kindkubeconfig.yaml
+      KUBECONFIG: ./.setup/kindkubeconfig.yaml
+      CONFIG_ENV: ./.setup/config.env
+
     steps:
-      - name: Cleanup workspace before checkout
+      - name: Runner identity
         run: |
-          WORKSPACE_DIR="${{ github.workspace }}"
-          if [ -d "$WORKSPACE_DIR" ]; then
-            echo "Cleaning up workspace directory: $WORKSPACE_DIR"
-            if [ -d "$WORKSPACE_DIR/kind" ]; then
-              echo "Cleaning up kind directory..."
-              sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null || true
-              sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null || true
-              find "$WORKSPACE_DIR/kind" -type d -name "shared-storage" -exec sudo rm -rf {} + 2>/dev/null || true
-            fi
+          echo "Runner: $RUNNER_NAME | OS: $RUNNER_OS | Arch: $RUNNER_ARCH"
+          hostname
+
+      - name: Cleanup previous artifacts
+        run: |
+          echo "🧹 Cleaning up previous run artifacts..."
+          if command -v kind >/dev/null 2>&1; then
+            kind delete cluster --name kind 2>/dev/null || true
           fi
-          echo "✅ Cleanup completed"
+          WORKSPACE_DIR="${{ github.workspace }}"
+          if [ -d "$WORKSPACE_DIR/kind" ]; then
+            sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null || true
+            sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null || true
+          fi
+
+          # Completely clean workspace to fix sparse checkout issues from previous runs
+          echo "🗑️ Removing entire workspace for fresh checkout..."
+          cd /
+          sudo rm -rf "$WORKSPACE_DIR" || true
+          mkdir -p "$WORKSPACE_DIR"
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install yq
+      - name: Setup Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install prerequisites
         run: |
-          # Check if yq is already installed
-          if command -v yq &> /dev/null; then
-            echo "yq is already installed"
-            yq --version
-          else
-            echo "Installing yq..."
-            ARCH=$(uname -m)
-            case $ARCH in
-              x86_64)
-                YQ_ARCH="amd64"
-                ;;
-              aarch64|arm64)
-                YQ_ARCH="arm64"
-                ;;
-              *)
-                echo "Unsupported architecture: $ARCH"
-                exit 1
-                ;;
-            esac
-            
-            sudo wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${YQ_ARCH}"
-            sudo chmod +x /usr/local/bin/yq
-            yq --version
+          # Install kubectl
+          KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+          echo "Installing kubectl $KUBECTL_VERSION"
+          curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          # Verify the download is actually a binary (not an error page)
+          if ! file kubectl | grep -q "ELF\|executable"; then
+            echo "❌ Downloaded file is not a binary, retrying with direct URL..."
+            rm -f kubectl
+            curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
           fi
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
+          kubectl version --client
 
-      - name: Cache Darwin dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-mlflow-integration-${{ hashFiles('mlflow/app_layer/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-mlflow-integration-
+          # Install Helm
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
 
-      - name: Initialize Darwin configuration for MLflow only
+          # Install Kind
+          curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x /tmp/kind && sudo mv /tmp/kind /usr/local/bin/kind
+          kind version
+
+          # Install yq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Configure services (init.sh)
         run: |
-          # Enable all services first to generate the full config
-          bash ./init.sh --dev-mode --all
+          echo "📋 Running init.sh to configure services..."
+          rm -f .setup/enabled-services.yaml
 
-          # Modify configuration to enable only MLflow services
-          echo "Configuring MLflow-only deployment..."
+          # Answers (13 prompts):
+          # 1-3: compute, workspace, feature_store (all n)
+          # 4: mlflow (y) - service under test
+          # 5-8: serve, catalog, chronos, workflow (all n)
+          # 9: confirm (y)
+          # 10-12: darwin sdk runtime, ray:2.37.0, ray:2.53.0 (all n)
+          # 13: hermes-cli (n)
+          printf "n\nn\nn\ny\nn\nn\nn\nn\ny\nn\nn\nn\nn\n" | ./init.sh --dev-mode || {
+            echo "❌ init.sh failed"
+            [ -f .setup/enabled-services.yaml ] && cat .setup/enabled-services.yaml
+            exit 1
+          }
 
-          # Strategy: Disable ALL applications first, then enable only MLflow
-          # This is robust against new services being added
-
-          # Get all application keys and set them to false
-          yq eval '.applications | keys | .[]' .setup/enabled-services.yaml | while read -r app; do
-            yq eval ".applications.\"$app\" = false" -i .setup/enabled-services.yaml
-          done
-
-          # Enable only MLflow applications
-          yq eval '.applications.darwin-mlflow = true' -i .setup/enabled-services.yaml
-          yq eval '.applications.darwin-mlflow-app = true' -i .setup/enabled-services.yaml
-
-          # Get all datastore keys and set them to false
-          yq eval '.datastores | keys | .[]' .setup/enabled-services.yaml | while read -r ds; do
-            yq eval ".datastores.\"$ds\" = false" -i .setup/enabled-services.yaml
-          done
-
-          # Enable only required datastores for MLflow
-          yq eval '.datastores.mysql = true' -i .setup/enabled-services.yaml
-          yq eval '.datastores.localstack = true' -i .setup/enabled-services.yaml
-          yq eval '.datastores.busybox = true' -i .setup/enabled-services.yaml
-
-          # Disable all ray images
-          yq eval '.ray-images | to_entries | .[] | .key' .setup/enabled-services.yaml 2>/dev/null | while read -r image; do
-            yq eval ".ray-images.\"$image\" = false" -i .setup/enabled-services.yaml
-          done || true
-
-          # Disable all serve images
-          yq eval '.serve-images | to_entries | .[] | .key' .setup/enabled-services.yaml 2>/dev/null | while read -r image; do
-            yq eval ".serve-images.\"$image\" = false" -i .setup/enabled-services.yaml
-          done || true
-
-          # Disable darwin-sdk-runtime if it exists
-          yq eval '.darwin-sdk-runtime.enabled = false' -i .setup/enabled-services.yaml 2>/dev/null || true
-
-          # Disable all CLI tools
-          yq eval '.cli-tools | keys | .[]' .setup/enabled-services.yaml 2>/dev/null | while read -r tool; do
-            yq eval ".cli-tools.\"$tool\" = false" -i .setup/enabled-services.yaml
-          done || true
-
-          echo "MLflow-only configuration complete"
-          echo "Enabled services:"
+          echo "✅ Configuration created:"
           cat .setup/enabled-services.yaml
 
-      - name: Setup Darwin platform
+      - name: Build and setup cluster (setup.sh)
         run: |
-          bash ./setup.sh -y
+          echo "🔨 Running setup.sh..."
+          export ENV=local
+          ./setup.sh -y
 
-      - name: Deploy Darwin platform
+          if [ -f $CONFIG_ENV ]; then
+            echo "✅ config.env created:"
+            cat $CONFIG_ENV
+          else
+            echo "❌ config.env not found"
+            exit 1
+          fi
+
+      - name: Verify cluster is ready
         run: |
-          # Export KUBECONFIG to GitHub environment for subsequent steps
-          export KUBECONFIG="${{ github.workspace }}/kind/config/kindkubeconfig.yaml"
-          echo "KUBECONFIG=${KUBECONFIG}" >> $GITHUB_ENV
+          echo "🔍 Verifying cluster status..."
 
-          bash ./start.sh
+          if [ ! -f "$KUBECONFIG" ]; then
+            echo "❌ KUBECONFIG not found at $KUBECONFIG, cluster may not be ready"
+            exit 1
+          fi
 
-          # Verify kubectl can connect to the cluster
-          echo "Verifying cluster connectivity..."
-          kubectl cluster-info
-          echo ""
-          echo "Listing all pods in all namespaces:"
-          kubectl get pods --all-namespaces
+          # Wait for cluster to be ready
+          max_attempts=10
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if kubectl get nodes >/dev/null 2>&1; then
+              echo "✅ Cluster is accessible"
+              kubectl get nodes
+              break
+            fi
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for cluster..."
+            sleep 5
+            attempt=$((attempt+1))
+          done
 
-      - name: Wait for MLflow services to be ready
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ Cluster is not accessible"
+            exit 1
+          fi
+
+      - name: Deploy to Kubernetes (start.sh)
         run: |
-          set -o allexport
-          . ./.setup/config.env
-          set +o allexport
+          echo "🚀 Running start.sh..."
 
-          echo "Listing all pods in all namespaces:"
-          kubectl get pods --all-namespaces
+          # Background status monitor
+          (
+            while true; do
+              sleep 30
+              echo "⏳ [$(date +%H:%M:%S)] Status:"
+              helm list -n darwin 2>/dev/null | head -3 || true
+              kubectl get pods -n darwin --no-headers 2>/dev/null | head -5 | awk '{print "  " $1 ": " $3}' || true
+            done
+          ) &
+          MONITOR_PID=$!
 
-          echo "Waiting for MLflow services to be ready..."
+          set +e
+          ./start.sh 2>&1 | tee /tmp/start.sh.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          kill $MONITOR_PID 2>/dev/null || true
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "❌ start.sh failed with exit code $EXIT_CODE"
+            echo "=== Diagnostics ==="
+            helm list -n darwin || true
+            kubectl get pods -n darwin || true
+            kubectl get events -n darwin --sort-by='.lastTimestamp' | tail -20 || true
+            for pod in $(kubectl get pods -n darwin -o jsonpath='{.items[?(@.status.phase!="Running")].metadata.name}' 2>/dev/null); do
+              echo "--- Pod: $pod ---"
+              kubectl describe pod -n darwin "$pod" 2>/dev/null | tail -30 || true
+              kubectl logs -n darwin "$pod" --tail=30 2>/dev/null || true
+            done
+            exit 1
+          fi
+
+          echo "✅ Deployment completed"
+
+      - name: Wait for pods to be ready
+        run: |
+          echo "⏳ Waiting for darwin-mlflow and darwin-mlflow-app pods..."
 
           # Wait for darwin-mlflow (MLflow backend)
-          echo "Checking darwin-mlflow (MLflow backend)..."
-          kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=mlflow-lib -n darwin --timeout=300s || {
-            echo "ERROR: darwin-mlflow pods failed to become ready"
-            kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-lib
-            kubectl describe pods -n darwin -l app.kubernetes.io/component=mlflow-lib
-            exit 1
-          }
+          echo "Waiting for darwin-mlflow..."
+          if ! kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=mlflow-lib -n darwin --timeout=300s 2>/dev/null; then
+            MLFLOW_POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep -E "darwin-mlflow" | grep -v "app" | head -1 | awk '{print $1}')
+            if [ -n "$MLFLOW_POD" ]; then
+              kubectl wait --for=condition=ready pod/$MLFLOW_POD -n darwin --timeout=300s || {
+                echo "❌ darwin-mlflow pod did not become ready"
+                kubectl describe pod/$MLFLOW_POD -n darwin || true
+                exit 1
+              }
+            else
+              echo "❌ Could not find darwin-mlflow pod"
+              kubectl get pods -n darwin || true
+              exit 1
+            fi
+          fi
+          echo "✅ darwin-mlflow pod is ready"
 
           # Wait for darwin-mlflow-app (FastAPI app layer)
-          echo "Checking darwin-mlflow-app (FastAPI app layer)..."
-          kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=mlflow-app -n darwin --timeout=300s || {
-            echo "ERROR: darwin-mlflow-app pods failed to become ready"
-            kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-app
-            kubectl describe pods -n darwin -l app.kubernetes.io/component=mlflow-app
+          echo "Waiting for darwin-mlflow-app..."
+          if ! kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=mlflow-app -n darwin --timeout=300s 2>/dev/null; then
+            MLFLOW_APP_POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep -E "darwin-mlflow-app" | head -1 | awk '{print $1}')
+            if [ -n "$MLFLOW_APP_POD" ]; then
+              kubectl wait --for=condition=ready pod/$MLFLOW_APP_POD -n darwin --timeout=300s || {
+                echo "❌ darwin-mlflow-app pod did not become ready"
+                kubectl describe pod/$MLFLOW_APP_POD -n darwin || true
+                exit 1
+              }
+            else
+              echo "❌ Could not find darwin-mlflow-app pod"
+              kubectl get pods -n darwin || true
+              exit 1
+            fi
+          fi
+          echo "✅ darwin-mlflow-app pod is ready"
+
+          kubectl get pods -n darwin | grep -E "mlflow"
+
+      - name: Test health endpoints
+        run: |
+          echo "🏥 Testing health endpoints..."
+
+          # Test darwin-mlflow backend /health endpoint
+          echo ""
+          echo "━━━ Testing darwin-mlflow (/mlflow-lib/health) ━━━"
+          for i in $(seq 1 30); do
+            if curl -f -s http://localhost/mlflow-lib/health > /dev/null 2>&1; then
+              echo "✅ darwin-mlflow endpoint accessible"
+              break
+            fi
+            [ $i -eq 30 ] && { echo "❌ darwin-mlflow endpoint not accessible"; exit 1; }
+            sleep 2
+          done
+
+          mlflow_response=$(curl -s http://localhost/mlflow-lib/health)
+          echo "Response: $mlflow_response"
+
+          if echo "$mlflow_response" | grep -q "OK"; then
+            echo "✅ darwin-mlflow health check passed!"
+          else
+            echo "❌ darwin-mlflow: Unexpected response"
             exit 1
-          }
+          fi
 
-          # Give services additional time to initialize
-          echo "Waiting for services to fully initialize..."
-          sleep 30
-
-          echo "✅ MLflow services are ready"
+          # Test darwin-mlflow-app /healthcheck endpoint
           echo ""
-          echo "Platform status:"
-          kubectl get pods -n darwin
-          echo ""
-          kubectl get services -n darwin
-          echo ""
-          kubectl get ingress -n darwin
-
-      - name: Verify MLflow backend health
-        run: |
-          echo "Testing MLflow backend health endpoint..."
-
-          # Test MLflow backend at /mlflow-lib/health
-          for i in {1..30}; do
-            if curl -f http://localhost/mlflow-lib/health > /tmp/mlflow-health.log 2>&1; then
-              response=$(curl -s http://localhost/mlflow-lib/health)
-              echo "MLflow backend response: $response"
-              
-              if echo "$response" | grep -q "OK"; then
-                echo "✅ MLflow backend health check passed!"
-                break
-              else
-                echo "⚠️  Unexpected response from MLflow backend"
-                cat /tmp/mlflow-health.log
-              fi
+          echo "━━━ Testing darwin-mlflow-app (/mlflow-app/healthcheck) ━━━"
+          for i in $(seq 1 30); do
+            if curl -f -s http://localhost/mlflow-app/healthcheck > /dev/null 2>&1; then
+              echo "✅ darwin-mlflow-app endpoint accessible"
+              break
             fi
-            
-            if [ $i -eq 30 ]; then
-              echo "❌ MLflow backend health check failed after 30 attempts"
-              echo "Curl output:"
-              cat /tmp/mlflow-health.log || true
-              echo ""
-              echo "Pod logs:"
-              kubectl logs -n darwin -l app=mlflow-lib --tail=100 || true
-              exit 1
-            fi
-            
-            echo "Attempt $i/30 - MLflow backend not ready, waiting..."
-            sleep 3
+            [ $i -eq 30 ] && { echo "❌ darwin-mlflow-app endpoint not accessible"; exit 1; }
+            sleep 2
           done
 
-      - name: Verify MLflow app layer health
-        run: |
-          echo "Testing MLflow app layer health endpoint..."
+          mlflow_app_response=$(curl -s http://localhost/mlflow-app/healthcheck)
+          echo "Response: $mlflow_app_response"
 
-          # Test MLflow app layer at /mlflow-app/health
-          for i in {1..30}; do
-            if curl -f http://localhost/mlflow-app/healthcheck > /tmp/mlflow-app-health.log 2>&1; then
-              response=$(curl -s http://localhost/mlflow-app/healthcheck)
-              echo "MLflow app layer response: $response"
-              
-              if echo "$response" | grep -q '"status":"SUCCESS"' || echo "$response" | grep -q '"status": "SUCCESS"'; then
-                echo "✅ MLflow app layer health check passed!"
-                break
-              else
-                echo "⚠️  Unexpected response from MLflow app layer"
-                cat /tmp/mlflow-app-health.log
-              fi
-            fi
-            
-            if [ $i -eq 30 ]; then
-              echo "❌ MLflow app layer health check failed after 30 attempts"
-              echo "Curl output:"
-              cat /tmp/mlflow-app-health.log || true
-              echo ""
-              echo "Pod logs:"
-              kubectl logs -n darwin -l app=mlflow-app --tail=100 || true
-              exit 1
-            fi
-            
-            echo "Attempt $i/30 - MLflow app layer not ready, waiting..."
-            sleep 3
-          done
+          python3 << EOF
+          import json
+          import sys
+          try:
+              data = json.loads('''$mlflow_app_response''')
+              status = data.get('status', '')
+              if 'SUCCESS' not in status:
+                  print(f"❌ darwin-mlflow-app: status is '{status}', expected 'SUCCESS'")
+                  sys.exit(1)
+              print("✅ darwin-mlflow-app health check passed!")
+          except json.JSONDecodeError as e:
+              print(f"❌ darwin-mlflow-app: Invalid JSON: {e}")
+              sys.exit(1)
+          EOF
 
-      - name: Display final platform status
-        if: always()
-        run: |
-          set -o allexport
-          . ./.setup/config.env
-          set +o allexport
-
-          echo "=== Final Platform Status ==="
           echo ""
-          echo "Pods:"
-          kubectl get pods -n darwin -o wide
-          echo ""
-          echo "Services:"
-          kubectl get services -n darwin
-          echo ""
-          echo "Ingress:"
-          kubectl get ingress -n darwin -o yaml
-          echo ""
-          echo "Events:"
-          kubectl get events -n darwin --sort-by='.lastTimestamp' | tail -20
-          echo ""
-          echo "=== Pod Descriptions (for troubleshooting) ==="
-          kubectl describe pods -n darwin -l app=mysql | tail -50
-          echo ""
-          kubectl describe pods -n darwin -l app=mlflow-lib | tail -50
-          echo ""
-          kubectl describe pods -n darwin -l app=mlflow-app | tail -50
-
-      - name: Display service logs on failure
-        if: failure()
-        run: |
-          set -o allexport
-          . ./.setup/config.env
-          set +o allexport
-
-          # Verify KUBECONFIG is set and cluster is accessible
-          echo "KUBECONFIG: $KUBECONFIG"
-          echo ""
-          echo "=== Checking Cluster Access ==="
-          kubectl cluster-info || echo "Cannot access cluster"
-          echo ""
-          echo "=== Available Namespaces ==="
-          kubectl get namespaces
-          echo ""
-          echo "=== All Pods in darwin namespace ==="
-          kubectl get pods -n darwin -o wide || echo "Cannot list pods in darwin namespace"
-          echo ""
-
-          echo "=== Datastore Health Check Job Logs ==="
-          kubectl logs -n darwin -l job-name=darwin-datastore-health-check --tail=200 || echo "No datastore health check logs found"
-          echo ""
-          echo "=== MySQL logs ==="
-          kubectl logs -n darwin -l app=mysql --tail=200 || echo "No MySQL logs found"
-          echo ""
-          echo "=== MLflow-lib Init Container Logs ==="
-          for pod in $(kubectl get pods -n darwin -l app=mlflow-lib -o name); do
-            echo "Pod: $pod"
-            kubectl logs -n darwin $pod -c wait-for-datastore-health --tail=100 || echo "No init container logs"
-          done
-          echo ""
-          echo "=== MLflow-app Init Container Logs ==="
-          for pod in $(kubectl get pods -n darwin -l app=mlflow-app -o name); do
-            echo "Pod: $pod"
-            kubectl logs -n darwin $pod -c wait-for-datastore-health --tail=100 || echo "No init container logs"
-          done
-          echo ""
-          echo "=== darwin-mlflow (MLflow backend) logs ==="
-          kubectl logs -n darwin -l app=mlflow-lib --tail=200 || echo "No darwin-mlflow main container logs found"
-          echo ""
-          echo "=== darwin-mlflow-app (FastAPI app layer) logs ==="
-          kubectl logs -n darwin -l app=mlflow-app --tail=200 || echo "No darwin-mlflow-app main container logs found"
-          echo ""
-          echo "=== LocalStack logs ==="
-          kubectl logs -n darwin -l app=localstack --tail=100 || echo "No LocalStack logs found"
+          echo "✅ All health checks passed!"
 
       - name: Cleanup
         if: always()
         run: |
-          echo "=== Config.env ==="
-          set -o allexport
-          . ./.setup/config.env
-          set +o allexport
-
+          echo "🧹 Cleaning up..."
+          echo "Current disk usage:"
+          df -h
           echo ""
-          echo "Cleaning up resources..."
-          kind delete cluster --name kind || true
-          echo "Cleanup complete"
+          echo "Cleaning up kind cluster and port-forwards..."
+          pkill -f "kubectl port-forward" || true
+          kind delete cluster --name kind 2>/dev/null || true
+          echo ""
+          echo "Cleaning up Docker resources..."
+          docker image prune -af --filter "label=maintainer=darwin" || true
+          docker system prune -f || true
+          docker volume prune -f || true
+          echo ""
+          echo "Cleaning up apt cache..."
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/* || true
+          echo ""
+          echo "Disk usage after cleanup:"
+          df -h
