@@ -1,21 +1,21 @@
 name: Darwin SDK - Integration Tests
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - main
-      - develop
-    paths:
-      - 'darwin-sdk/**'
-      - 'darwin-compute/**'
-      - 'darwin-cluster-manager/**'
-      - 'init.sh'
-      - 'setup.sh'
-      - 'start.sh'
-      - 'services.yaml'
-      - '.github/workflows/darwin-sdk-integration.yml'
   workflow_dispatch:  # Allow manual triggering
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
+  #   branches:
+  #     - main
+  #     - develop
+  #   paths:
+  #     - 'darwin-sdk/**'
+  #     - 'darwin-compute/**'
+  #     - 'darwin-cluster-manager/**'
+  #     - 'init.sh'
+  #     - 'setup.sh'
+  #     - 'start.sh'
+  #     - 'services.yaml'
+  #     - '.github/workflows/darwin-sdk-integration.yml'
 
 jobs:
   integration-test:
