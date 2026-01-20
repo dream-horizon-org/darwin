@@ -99,6 +99,7 @@ func (s *artifactsStore) DownloadFile(fileDestination string, s3Key string) rest
 		Key:    aws.String(s3Key),
 	})
 	if err != nil {
+		os.Remove(fileDestination)
 		restError := rest_errors.NewInternalServerError(fmt.Sprintf("Something went wrong retrieving the file from S3 with path %s", s3Key), err)
 		return restError
 	}

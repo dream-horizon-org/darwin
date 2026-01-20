@@ -266,10 +266,6 @@ services:
     autoscaling:
       enabled: false
     extraEnvVars:
-      - name: ENV
-        value: "darwin-local"
-      - name: ROOT_PATH
-        value: "/compute"
       - name: VAULT_SERVICE_MYSQL_USERNAME
         value: "darwin"
       - name: VAULT_SERVICE_MYSQL_PASSWORD

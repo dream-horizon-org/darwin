@@ -5,7 +5,7 @@ set -e
 # This ensures config.env is always written to the same location
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
-CONFIG_ENV="$PROJECT_ROOT/config.env"
+CONFIG_ENV="$PROJECT_ROOT/.setup/config.env"
 
 # Check for init configuration
 ENABLED_SERVICES_FILE=".setup/enabled-services.yaml"
@@ -16,21 +16,36 @@ if [ ! -f "$ENABLED_SERVICES_FILE" ]; then
 fi
 echo "✅ Found configuration: $ENABLED_SERVICES_FILE"
 
-# Mark local config files as assume-unchanged to prevent accidental commits
-git update-index --assume-unchanged config.env 2>/dev/null || true
-git update-index --assume-unchanged kind/config/kindkubeconfig.yaml 2>/dev/null || true
-
 # Parse command line arguments
 AUTO_YES=false
+FORCE_CLEAN=false
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes)
       AUTO_YES=true
       shift
       ;;
+    -c|--clean)
+      FORCE_CLEAN=true
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: $0 [OPTIONS]"
+      echo ""
+      echo "Options:"
+      echo "  -y, --yes     Auto-answer 'yes' to all prompts (non-interactive mode)"
+      echo "  -c, --clean   Force clean setup (deletes existing cluster and data)"
+      echo "  -h, --help    Show this help message"
+      echo ""
+      echo "Examples:"
+      echo "  $0              # Interactive mode"
+      echo "  $0 -y           # Non-interactive, keep existing data"
+      echo "  $0 -y --clean   # Non-interactive, clean install"
+      exit 0
+      ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: $0 [-y|--yes]"
+      echo "Usage: $0 [-y|--yes] [-c|--clean] [-h|--help]"
       exit 1
       ;;
   esac
@@ -79,9 +94,36 @@ ENV=local
 ENV_CREATION=false
 
 # Set default KUBECONFIG path
-KUBECONFIG=./kind/config/kindkubeconfig.yaml
+KUBECONFIG=./.setup/kindkubeconfig.yaml
 
 ensure_docker_api_version
+
+# Function to clean up existing Kind cluster and shared storage
+clean_kind_setup() {
+    echo "🧹 Cleaning up existing Kind setup..."
+    
+    # Delete Kind cluster if it exists
+    if kind get clusters 2>/dev/null | grep -q "^kind$"; then
+        echo "🛑 Deleting existing kind cluster..."
+        kind delete cluster --name kind
+        echo "✅ Kind cluster deleted"
+    fi
+    
+    # Delete shared-storage folder
+    if [ -d "kind/shared-storage" ]; then
+        echo "🧹 Deleting kind/shared-storage/..."
+        rm -rf kind/shared-storage
+        echo "✅ Shared storage deleted"
+    fi
+    
+    # Delete kubeconfig
+    if [ -f ".setup/kindkubeconfig.yaml" ]; then
+        rm -f .setup/kindkubeconfig.yaml
+        echo "✅ Kubeconfig deleted"
+    fi
+    
+    echo "✅ Clean up complete"
+}
 
 # Check if ENV environment variable equals "local"
 if [ "$ENV" = "local" ]; then
@@ -95,22 +137,36 @@ if [ "$ENV" = "local" ]; then
     fi
     if [[ $REPLY =~ ^[Yy]$ ]]
     then
-        echo ""
-        echo "Starting kind cluster..."
+        # Ask if user wants a clean setup (or force clean if --clean flag passed)
+        if [ "$FORCE_CLEAN" = "true" ]; then
+            CLEAN_REPLY="y"
+            echo "🧹 Clean setup requested via --clean flag"
+        elif [ "$AUTO_YES" = "true" ]; then
+            CLEAN_REPLY="n"
+            echo "Auto-answering 'no' to clean setup (use --clean flag to force clean)"
+        else
+            echo ""
+            read -p "Do you want a clean setup? (deletes existing cluster and data) (y/n) " -n 1 -r CLEAN_REPLY
+        fi
+        if [[ $CLEAN_REPLY =~ ^[Yy]$ ]]; then
+            echo ""
+            clean_kind_setup
+        fi
+        
+        echo -e "\n🚀 Starting kind cluster..."
 
         envsubst < ./kind/kind-config.yaml > ./kind/kind-config-tmp.yaml
         
         export CLUSTER_NAME=kind
         export KIND_CONFIG=./kind/kind-config-tmp.yaml
-        export KUBECONFIG=./kind/config/kindkubeconfig.yaml
+        export KUBECONFIG=./.setup/kindkubeconfig.yaml
         
         sh ./kind/start-cluster.sh
         ENV_CREATION=true
         
         rm ./kind/kind-config-tmp.yaml
     else
-        echo ""
-        echo "Skipping kind cluster setup"
+        echo -e "\n🔄 Skipping kind cluster setup"
         echo "DOCKER_REGISTRY=docker.io" >> "$CONFIG_ENV"
     fi
 else
@@ -142,7 +198,7 @@ else
 fi
 if [[ ! $REPLY =~ ^[Yy]$ ]]
 then
-    echo "\nSkipping build. Exiting."
+    echo -e "\n🔄 Skipping build. Exiting."
     exit 0
 fi
 echo
@@ -527,6 +583,51 @@ if [ "$operator_count" != "0" ] && [ "$operator_count" != "null" ]; then
   done
 else
   echo "⚠️  No operators defined in services.yaml"
+fi
+
+# ============================================================================
+# SETUP DARWIN CLI
+# ============================================================================
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "                    SETTING UP DARWIN CLI"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check if darwin-cli is enabled
+DARWIN_CLI_ENABLED=$(yq eval '.cli-tools.darwin-cli // false' "$ENABLED_FILE" 2>/dev/null || echo "false")
+
+if [ "$DARWIN_CLI_ENABLED" = "true" ]; then
+  DARWIN_CLI_PATH="darwin-cli"
+  if [ ! -d "$DARWIN_CLI_PATH" ]; then
+    echo "   ⚠️  darwin-cli directory not found at $DARWIN_CLI_PATH, skipping..."
+  else
+    VENV_PATH=".venv"
+    
+    # Create venv if it doesn't exist
+    if [ ! -d "$VENV_PATH" ]; then
+      echo "   Creating virtual environment..."
+      python3.9 -m venv "$VENV_PATH"
+    fi
+
+    # Install darwin-cli
+    echo "   Installing darwin-cli package..."
+    (
+      source "$VENV_PATH/bin/activate" && \
+      pip install --upgrade pip --quiet && \
+      cd "$DARWIN_CLI_PATH" && \
+      python setup.py sdist && \
+      pip install dist/darwin-cli-1.0.0.tar.gz --force-reinstall --quiet
+    )
+
+    if [ $? -eq 0 ]; then
+      echo "   ✅ darwin-cli installed successfully"
+    else
+      echo "   ❌ Failed to install darwin-cli"
+    fi
+  fi
+else
+  echo "⏭️  Skipping darwin-cli setup (disabled in configuration)"
 fi
 
 echo ""

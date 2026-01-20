@@ -1,0 +1,18 @@
+# Feature group configuration for Feature Store
+# Used with: darwin feature-store feature-group create --file
+feature_group:
+  feature_group_name: test_engagement_fg
+  entity_name: test_user_entity
+  feature_group_type: ONLINE
+  version_enabled: true
+  features:
+    - name: activity_score
+      type: FLOAT
+    - name: session_count
+      type: INT
+owner: test@example.com
+tags:
+  - engagement
+  - test
+description: Test engagement feature group for CLI testing
+

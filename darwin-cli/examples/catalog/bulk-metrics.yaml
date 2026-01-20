@@ -1,0 +1,20 @@
+# Bulk metrics for Catalog
+# Used with: darwin catalog metrics push --file
+metrics:
+  - metric_name: row_count
+    asset_fqdn: datalake.analytics.user_events
+    value: 15000000
+    timestamp: 1705276800
+  - metric_name: null_ratio
+    asset_fqdn: datalake.analytics.user_events
+    value: 0.02
+    timestamp: 1705276800
+  - metric_name: freshness_hours
+    asset_fqdn: datalake.analytics.user_events
+    value: 2
+    timestamp: 1705276800
+  - metric_name: row_count
+    asset_fqdn: datalake.analytics.orders
+    value: 2500000
+    timestamp: 1705276800
+

@@ -1,0 +1,2 @@
+# Include all template files for hermes serve (recursive for all files)
+graft hermes/src/templates

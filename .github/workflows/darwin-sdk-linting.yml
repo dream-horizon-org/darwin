@@ -95,5 +95,3 @@ jobs:
           echo "✅ Style guide enforcement (Flake8)" >> $GITHUB_STEP_SUMMARY
           echo "ℹ️  Code analysis (Pylint) - informational" >> $GITHUB_STEP_SUMMARY
           echo "ℹ️  Type checking (MyPy) - informational" >> $GITHUB_STEP_SUMMARY
-
-

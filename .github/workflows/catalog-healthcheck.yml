@@ -5,16 +5,11 @@ on:
     paths:
       - 'darwin-catalog/**'
       - '.github/workflows/catalog-healthcheck.yml'
-    branches:
-      - main
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - 'darwin-catalog/**'
       - '.github/workflows/catalog-healthcheck.yml'
-    branches-ignore:
-      - main
-      - develop
 
 jobs:
   healthcheck:

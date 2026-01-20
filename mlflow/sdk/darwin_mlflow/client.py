@@ -24,8 +24,9 @@ from mlflow.client import MlflowClient
 
 from darwin_mlflow.constant.config import Config
 
-os.environ["MLFLOW_TRACKING_USERNAME"] = os.environ["user"]
-os.environ["MLFLOW_TRACKING_PASSWORD"] = os.environ["user"]
+if os.environ.get("user"):
+    os.environ["MLFLOW_TRACKING_USERNAME"] = os.environ["user"]
+    os.environ["MLFLOW_TRACKING_PASSWORD"] = os.environ["user"]
 
 config = Config()
 set_tracking_uri(config.get_mlflow_tracking_uri)

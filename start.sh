@@ -5,7 +5,7 @@ set -e
 # This ensures config.env is always read from the same location
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
-CONFIG_ENV="$PROJECT_ROOT/config.env"
+CONFIG_ENV="$PROJECT_ROOT/.setup/config.env"
 
 # Check for init configuration
 ENABLED_SERVICES_FILE=".setup/enabled-services.yaml"
@@ -15,44 +15,6 @@ if [ ! -f "$ENABLED_SERVICES_FILE" ]; then
     exit 1
 fi
 echo "✅ Found configuration: $ENABLED_SERVICES_FILE"
-
-# ============================================================================
-# CLI TOOLS SETUP
-# ============================================================================
-# Check if hermes-cli is enabled and install if needed
-HERMES_CLI_ENABLED=$(yq eval '.cli-tools.hermes-cli // false' "$ENABLED_SERVICES_FILE" 2>/dev/null || echo "false")
-
-if [ "$HERMES_CLI_ENABLED" = "true" ]; then
-  echo ""
-  echo "📦 Setting up hermes-cli..."
-  
-  HERMES_CLI_PATH="hermes-cli"
-  if [ ! -d "$HERMES_CLI_PATH" ]; then
-    echo "   ⚠️  hermes-cli directory not found at $HERMES_CLI_PATH, skipping..."
-  else
-    VENV_PATH="$HERMES_CLI_PATH/.venv"
-    
-    # Create venv if it doesn't exist
-    if [ ! -d "$VENV_PATH" ]; then
-      echo "   Creating virtual environment..."
-      python3.9 -m venv "$VENV_PATH"
-    fi
-
-    # Install hermes-cli
-    echo "   Installing hermes-cli package..."
-    (
-      cd "$HERMES_CLI_PATH" && source .venv/bin/activate && pip install -e . --force-reinstall --no-cache-dir
-    )
-
-    if [ $? -eq 0 ]; then
-      echo "   ✅ hermes-cli installed successfully"
-      echo "   To use: source $HERMES_CLI_PATH/.venv/bin/activate"
-    else
-      echo "   ❌ Failed to install hermes-cli"
-    fi
-  fi
-  echo ""
-fi
 
 # Source the config.env file
 if [ ! -f "$CONFIG_ENV" ]; then
@@ -166,6 +128,71 @@ fi
 
 echo "✅ Helm chart deployed (all pods ready via --wait)"
 
+# ============================================================================
+# UPLOAD KUBECONFIG TO S3 (for darwin-cluster-manager)
+# ============================================================================
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "               UPLOADING KUBECONFIG TO S3"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check if both localstack and darwin-cluster-manager are enabled
+LOCALSTACK_ENABLED=$(yq eval '.datastores.localstack // false' "$ENABLED_SERVICES_FILE")
+CLUSTER_MANAGER_ENABLED=$(yq eval '.applications.darwin-cluster-manager // false' "$ENABLED_SERVICES_FILE")
+
+if [ "$LOCALSTACK_ENABLED" = "true" ] && [ "$CLUSTER_MANAGER_ENABLED" = "true" ]; then
+  
+  if [ -f "$KUBECONFIG" ]; then
+    echo "📦 Uploading kubeconfig to S3 for darwin-cluster-manager..."
+    
+    # Create a temporary file with the server address updated for in-cluster use
+    KUBECONFIG_TEMP=$(mktemp)
+    cp "$KUBECONFIG" "$KUBECONFIG_TEMP"
+    
+    # Update the server address to use in-cluster DNS name
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      sed -i '' 's|server: https://127\.0\.0\.1:[0-9]*|server: https://kubernetes.default.svc|' "$KUBECONFIG_TEMP"
+    else
+      sed -i 's|server: https://127\.0\.0\.1:[0-9]*|server: https://kubernetes.default.svc|' "$KUBECONFIG_TEMP"
+    fi
+    
+    # Wait for LocalStack to be accessible via port-forward
+    echo "   Setting up port-forward to LocalStack..."
+    kubectl port-forward svc/darwin-localstack -n darwin 4566:4566 &
+    PF_PID=$!
+    sleep 3
+    
+    # Upload to S3 using AWS CLI
+    set +e
+    AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws s3 \
+      --endpoint-url=http://localhost:4566 \
+      cp "$KUBECONFIG_TEMP" s3://darwin/mlp/cluster_manager/configs/kind 2>&1
+    UPLOAD_EXIT_CODE=$?
+    set -e
+    
+    # Cleanup
+    kill $PF_PID 2>/dev/null || true
+    rm -f "$KUBECONFIG_TEMP"
+    
+    if [ $UPLOAD_EXIT_CODE -eq 0 ]; then
+      echo "✅ Kubeconfig uploaded to S3 successfully"
+    else
+      echo "❌ Failed to upload kubeconfig to S3 (exit code: $UPLOAD_EXIT_CODE)"
+      echo "⚠️ darwin-cluster-manager may not be able to access kubeconfig"
+    fi
+  else
+    echo "⚠️  Kubeconfig not found at $KUBECONFIG"
+    echo "   darwin-cluster-manager may not work correctly"
+  fi
+else
+  if [ "$LOCALSTACK_ENABLED" != "true" ]; then
+    echo "⏭️  Skipping kubeconfig upload (LocalStack disabled)"
+  else
+    echo "⏭️  Skipping kubeconfig upload (darwin-cluster-manager disabled)"
+  fi
+fi
+
 echo "✅ Deployment completed!"
 
 # ============================================================================
@@ -219,14 +246,31 @@ else
   echo "⏭️  Skipping darwin-sdk runtime registration (darwin-compute disabled)"
 fi
 
-# Show hermes-cli activation reminder if it was installed
-HERMES_CLI_ENABLED=$(yq eval '.cli-tools.hermes-cli // false' "$ENABLED_SERVICES_FILE" 2>/dev/null || echo "false")
-if [ "$HERMES_CLI_ENABLED" = "true" ]; then
+# Show darwin-cli activation reminder if it was installed
+DARWIN_CLI_ENABLED=$(yq eval '.cli-tools.darwin-cli // false' "$ENABLED_SERVICES_FILE" 2>/dev/null || echo "false")
+if [ "$DARWIN_CLI_ENABLED" = "true" ]; then
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "📦 To use hermes-cli, activate the virtual environment:"
+  echo "                       DARWIN CLI"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
-  echo "   source hermes-cli/.venv/bin/activate"
+  echo "  darwin-cli was installed during setup.sh"
+  echo ""
+  echo "  To activate and use darwin-cli:"
+  echo ""
+  echo "    1. Activate the virtual environment:"
+  echo "       source .venv/bin/activate"
+  echo ""
+  echo "    2. Configure the environment (first time only):"
+  echo "       darwin config set --env darwin-local"
+  echo ""
+  echo "    3. Verify installation:"
+  echo "       darwin --help"
+  echo ""
+  echo "  Example commands:"
+  echo "    darwin compute list"
+  echo "    darwin workflow list"
+  echo "    darwin serve list"
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 fi

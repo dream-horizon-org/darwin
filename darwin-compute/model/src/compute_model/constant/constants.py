@@ -21,7 +21,13 @@ INSTANCE_ROLE = [
         "service_account_name": "d11-prod-dspm-darwin-role",
     },
 ]
+
+
+CPU_NODE_LIMITS= {"cores": {"min": 1, "max": 90}, "memory": {"min": 1, "max": 736} }
+
+
 # TODO: AZS is a placeholder - should be dynamically fetched from AWS or configured per environment
+
 AZS = [{"az_id": "az_id", "display_name": "az_name"}]
 
 NODE_CAPACITY_TYPE = ["ondemand", "spot"]

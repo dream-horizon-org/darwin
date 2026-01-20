@@ -7,7 +7,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # Set KUBECONFIG for kind
 SCRIPT_DIR_ABS="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT_ABS="$(cd "$SCRIPT_DIR_ABS/.." && pwd)"
-export KUBECONFIG="$PROJECT_ROOT_ABS/kind/config/kindkubeconfig.yaml"
+export KUBECONFIG="$PROJECT_ROOT_ABS/.setup/kindkubeconfig.yaml"
 
 # Get script directory and project root (already set above)
 SCRIPT_DIR="$SCRIPT_DIR_ABS"
@@ -84,4 +84,3 @@ echo ""
 echo "To restart port-forward:"
 echo "  pkill -f 'kubectl port-forward.*darwin-workflow'"
 echo "  KUBECONFIG=$KUBECONFIG kubectl port-forward -n darwin deployment/darwin-workflow 8001:8001 &"
-

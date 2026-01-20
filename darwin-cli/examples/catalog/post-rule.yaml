@@ -1,0 +1,11 @@
+# Rule configuration for Catalog
+# Used with: darwin catalog rules create --file
+asset_fqdn: example:table:lakehouse:segment:analytics:user_events
+left_expression: "select count(1) from user_events where user_id is null"
+comparator: EQUAL_TO
+right_expression: "0"
+type: COMPLETENESS
+schedule: "0 */6 * * *"
+severity: INCIDENT
+slack_channel: "#data-alerts"
+

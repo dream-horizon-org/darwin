@@ -144,7 +144,7 @@ localstack:
   enabled: true
   image:
     repository: localhost:5000/localstack/localstack
-    tag: "latest"
+    tag: latest
     pullPolicy: IfNotPresent
   persistence:
     enabled: true

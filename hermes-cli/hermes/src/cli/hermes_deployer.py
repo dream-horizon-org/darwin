@@ -14,9 +14,9 @@ from hermes.src.cli.hermes_exceptions import (
     HermesErrorCodes,
     handle_hermes_exception,
 )
-from hermes.src.cli.utils import print_hermes_response
 from hermes.src.config.constants import CREDENTIALS_FILE_PATH
 import os
+from loguru import logger
 
 
 class HermesDeployer:
@@ -89,7 +89,7 @@ class HermesDeployer:
                     headers=self.headers,
                     json_data=payload,
                 )
-                print_hermes_response(response)
+                logger.info("Created serve successfully. Response: {}", response)
                 return response
 
             except Exception as e:
@@ -165,7 +165,7 @@ class HermesDeployer:
                     headers=self.headers,
                     json_data=payload,
                 )
-                print(response)
+                logger.info("Created environment '{}' successfully. Response: {}", name, response)
 
             except Exception as e:
                 handle_hermes_exception(e)
@@ -174,6 +174,72 @@ class HermesDeployer:
             raise
         except Exception as e:
             raise e
+
+    async def get_environment(self, env_name: str) -> Dict:
+        """Get environment by name."""
+        try:
+            response = await call_api_endpoint_async(
+                url=f"{self.hermes_deployer_url}/api/v1/environment/{env_name}",
+                method="GET",
+                headers=self.headers,
+            )
+            logger.info("Fetched environment '{}' details. Response: {}", env_name, response)
+            return response
+        except Exception as e:
+            handle_hermes_exception(e)
+
+    async def update_environment(
+        self,
+        env_name: str,
+        domain_suffix: Optional[str] = None,
+        cluster_name: Optional[str] = None,
+        namespace: Optional[str] = None,
+        security_group: Optional[str] = None,
+        subnets: Optional[str] = None,
+        ft_redis_url: Optional[str] = None,
+        workflow_url: Optional[str] = None,
+    ) -> Dict:
+        """Patch environment by name (partial update)."""
+        try:
+            payload: Dict[str, Optional[str]] = {}
+            if domain_suffix is not None:
+                payload["domain_suffix"] = domain_suffix
+            if cluster_name is not None:
+                payload["cluster_name"] = cluster_name
+            if namespace is not None:
+                payload["namespace"] = namespace
+            if security_group is not None:
+                payload["security_group"] = security_group
+            if subnets is not None:
+                payload["subnets"] = subnets
+            if ft_redis_url is not None:
+                payload["ft_redis_url"] = ft_redis_url
+            if workflow_url is not None:
+                payload["workflow_url"] = workflow_url
+
+            response = await call_api_endpoint_async(
+                url=f"{self.hermes_deployer_url}/api/v1/environment/{env_name}",
+                method="PATCH",
+                headers=self.headers,
+                json_data=payload,
+            )
+            logger.info("Updated environment '{}'. Response: {}", env_name, response)
+            return response
+        except Exception as e:
+            handle_hermes_exception(e)
+
+    async def delete_environment(self, env_name: str) -> Dict:
+        """Delete environment by name."""
+        try:
+            response = await call_api_endpoint_async(
+                url=f"{self.hermes_deployer_url}/api/v1/environment/{env_name}",
+                method="DELETE",
+                headers=self.headers,
+            )
+            logger.info("Deleted environment '{}'. Response: {}", env_name, response)
+            return response
+        except Exception as e:
+            handle_hermes_exception(e)
 
     async def deploy_model(
         self,
@@ -243,7 +309,7 @@ class HermesDeployer:
                     headers=self.headers,
                     json_data=payload,
                 )
-                print(response)
+                logger.info("Deployed model for serve '{}' to env '{}'. Response: {}", serve_name, env, response)
                 return response
 
             except Exception as e:
@@ -289,7 +355,7 @@ class HermesDeployer:
                     headers=self.headers,
                     json_data=payload,
                 )
-                print(response)
+                logger.info("Undeployed model for serve '{}' from env '{}'. Response: {}", serve_name, env, response)
                 return response
 
             except Exception as e:
@@ -362,7 +428,7 @@ class HermesDeployer:
                     headers=self.headers,
                     json_data=payload,
                 )
-                print_hermes_response(response)
+                logger.info("Created serve config for serve '{}' in env '{}'. Response: {}", serve_name, env, response)
                 return response
             except Exception as e:
                 handle_hermes_exception(e)
@@ -433,7 +499,7 @@ class HermesDeployer:
                     headers=self.headers,
                     json_data=payload,
                 )
-                print_hermes_response(response)
+                logger.info("Updated serve config for serve '{}' in env '{}'. Response: {}", serve_name, env, response)
                 return response
 
             except Exception as e:
@@ -475,7 +541,7 @@ class HermesDeployer:
                     headers=self.headers,
                     json_data=payload,
                 )
-                print_hermes_response(response)
+                logger.info("Created artifact for serve '{}' version '{}'. Response: {}", serve_name, version, response)
                 return response
             except Exception as e:
                 handle_hermes_exception(e)
@@ -515,7 +581,13 @@ class HermesDeployer:
                     headers=self.headers,
                     json_data=payload,
                 )
-                print_hermes_response(response)
+                logger.info(
+                    "Deployed artifact version '{}' for serve '{}' to env '{}'. Response: {}",
+                    artifact_version,
+                    serve_name,
+                    env,
+                    response,
+                )
                 return response
             except Exception as e:
                 handle_hermes_exception(e)
@@ -552,7 +624,7 @@ class HermesDeployer:
                     headers=self.headers,
                     json_data=payload,
                 )
-                print_hermes_response(response)
+                logger.info("Updated scaling config for serve '{}'. Response: {}", serve_name, response)
                 return response
             except Exception as e:
                 handle_hermes_exception(e)
@@ -573,7 +645,7 @@ class HermesDeployer:
                     method="GET",
                     headers=self.headers,
                 )
-                print_hermes_response(response)
+                logger.info("Fetched artifact status for job '{}'. Response: {}", job_id, response)
                 return response
             except Exception as e:
                 handle_hermes_exception(e)
@@ -594,7 +666,7 @@ class HermesDeployer:
                     method="GET",
                     headers=self.headers,
                 )
-                print_hermes_response(response)
+                logger.info("Fetched serve status for serve '{}' in env '{}'. Response: {}", serve_name, env, response)
                 return response
             except Exception as e:
                 handle_hermes_exception(e)
@@ -602,6 +674,96 @@ class HermesDeployer:
             raise
         except Exception as e:
             raise HermesException(HermesErrorCodes.API_ERROR.value.code, f"Failed to get serve status: {str(e)}")
+
+    async def list_serves(self) -> Dict:
+        """List serves."""
+        try:
+            response = await call_api_endpoint_async(
+                url=f"{self.hermes_deployer_url}/api/v1/serve",
+                method="GET",
+                headers=self.headers,
+            )
+            logger.info("Listed serves. Response: {}", response)
+            return response
+        except Exception as e:
+            handle_hermes_exception(e)
+
+    async def get_serve_overview(self, serve_name: str) -> Dict:
+        """Get serve overview."""
+        try:
+            response = await call_api_endpoint_async(
+                url=f"{self.hermes_deployer_url}/api/v1/serve/{serve_name}",
+                method="GET",
+                headers=self.headers,
+            )
+            logger.info("Fetched serve overview for '{}'. Response: {}", serve_name, response)
+            return response
+        except Exception as e:
+            handle_hermes_exception(e)
+
+    async def get_serve_config(self, serve_name: str, env: str) -> Dict:
+        """Get serve configuration for env."""
+        try:
+            response = await call_api_endpoint_async(
+                url=f"{self.hermes_deployer_url}/api/v1/serve/{serve_name}/infra-config/{env}",
+                method="GET",
+                headers=self.headers,
+            )
+            logger.info("Fetched serve config for serve '{}' in env '{}'. Response: {}", serve_name, env, response)
+            return response
+        except Exception as e:
+            handle_hermes_exception(e)
+
+    async def undeploy_serve(self, serve_name: str, env: str) -> Dict:
+        """Undeploy serve from environment."""
+        try:
+            response = await call_api_endpoint_async(
+                url=f"{self.hermes_deployer_url}/api/v1/serve/{serve_name}/undeploy/{env}",
+                method="POST",
+                headers=self.headers,
+            )
+            logger.info("Undeployed serve '{}' from env '{}'. Response: {}", serve_name, env, response)
+            return response
+        except Exception as e:
+            handle_hermes_exception(e)
+
+    async def list_artifacts(self, serve_name: str) -> Dict:
+        """List artifacts for serve."""
+        try:
+            response = await call_api_endpoint_async(
+                url=f"{self.hermes_deployer_url}/api/v1/artifact/{serve_name}",
+                method="GET",
+                headers=self.headers,
+            )
+            logger.info("Listed artifacts for serve '{}'. Response: {}", serve_name, response)
+            return response
+        except Exception as e:
+            handle_hermes_exception(e)
+
+    async def list_artifact_builder_jobs(self, serve_name: Optional[str] = None, status: Optional[str] = None) -> Dict:
+        """List artifact builder jobs."""
+        try:
+            params: Dict[str, Any] = {}
+            if serve_name:
+                params["serve_name"] = serve_name
+            if status:
+                params["status"] = status
+
+            response = await call_api_endpoint_async(
+                url=f"{self.hermes_deployer_url}/api/v1/artifact_builder_job",
+                method="GET",
+                headers=self.headers,
+                params=params or None,
+            )
+            logger.info(
+                "Listed artifact builder jobs (serve_name='{}', status='{}'). Response: {}",
+                serve_name,
+                status,
+                response,
+            )
+            return response
+        except Exception as e:
+            handle_hermes_exception(e)
 
     @classmethod
     def set_user_token(cls):

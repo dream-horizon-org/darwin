@@ -1,0 +1,14 @@
+# Write features request configuration (v2 format)
+# Used with: darwin feature-store features write --file
+feature_group_name: test_engagement_fg
+feature_group_version: v1
+features:
+  names:
+    - user_id
+    - activity_score
+    - session_count
+  values:
+    - ["123", 0.85, 42]
+    - ["456", 0.72, 28]
+runId: run-2024-01-15-001
+

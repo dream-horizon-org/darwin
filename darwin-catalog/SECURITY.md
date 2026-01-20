@@ -9,7 +9,7 @@ We release patches for security vulnerabilities. Which versions are eligible for
 | Latest  | :white_check_mark: |
 | < Latest | :x:                |
 
-## Reporting a Vulnerability
+## Reporting a Vulnerability 
 
 Please report (suspected) security vulnerabilities to **[INSERT SECURITY EMAIL OR SECURITY POLICY URL]**. You will receive a response within 48 hours. If the issue is confirmed, we will release a patch as soon as possible depending on complexity but historically within a few days.
 

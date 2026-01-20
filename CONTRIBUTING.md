@@ -53,28 +53,19 @@ Ensure you have the following installed on your system:
 
 ```bash
 # Fork the repository on GitHub, then clone your fork
-git clone https://github.com/YOUR_USERNAME/darwin-distro.git
-cd darwin-distro
+git clone https://github.com/YOUR_USERNAME/darwin.git
+cd darwin
 ```
 
-#### 2. Initialize Submodules
-
-Darwin uses git submodules for service components:
-
-```bash
-# Initialize and update all submodules
-git submodule sync --recursive
-git submodule update --init --recursive --remote
-```
-
-#### 3. Run Initial Configuration
+#### 2. Run Initial Configuration
 
 ```bash
 # Interactive wizard to select components to enable
 ./init.sh
 
 # Build base images and setup local Kind cluster
-./setup.sh -y  # Use -y flag to skip prompts
+./setup.sh -y           # Non-interactive, keeps existing data
+./setup.sh -y --clean   # Non-interactive, clean install (deletes cluster & data)
 
 # Deploy Darwin platform to local cluster
 ./start.sh
@@ -91,49 +82,48 @@ git submodule update --init --recursive --remote
 ### Repository Structure
 
 ```
-darwin-distro/
-├── darwin-compute/          # Ray cluster orchestration (Python)
-│   ├── app_layer/          # FastAPI REST API
-│   ├── core/               # Business logic
-│   ├── model/              # Data models
-│   ├── sdk/                # Python SDK
-│   └── script/             # Background jobs (status poller, auto-termination)
-├── darwin-cluster-manager/  # Kubernetes orchestration (Go)
-│   ├── services/           # Service layer
-│   ├── rest/               # HTTP handlers
-│   └── charts/             # Helm chart templates
-├── feature-store/           # Feature Store (Java/Vert.x)
-│   ├── app/                # Online serving
-│   ├── admin/              # Feature management
-│   ├── consumer/           # Kafka consumer
-│   ├── populator/          # Bulk ingestion
-│   └── python/             # Python SDK
-├── mlflow/                  # Experiment tracking (Python)
-│   ├── app_layer/          # FastAPI wrapper
-│   └── sdk/                # MLflow client wrapper
-├── ml-serve-app/            # Model serving (Python)
-│   ├── app_layer/          # REST API
-│   ├── core/               # Deployment logic
-│   ├── model/              # Tortoise ORM models
-│   └── runtime/            # Serving runtime template
-├── artifact-builder/        # Docker image builder (Python)
-├── chronos/                 # Event processing (Python)
-├── workspace/               # Project management (Python)
-├── darwin-catalog/          # Data catalog (Java/Spring Boot)
-├── hermes-cli/              # CLI tool (Python/Typer)
-├── helm/                    # Helm charts
-│   └── darwin/              # Umbrella chart
+darwin/
+├── darwin-compute/             # Ray cluster orchestration (Python)
+│   ├── app_layer/              # FastAPI REST API
+│   ├── core/                   # Business logic
+│   ├── model/                  # Data models
+│   ├── sdk/                    # Python SDK
+│   └── script/                 # Background jobs (status poller, auto-termination)
+├── darwin-cluster-manager/     # Kubernetes orchestration (Go)
+│   ├── services/               # Service layer
+│   ├── rest/                   # HTTP handlers
+│   └── charts/                 # Helm chart templates
+├── feature-store/              # Feature Store (Java/Vert.x)
+│   ├── app/                    # Online serving
+│   ├── admin/                  # Feature management
+│   ├── consumer/               # Kafka consumer
+│   ├── populator/              # Bulk ingestion
+│   └── python/                 # Python SDK
+├── mlflow/                     # Experiment tracking (Python)
+│   ├── app_layer/              # FastAPI wrapper
+│   └── sdk/                    # MLflow client wrapper
+├── ml-serve-app/               # Model serving (Python)
+│   ├── app_layer/              # REST API
+│   ├── core/                   # Deployment logic
+│   ├── model/                  # Tortoise ORM models
+│   └── runtime/                # Serving runtime template
+├── artifact-builder/           # Docker image builder (Python)
+├── chronos/                    # Event processing (Python)
+├── workspace/                  # Project management (Python)
+├── darwin-catalog/             # Data catalog (Java/Spring Boot)
+├── hermes-cli/                 # CLI tool (Python/Typer)
+├── helm/                       # Helm charts
+│   └── darwin/                 # Umbrella chart
 │       ├── charts/datastores/  # MySQL, Cassandra, Kafka, etc.
 │       └── charts/services/    # Application services
-├── deployer/                # Build infrastructure
-│   ├── images/             # Base Docker images
-│   └── scripts/            # Image builders
-├── kind/                    # Local Kubernetes config
-├── .prompts/                # AI agent documentation
-├── init.sh                  # Configuration wizard
-├── setup.sh                 # Build and setup script
-├── start.sh                 # Deployment script
-└── services.yaml            # Service registry
+├── deployer/                   # Build infrastructure
+│   ├── images/                 # Base Docker images
+│   └── scripts/                # Image builders
+├── kind/                       # Local Kubernetes config
+├── init.sh                     # Configuration wizard
+├── setup.sh                    # Build and setup script
+├── start.sh                    # Deployment script
+└── services.yaml               # Service registry
 ```
 
 ---
@@ -581,11 +571,77 @@ def sample_cluster_definition():
 1. **Check Existing Issues**: Search for existing issues/discussions
 2. **Create an Issue**: Describe the feature, use case, and proposed approach
 3. **Discuss**: Wait for feedback from maintainers before implementation
-4. **Design Document**: For major features, create a design document
+4. **Design Document**: For major features, create an RFC (see below)
+
+---
+
+### Discussion & RFC Process
+
+We use a structured process for discussing changes based on their complexity:
+
+#### When to Use What
+
+| Change Type | Process | Example |
+|-------------|---------|---------|
+| **Small fix/feature** | Open Issue → PR | Fix typo, add config option |
+| **Medium feature** | Open Issue → Discuss → PR | New API endpoint, refactor module |
+| **Large/Breaking change** | RFC Issue → Design Review → PR | New service, breaking API change, architecture change |
+
+#### RFC (Request for Comments) Process
+
+For significant changes, use the RFC template:
+
+```
+1. Draft      → Author creates RFC issue with [RFC] prefix
+2. Discussion → Team reviews, comments (minimum 1 week)
+3. Revision   → Author addresses feedback
+4. Decision   → Team lead approves/rejects
+5. Implement  → Create feature branch linked to RFC
+```
+
+**Create an RFC when:**
+- Adding a new service or major component
+- Changing public APIs in breaking ways
+- Introducing new dependencies or technologies
+- Architectural changes affecting multiple services
+- Changes requiring database migrations
+
+#### Linking Discussions to Branches
+
+When working on a feature:
+
+1. **Create Issue/RFC first** - Get alignment before coding
+2. **Reference in branch name** - `feat/123-add-gpu-support` (issue #123)
+3. **Link PR to Issue** - Use `Closes #123` in PR description
+4. **Update Issue with progress** - Comment on blockers, decisions
+
+#### Where Discussions Happen
+
+| Topic | Location |
+|-------|----------|
+| Bug reports | GitHub Issues (Bug Report template) |
+| Feature ideas | GitHub Issues (Feature Request template) |
+| Design proposals | GitHub Issues (RFC template) |
+| Implementation questions | PR comments |
+| General Q&A | GitHub Discussions |
+| Quick questions | Team chat (Slack/Discord) |
+
+#### Decision Making
+
+For RFCs and significant changes:
+
+- **Approval**: 2+ team members add 👍 and "LGTM"
+- **Changes Requested**: Comment with specific feedback
+- **Blocking**: Add 👎 with clear reason (security, performance, etc.)
+- **Timeout**: If no response in 1 week, author can ping or escalate
+
+---
 
 ### Pull Request Workflow
 
 #### 1. Create a Feature Branch
+
+We use **trunk-based development** - all work targets `main` directly (no `develop` branch).
 
 ```bash
 # Update your fork
@@ -593,15 +649,16 @@ git checkout main
 git pull upstream main
 
 # Create a feature branch
-git checkout -b feature/your-feature-name
+git checkout -b feat/your-feature-name
 ```
 
 **Branch Naming Conventions**:
-- `feature/` - New features
-- `bugfix/` - Bug fixes
-- `hotfix/` - Critical production fixes
+- `feat/` - New features
+- `fix/` - Bug fixes
+- `hotfix/` - Critical production fixes (from release tags)
 - `refactor/` - Code refactoring
 - `docs/` - Documentation updates
+- `chore/` - Maintenance tasks
 
 #### 2. Make Your Changes
 
@@ -1215,7 +1272,6 @@ Any other information.
 ### Resources
 
 - **Documentation**: Check service-specific READMEs in each submodule
-- **AI Prompts**: See `.prompts/` directory for detailed component documentation
 - **Existing Issues**: Search GitHub issues for similar questions
 - **Code Examples**: Check `examples/` directory
 - **Hermes CLI**: See [hermes-cli/CLI.md](hermes-cli/CLI.md) for complete CLI documentation

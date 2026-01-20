@@ -1,0 +1,386 @@
+name: Darwin Chronos - Health Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'chronos/**'
+      - 'init.sh'
+      - 'setup.sh'
+      - 'start.sh'
+      - 'services.yaml'
+      - '.github/workflows/darwin-chronos-healthcheck.yml'
+
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: [self-hosted, Linux, X64, darwin]
+    defaults:
+      run:
+        working-directory: .
+    env:
+      KUBECONFIG: ./.setup/kindkubeconfig.yaml
+      CONFIG_ENV: ./.setup/config.env
+
+    steps:
+      - name: Runner identity (debug)
+        run: |
+          echo "Runner name: $RUNNER_NAME"
+          echo "Runner OS: $RUNNER_OS"
+          echo "Runner arch: $RUNNER_ARCH"
+          hostname
+
+      - name: Cleanup previous run artifacts
+        run: |
+          if command -v kind >/dev/null 2>&1; then
+            if kind get clusters 2>/dev/null | grep -q kind; then
+              echo "Deleting existing kind cluster..."
+              kind delete cluster --name kind 
+            fi
+          fi
+          
+          WORKSPACE_DIR="${{ github.workspace }}"
+          if [ -d "$WORKSPACE_DIR" ]; then
+            if [ -d "$WORKSPACE_DIR/kind" ]; then
+              sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null 
+              sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null 
+              find "$WORKSPACE_DIR/kind" -type d -name "shared-storage" -exec sudo rm -rf {} + 2>/dev/null 
+            fi
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          clean: true
+          fetch-depth: 1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Clean up disk space
+        run: |
+          echo "Current disk usage:"
+          df -h
+          sudo apt-get clean 
+          sudo rm -rf /var/lib/apt/lists/* 
+          echo "Disk usage after cleanup:"
+          df -h
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gettext-base jq curl wget
+          
+          KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+          echo "Installing kubectl version: $KUBECTL_VERSION"
+          curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          
+          if ! file kubectl | grep -q "ELF\|executable"; then
+            echo "Downloaded file is not a binary, retrying..."
+            rm -f kubectl
+            curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          fi
+          
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+          kubectl version --client
+          
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
+          
+          curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x /tmp/kind
+          sudo mv /tmp/kind /usr/local/bin/kind
+          kind version
+          
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Initialize submodules
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive --remote 
+
+      - name: Initialize configuration (init.sh)
+        run: |
+          rm -f .setup/enabled-services.yaml
+          
+          # Prompts: compute, workspace, feature_store, mlflow, serve, catalog, chronos(y), workflow, confirm(y), sdk, ray1, ray2, cli
+          printf "n\nn\nn\nn\nn\nn\ny\nn\ny\nn\nn\nn\nn\n" | ./init.sh || {
+            echo "init.sh failed"
+            if [ -f .setup/enabled-services.yaml ]; then
+              cat .setup/enabled-services.yaml
+            fi
+            exit 1
+          }
+          
+          cat .setup/enabled-services.yaml
+
+      - name: Build images and setup cluster (setup.sh)
+        run: |
+          df -h
+          
+          export ENV=local
+          ./setup.sh -y
+          
+          if [ -f $CONFIG_ENV ]; then
+            echo "config.env exists"
+            cat $CONFIG_ENV
+          else
+            echo "config.env not found"
+            exit 1
+          fi
+          
+          df -h
+
+      - name: Verify cluster is ready
+        run: |
+          if [ ! -f "$KUBECONFIG" ]; then
+            echo "KUBECONFIG not found at $KUBECONFIG"
+            exit 1
+          fi
+          
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if kubectl get nodes >/dev/null 2>&1; then
+              echo "Cluster is accessible"
+              kubectl get nodes
+              break
+            fi
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for cluster..."
+            sleep 5
+            attempt=$((attempt+1))
+          done
+          
+          if [ $attempt -eq $max_attempts ]; then
+            echo "Cluster is not accessible"
+            exit 1
+          fi
+
+      - name: Deploy to Kubernetes (start.sh)
+        run: |
+          (
+            while true; do
+              sleep 30
+              echo "[$(date +%H:%M:%S)] Deployment in progress..."
+              helm list -n darwin 2>/dev/null | head -3 
+              kubectl get pods -n darwin --no-headers 2>/dev/null | head -5 
+            done
+          ) &
+          STATUS_MONITOR_PID=$!
+          
+          set +e
+          ./start.sh 2>&1 | tee /tmp/start.sh.log
+          START_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          
+          kill $STATUS_MONITOR_PID 2>/dev/null 
+          
+          if [ $START_EXIT_CODE -ne 0 ]; then
+            echo "start.sh failed with exit code $START_EXIT_CODE"
+            cat /tmp/start.sh.log 
+            helm list -n darwin 
+            helm status darwin -n darwin 
+            kubectl get pods -n darwin 
+            kubectl get pods -n darwin -o json | jq -r '.items[] | select(.status.phase != "Running" and .status.phase != "Succeeded") | "\(.metadata.name): \(.status.phase)"' 
+            kubectl get events -n darwin --sort-by='.lastTimestamp' | tail -20 
+            for pod in $(kubectl get pods -n darwin -o jsonpath='{.items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")].metadata.name}'); do
+              kubectl describe pod -n darwin "$pod" 
+              kubectl logs -n darwin "$pod" --tail=50 
+            done
+            exit 1
+          fi
+          
+          if ! helm list -n darwin | grep -q darwin; then
+            echo "Helm release 'darwin' not found"
+            exit 1
+          fi
+          
+          echo "Deployment completed"
+
+      - name: Wait for chronos pods to be ready
+        run: |
+          wait_for_pod() {
+            local POD_PATTERN=$1
+            local POD_NAME=$2
+            local max_attempts=60
+            local attempt=0
+            
+            echo "Looking for $POD_NAME pod..."
+            
+            while [ $attempt -lt $max_attempts ]; do
+              POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep -E "$POD_PATTERN" | head -1 | awk '{print $1}')
+              
+              if [ -z "$POD" ]; then
+                echo "Attempt $((attempt+1))/$max_attempts: $POD_NAME pod not found yet..."
+                sleep 5
+                attempt=$((attempt+1))
+                continue
+              fi
+              
+              POD_STATUS=$(kubectl get pod "$POD" -n darwin -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+              READY=$(kubectl get pod "$POD" -n darwin -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+              
+              if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
+                echo "$POD_NAME pod is ready: $POD"
+                kubectl get pod "$POD" -n darwin
+                return 0
+              fi
+              
+              echo "Attempt $((attempt+1))/$max_attempts: Waiting for $POD_NAME... (Status: $POD_STATUS, Ready: $READY)"
+              sleep 5
+              attempt=$((attempt+1))
+            done
+            
+            echo "$POD_NAME pod did not become ready"
+            POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep -E "$POD_PATTERN" | head -1 | awk '{print $1}')
+            if [ -n "$POD" ]; then
+              kubectl describe pod "$POD" -n darwin 
+              kubectl logs "$POD" -n darwin --tail=50 
+            fi
+            return 1
+          }
+          
+          wait_for_pod "darwin-chronos-consumer" "chronos-consumer" || exit 1
+          
+          echo "Looking for chronos (main) pod..."
+          max_attempts=60
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep "darwin-chronos" | grep -v "consumer" | head -1 | awk '{print $1}')
+            
+            if [ -z "$POD" ]; then
+              echo "Attempt $((attempt+1))/$max_attempts: chronos pod not found yet..."
+              sleep 5
+              attempt=$((attempt+1))
+              continue
+            fi
+            
+            POD_STATUS=$(kubectl get pod "$POD" -n darwin -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+            READY=$(kubectl get pod "$POD" -n darwin -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+            
+            if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
+              echo "chronos pod is ready: $POD"
+              kubectl get pod "$POD" -n darwin
+              break
+            fi
+            
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for chronos... (Status: $POD_STATUS, Ready: $READY)"
+            sleep 5
+            attempt=$((attempt+1))
+          done
+          
+          if [ $attempt -eq $max_attempts ]; then
+            echo "chronos pod did not become ready"
+            kubectl get pods -n darwin | grep chronos 
+            exit 1
+          fi
+          
+          echo "All chronos pods are ready"
+          kubectl get pods -n darwin | grep chronos
+
+      - name: Verify Chronos Health Checks via Ingress
+        run: |
+          kubectl get pods -n darwin | grep chronos
+          
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f -s http://localhost/chronos/healthcheck > /dev/null 2>&1; then
+              echo "Ingress is ready"
+              break
+            fi
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for ingress..."
+            sleep 2
+            attempt=$((attempt+1))
+          done
+          
+          if [ $attempt -eq $max_attempts ]; then
+            echo "Ingress not accessible"
+            kubectl get ingress -n darwin 
+            kubectl describe ingress -n darwin 
+            exit 1
+          fi
+          
+          echo "=== Testing chronos /healthcheck ==="
+          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost/chronos/healthcheck)
+          http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
+          body=$(echo "$response" | grep -v "HTTP_CODE")
+          
+          echo "HTTP Status Code: $http_code"
+          echo "Response Body: $body"
+          
+          if [ "$http_code" != "200" ]; then
+            echo "Chronos health check returned HTTP $http_code, expected 200"
+            exit 1
+          fi
+          
+          python3 << EOF
+          import json
+          import sys
+          
+          try:
+              data = json.loads('''$body''')
+              if 'status' not in data:
+                  print("Missing 'status' field")
+                  sys.exit(1)
+              valid_statuses = ['OK' ,'ok', 'SUCCESS']
+              if data.get('status') not in valid_statuses:
+                  print(f"status is '{data.get('status')}', expected one of {valid_statuses}")
+                  sys.exit(1)
+              print("Chronos health check passed")
+          except json.JSONDecodeError as e:
+              print(f"Invalid JSON: {e}")
+              sys.exit(1)
+          EOF
+          
+          echo "=== Testing chronos-consumer /healthcheck ==="
+          response=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost/chronos-consumer/healthcheck)
+          http_code=$(echo "$response" | grep "HTTP_CODE" | cut -d: -f2)
+          body=$(echo "$response" | grep -v "HTTP_CODE")
+          
+          echo "HTTP Status Code: $http_code"
+          echo "Response Body: $body"
+          
+          if [ "$http_code" != "200" ]; then
+            echo "Chronos-consumer health check returned HTTP $http_code, expected 200"
+            exit 1
+          fi
+          
+          python3 << EOF
+          import json
+          import sys
+          
+          try:
+              data = json.loads('''$body''')
+              if 'status' not in data:
+                  print("Missing 'status' field")
+                  sys.exit(1)
+              valid_statuses = ['OK', 'SUCCESS', 'ok']
+              if data.get('status') not in valid_statuses:
+                  print(f"status is '{data.get('status')}', expected one of {valid_statuses}")
+                  sys.exit(1)
+              print("Chronos-consumer health check passed")
+          except json.JSONDecodeError as e:
+              print(f"Invalid JSON: {e}")
+              sys.exit(1)
+          EOF
+          
+          echo ""
+          echo "All Chronos health checks passed"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker image prune -af --filter "label=maintainer=darwin"
+          docker system prune -f
+          docker volume prune -f
+          
+          if kind get clusters 2>/dev/null | grep -q kind; then
+            kind delete cluster --name kind
+          fi
+          

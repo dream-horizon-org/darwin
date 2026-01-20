@@ -1,4 +1,5 @@
 import json
+import yaml
 import questionary
 from questionary import Style
 
@@ -43,9 +44,16 @@ def prompt_with_default(message: str, error_message: str, default: str, validato
     return response
 
 
-def read_json_file(filename: str) -> dict:
+def read_file(filename: str) -> dict:
+    """Read a JSON or YAML file."""
     try:
         with open(filename, "r") as f:
+            if filename.endswith((".yaml", ".yml")):
+                return yaml.safe_load(f) or {}
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+    except FileNotFoundError:
+        print(f"File not found: {filename}")
+        return {}
+    except (json.JSONDecodeError, yaml.YAMLError) as e:
+        print(f"Error parsing file {filename}: {e}")
         return {}

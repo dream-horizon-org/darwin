@@ -5,6 +5,7 @@ import (
 	"compute/cluster_manager/dto/serve"
 	"compute/cluster_manager/utils/helm_utils"
 	"compute/cluster_manager/utils/kube_utils"
+	"compute/cluster_manager/utils/kubeconfig_utils"
 	"compute/cluster_manager/utils/rest_errors"
 	"compute/cluster_manager/utils/s3_utils"
 	"os"
@@ -17,10 +18,6 @@ var (
 	URL                                          = constants.URL
 	ServeChartPathMap                            = constants.ServeChartPath
 	ServesService         servesServiceInterface = &servesService{}
-)
-
-const (
-	KubeConfigDir = constants.KubeConfigDir
 )
 
 // TODO create a process to cleanup artifact and values files in local
@@ -62,8 +59,11 @@ func (s *servesService) CreateServe(serve serve.Serve) (*serve.Serve, rest_error
 }
 
 func (s *servesService) StartServe(serveName string, artifactName string, namespace string, kubeCluster string) (string, rest_errors.RestErr) {
-	KubeConfigPath := KubeConfigDir + kubeCluster
-	restError := s3_utils.ArtifactsStore.Configure()
+	KubeConfigPath, restError := kubeconfig_utils.GetKubeConfigPath(kubeCluster)
+	if restError != nil {
+		return "", restError
+	}
+	restError = s3_utils.ArtifactsStore.Configure()
 	if restError != nil {
 		return "", restError
 	}
@@ -80,8 +80,11 @@ func (s *servesService) StartServe(serveName string, artifactName string, namesp
 }
 
 func (s *servesService) StopServe(serveName string, namespace string, kubeCluster string) rest_errors.RestErr {
-	KubeConfigPath := KubeConfigDir + kubeCluster
-	_, restError := helm_utils.DeleteHelmRelease(KubeConfigPath, serveName, namespace)
+	KubeConfigPath, restError := kubeconfig_utils.GetKubeConfigPath(kubeCluster)
+	if restError != nil {
+		return restError
+	}
+	_, restError = helm_utils.DeleteHelmRelease(KubeConfigPath, serveName, namespace)
 	if restError != nil {
 		return restError
 	}
@@ -89,7 +92,10 @@ func (s *servesService) StopServe(serveName string, namespace string, kubeCluste
 }
 
 func (s *servesService) ServeStatus(serveName string, namespace string, framework string, kubeCluster string) (kube_utils.ServeStatusDto, rest_errors.RestErr) {
-	KubeConfigPath := KubeConfigDir + kubeCluster
+	KubeConfigPath, restError := kubeconfig_utils.GetKubeConfigPath(kubeCluster)
+	if restError != nil {
+		return kube_utils.ServeStatusDto{}, restError
+	}
 	if framework == "ray" {
 		resources, restError := kube_utils.GetRayServeStatus(serveName, namespace, KubeConfigPath)
 		if restError != nil {

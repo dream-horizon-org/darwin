@@ -2,9 +2,9 @@
 # Darwin project files
 # ===========================
 .setup/
+.cursor/
 kind/shared-storage/
-kind/config/kindkubeconfig.yaml
-config.env
+shared-storage/
 
 # ===========================
 # OS generated files
@@ -131,7 +131,6 @@ lerna-debug.log*
 # Kubernetes
 # ===========================
 *.kubeconfig
-kubeconfig*
 .kube/
 
 # ===========================
@@ -333,13 +332,6 @@ ipython_config.py
 # Cookiecutter
 # ===========================
 .cookiecutter_replay/
-
-# ===========================
-# Local development
-# ===========================
-# Shared storage for kind clusters
-shared-storage/
-kindkubeconfig.yaml
 
 # Local configuration overrides
 *-local.yaml

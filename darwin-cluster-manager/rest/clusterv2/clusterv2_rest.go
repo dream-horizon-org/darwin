@@ -25,9 +25,9 @@ type ResponseforCreate struct {
 }
 
 type ResponseforStart struct {
-	ClusterName   string
-	Namespace     string
-	KubeCluster   string
+	ClusterName string
+	Namespace   string
+	KubeCluster string
 }
 
 func Create(c *gin.Context) {
