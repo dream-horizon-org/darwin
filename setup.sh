@@ -393,7 +393,7 @@ if [ "$sdk_enabled" = "true" ]; then
   
   # Check if runtime_builder.sh exists
   if [ -f "darwin-sdk/runtime_builder.sh" ]; then
-    sh darwin-sdk/runtime_builder.sh \
+    bash darwin-sdk/runtime_builder.sh \
       --spark-version "$sdk_spark_version" \
       --tag "$sdk_tag" \
       --registry "$sdk_registry" \
