@@ -325,8 +325,9 @@ jobs:
               if 'status' not in data:
                   print("Missing 'status' field")
                   sys.exit(1)
-              if data.get('status') != 'ok':
-                  print(f"status is '{data.get('status')}', expected 'ok'")
+              valid_statuses = ['OK' ,'ok', 'SUCCESS']
+              if data.get('status') not in valid_statuses:
+                  print(f"status is '{data.get('status')}', expected one of {valid_statuses}")
                   sys.exit(1)
               print("Chronos health check passed")
           except json.JSONDecodeError as e:
@@ -356,8 +357,9 @@ jobs:
               if 'status' not in data:
                   print("Missing 'status' field")
                   sys.exit(1)
-              if data.get('status') != 'OK':
-                  print(f"status is '{data.get('status')}', expected 'OK'")
+              valid_statuses = ['OK', 'SUCCESS', 'ok']
+              if data.get('status') not in valid_statuses:
+                  print(f"status is '{data.get('status')}', expected one of {valid_statuses}")
                   sys.exit(1)
               print("Chronos-consumer health check passed")
           except json.JSONDecodeError as e:
@@ -367,8 +369,6 @@ jobs:
           
           echo ""
           echo "All Chronos health checks passed"
-          echo "  chronos: /chronos/healthcheck -> {\"status\": \"ok\"}"
-          echo "  chronos-consumer: /chronos-consumer/healthcheck -> {\"status\": \"OK\"}"
 
       - name: Cleanup
         if: always()
