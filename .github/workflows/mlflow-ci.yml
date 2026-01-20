@@ -209,13 +209,18 @@ jobs:
           echo "KUBECONFIG=${KUBECONFIG}" >> $GITHUB_ENV
 
           bash ./start.sh
+
+          # Verify kubectl can connect to the cluster
+          echo "Verifying cluster connectivity..."
+          kubectl cluster-info
+          echo ""
           echo "Listing all pods in all namespaces:"
           kubectl get pods --all-namespaces
 
       - name: Wait for MLflow services to be ready
         run: |
           set -o allexport
-          . ./config.env
+          . ./.setup/config.env
           set +o allexport
 
           echo "Listing all pods in all namespaces:"
@@ -324,7 +329,7 @@ jobs:
         if: always()
         run: |
           set -o allexport
-          . ./config.env
+          . ./.setup/config.env
           set +o allexport
 
           echo "=== Final Platform Status ==="
@@ -352,7 +357,7 @@ jobs:
         if: failure()
         run: |
           set -o allexport
-          . ./config.env
+          . ./.setup/config.env
           set +o allexport
 
           # Verify KUBECONFIG is set and cluster is accessible
@@ -400,7 +405,7 @@ jobs:
         run: |
           echo "=== Config.env ==="
           set -o allexport
-          . ./config.env
+          . ./.setup/config.env
           set +o allexport
 
           echo ""
