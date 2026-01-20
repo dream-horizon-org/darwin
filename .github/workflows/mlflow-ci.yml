@@ -149,7 +149,7 @@ jobs:
       - name: Initialize Darwin configuration for MLflow only
         run: |
           # Enable all services first to generate the full config
-          bash ./init.sh --all
+          bash ./init.sh --dev-mode --all
 
           # Modify configuration to enable only MLflow services
           echo "Configuring MLflow-only deployment..."
