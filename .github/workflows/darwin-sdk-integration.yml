@@ -320,11 +320,11 @@ jobs:
             
             echo "Attempt $((attempt+1))/$max_attempts: Cluster status is $STATUS"
             
-            if [ "$STATUS" = "ACTIVE" ]; then
-              echo "✅ Cluster is ACTIVE!"
+            if [ "$STATUS" = "active" ]; then
+              echo "✅ Cluster is active!"
               echo "$METADATA" | python3 -m json.tool
               break
-            elif [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "ERROR" ]; then
+            elif [ "$STATUS" = "inactive" ] || [ "$STATUS" = "error" ]; then
               echo "❌ Cluster creation failed with status: $STATUS"
               echo "$METADATA" | python3 -m json.tool
               exit 1
@@ -335,7 +335,7 @@ jobs:
           done
           
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ Timeout waiting for cluster to become ACTIVE"
+            echo "❌ Timeout waiting for cluster to become active"
             exit 1
           fi
           
