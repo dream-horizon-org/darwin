@@ -402,19 +402,38 @@ hermes create-environment \
 ### Quick Start: Local Deployment
 
 ```bash
-# 1. Initialize configuration (select components to enable)
+# 1. Initialize configuration (select your use case)
 ./init.sh
 
 # 2. Build platform images and setup Kind cluster
-./setup.sh
+./setup.sh              # Interactive mode
+./setup.sh -y           # Non-interactive (keeps existing data)
+./setup.sh -y --clean   # Non-interactive clean install
 
 # 3. Deploy Darwin platform to Kubernetes
 ./start.sh
 ```
 
-#### Choosing Your Components
+#### Choosing Your Use Case
 
-During `init.sh`, you'll select which Darwin components to enable. Here's how to decide based on your workflow:
+By default, `init.sh` offers two simplified presets:
+
+| Preset | Features | Use Case |
+|--------|----------|----------|
+| **Training** | Compute + MLFlow | Model training, experiments, distributed compute with Ray clusters |
+| **Inference** | Serve + MLFlow | Model deployment, real-time inference endpoints |
+
+You can select one or both presets. Dependencies are automatically resolved.
+
+#### Advanced: Granular Service Selection
+
+For fine-grained control over individual services, use **dev mode**:
+
+```bash
+./init.sh --dev-mode
+```
+
+This enables the original service-by-service selection:
 
 | If you want to... | Enable |
 |-------------------|--------|
@@ -1043,20 +1062,36 @@ Darwin uses a declarative configuration approach:
 
 ### Service Selection (`init.sh`)
 Interactive wizard to select platform components:
+
+**Default Mode** - Simplified preset selection:
 ```bash
 ./init.sh
-# Prompts for enabling:
+# Prompts for:
+# - Training preset (Compute + MLFlow)
+# - Inference preset (Serve + MLFlow)
+```
+
+**Dev Mode** - Granular service-by-service selection:
+```bash
+./init.sh --dev-mode
+# Prompts for enabling individual:
 # - Applications (Compute, Feature Store, MLflow, etc.)
 # - Datastores (MySQL, Cassandra, Kafka, etc.)
 # - Ray images and Serve runtimes
 ```
 
+**All Mode** - Enable everything:
+```bash
+./init.sh --all
+# Enables all services without prompts
+```
+
 Generates `.setup/enabled-services.yaml` with user selections.
 
 ### Environment Variables
-Key configuration via `config.env` (auto-generated):
+Key configuration via `.setup/config.env` (auto-generated):
 ```bash
-KUBECONFIG=./kind/config/kindkubeconfig.yaml
+KUBECONFIG=./.setup/kindkubeconfig.yaml
 DOCKER_REGISTRY=127.0.0.1:32768
 ```
 

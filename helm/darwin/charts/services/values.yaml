@@ -347,6 +347,18 @@ services:
         value: "local"
       - name: ROOT_PATH
         value: "/ml-serve"
+      # Authentication Configuration
+      # Default token for local development - change in production!
+      # For production: create a K8s Secret and use secretKeyRef instead:
+      #   - name: ML_SERVE_BOOTSTRAP_ADMIN_TOKEN
+      #     valueFrom:
+      #       secretKeyRef:
+      #         name: ml-serve-auth-secret
+      #         key: admin_token
+      - name: ML_SERVE_BOOTSTRAP_ADMIN_TOKEN
+        value: "darwin-local-admin-token"
+      - name: ML_SERVE_BOOTSTRAP_ADMIN_USERNAME
+        value: "admin"
       # Also include MYSQL_* variants for backward compatibility
       - name: MYSQL_HOST
         value: "darwin-mysql"

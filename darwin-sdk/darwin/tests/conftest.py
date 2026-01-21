@@ -18,9 +18,7 @@ def _set_aws_credentials():
     config.read(os.path.expanduser("~/.aws/credentials"))
     os.environ["AWS_ACCESS_KEY_ID"] = config.get("default", "aws_access_key_id")
     os.environ["AWS_SECRET_ACCESS_KEY"] = config.get("default", "aws_secret_access_key")
-    os.environ["AWS_SESSION_TOKEN"] = config.get(
-        "default", "aws_session_token", fallback=""
-    )
+    os.environ["AWS_SESSION_TOKEN"] = config.get("default", "aws_session_token", fallback="")
     os.environ["AWS_REGION"] = config.get("default", "region", fallback="us-east-1")
     os.environ["AWS_DEFAULT_REGION"] = os.environ["AWS_REGION"]
 
@@ -51,9 +49,7 @@ def mock_cluster_response(request):
 
 @pytest.fixture(scope="function")
 def patch_compute_service(monkeypatch, mock_compute_service):
-    monkeypatch.setattr(
-        "darwin.compute.service.ComputeService", lambda cluster_id: mock_compute_service
-    )
+    monkeypatch.setattr("darwin.compute.service.ComputeService", lambda cluster_id: mock_compute_service)
 
 
 @pytest.fixture

@@ -54,7 +54,5 @@ def test_unsupported_strategy_raises_exception():
 
 
 def test_static_class_cannot_be_instantiated():
-    with pytest.raises(
-        TypeError, match="is a static utility class and cannot be instantiated"
-    ):
+    with pytest.raises(TypeError, match="is a static utility class and cannot be instantiated"):
         SparkConfigAssembler()

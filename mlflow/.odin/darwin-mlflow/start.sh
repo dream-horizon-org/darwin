@@ -40,14 +40,16 @@ export VAULT_SERVICE_ADMIN_PASSWORD=password
 export VAULT_SERVICE_MLFLOW_ADMIN_PASSWORD=password
 export VAULT_SERVICE_MLFLOW_ADMIN_USERNAME=darwin
 
-if [[ "$DEPLOYMENT_TYPE" == "container" ]]; then
-  mkdir -p /app/log/"$SERVICE_NAME"
-  chmod 777 /app/log/"$SERVICE_NAME"/
-  export LOG_DIR=/app/log/"$SERVICE_NAME"
-else
-  mkdir -p /var/log/"$SERVICE_NAME"
-  chmod 777 /var/log/"$SERVICE_NAME"/
-  export LOG_DIR=/var/log/"$SERVICE_NAME"
+if [[ -z "${LOG_DIR:-}" ]]; then
+  if [[ "$DEPLOYMENT_TYPE" == "container" ]]; then
+    mkdir -p /app/log/"$SERVICE_NAME"
+    chmod 777 /app/log/"$SERVICE_NAME"/
+    export LOG_DIR=/app/log/"$SERVICE_NAME"
+  else
+    mkdir -p /var/log/"$SERVICE_NAME"
+    chmod 777 /var/log/"$SERVICE_NAME"/
+    export LOG_DIR=/var/log/"$SERVICE_NAME"
+  fi
 fi
 
 if [[ "$ENV" != "darwin-local" ]] ; then

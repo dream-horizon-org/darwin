@@ -26,25 +26,17 @@ if [[ "$DEPLOYMENT_TYPE" == "container" ]]; then
   python3 -m venv .
   source bin/activate
   bin/python3 -m pip install --upgrade pip
-  export PATH=$PATH:"$BASE_DIR"/"$SERVICE_NAME"/bin
-  bin/pip3 install -e app_layer/. --force-reinstall
-  pip3 install urllib3==1.26.6 --force-reinstall
-  pip install "mlflow[auth]==2.12.2" --force-reinstall
-  pip3 install mlflow==2.12.2 --force-reinstall
-  pip3 install protobuf==3.20.3 --force-reinstall
-  pip3 install pymysql==1.0.2 --force-reinstall
-  pip3 install cryptography==43.0.1 --force-reinstall
-  pip3 install boto3 --force-reinstall
+  export PATH=$PATH:"$BASE_DIR"/bin
+  bin/pip3 install -e app_layer/.
   echo "Requirements installed"
 else
-  cd "$BASE_DIR"/"$SERVICE_NAME" || exit
-  pip3 install -e app_layer/. --force-reinstall
-  pip3 install urllib3==1.26.6 --force-reinstall
-  pip install "mlflow[auth]==2.12.2" --force-reinstall
-  pip3 install mlflow==2.12.2 --force-reinstall
-  pip3 install protobuf==3.20.3 --force-reinstall
-  pip3 install pymysql==1.0.2 --force-reinstall
-  pip3 install cryptography==43.0.1 --force-reinstall
-  pip3 install boto3 --force-reinstall
+  # In local mode, check if SERVICE_NAME subdirectory exists
+  # If not, files are directly in BASE_DIR (e.g., GitHub CI)
+  if [ -d "$BASE_DIR/$SERVICE_NAME" ]; then
+    cd "$BASE_DIR/$SERVICE_NAME" || exit
+  else
+    cd "$BASE_DIR" || exit
+  fi
+  pip3 install -e app_layer/.
   echo "Requirements installed"
 fi

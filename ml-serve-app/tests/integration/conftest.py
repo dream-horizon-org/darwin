@@ -23,9 +23,11 @@ def test_auth_token() -> str:
     
     Set the token here directly to avoid exporting environment variables.
     This token must match a user in the deployed environment.
+    
+    Default token matches ML_SERVE_BOOTSTRAP_ADMIN_TOKEN from env.example
     """
-    # Replace this with your actual token
-    return "admin-token-default-change-in-production"
+    # Use the default bootstrap admin token for local development
+    return os.environ.get("TEST_AUTH_TOKEN", "darwin-local-admin-token")
 
 
 @pytest.fixture(scope="session")
@@ -57,10 +59,10 @@ def kubeconfig_path() -> str:
     if not kubeconfig:
         # Compute path relative to project root (darwin directory)
         # This file is at: darwin/ml-serve-app/tests/integration/conftest.py
-        # We need to go up to: darwin/kind/config/kindkubeconfig.yaml
+        # We need to go up to: darwin/.setup/kindkubeconfig.yaml
         current_file = os.path.abspath(__file__)
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-        kubeconfig = os.path.join(project_root, "kind", "config", "kindkubeconfig.yaml")
+        kubeconfig = os.path.join(project_root, ".setup", "kindkubeconfig.yaml")
     
     if not os.path.exists(kubeconfig):
         pytest.skip(f"Kubeconfig not found at {kubeconfig}")

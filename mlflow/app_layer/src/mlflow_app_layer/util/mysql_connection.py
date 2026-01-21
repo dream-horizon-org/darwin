@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional, Any
 
 from mysql.connector import pooling
 from mysql.connector.connection import MySQLConnection
@@ -30,7 +30,7 @@ class Connection:
         self.connector = connector
         self.cursor = self.connector.cursor(dictionary=True)
 
-    def read(self, query: str, data: dict):
+    def read(self, query: str, data: dict[str, Any]):
         """
         For reading data from MySQL DB
         :param query: SQL Query
@@ -40,7 +40,7 @@ class Connection:
         self.cursor.execute(query, data)
         return self.cursor.fetchall()
 
-    def write(self, query: str, data: dict, func: Callable):
+    def write(self, query: str, data: dict[str, Any], func: Callable[[], Any]):
         """
         For writing transaction to MySQL DB
         :param query: SQL Query
@@ -82,7 +82,7 @@ class Connection:
         """
         self.connector.start_transaction()
 
-    def execute_query(self, query: str, data: dict = None):
+    def execute_query(self, query: str, data: Optional[dict[str, Any]] = None):
         """
         Executes a query
         """

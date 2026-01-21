@@ -20,9 +20,7 @@ class SparkConfigAssembler:
     }
 
     @staticmethod
-    def merge_conf(
-        user_conf: Dict[str, str], default_conf: Dict[str, str]
-    ) -> Dict[str, str]:
+    def merge_conf(user_conf: Dict[str, str], default_conf: Dict[str, str]) -> Dict[str, str]:
         merged_conf = default_conf.copy()
         for key, user_value in user_conf.items():
             if user_value:
@@ -34,6 +32,4 @@ class SparkConfigAssembler:
         return merged_conf
 
     def __new__(cls, *args, **kwargs):
-        raise TypeError(
-            f"{cls.__name__} is a static utility class and cannot be instantiated."
-        )
+        raise TypeError(f"{cls.__name__} is a static utility class and cannot be instantiated.")

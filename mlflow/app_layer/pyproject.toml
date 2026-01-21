@@ -3,7 +3,7 @@ requires = ["setuptools>=42.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
-addopts = "--cov=python_template"
+addopts = "--cov=mlflow_app_layer"
 testpaths = [
     "tests",
 ]
@@ -24,4 +24,32 @@ no_implicit_reexport = true
 
 [tool.pylint.'MESSAGES CONTROL']
 max-line-length = 120
-disable = "too-many-arguments,not-callable"
+disable = [
+    "too-many-arguments",
+    "not-callable",
+    # Documentation - not enforced project-wide
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    # Formatting - should be handled by formatters
+    "trailing-whitespace",
+    "trailing-newlines",
+    # Import order - should be handled by isort
+    "wrong-import-order",
+    # Code structure - too noisy
+    "too-few-public-methods",
+    "duplicate-code",
+    # Style preferences - not critical
+    "no-else-return",
+    "no-else-raise",
+    "consider-using-f-string",
+    "unnecessary-dunder-call",
+    # Common patterns in the codebase
+    "unused-argument",  # FastAPI dependency injection uses unused args
+    "logging-fstring-interpolation",  # f-strings in logging are common
+    "raise-missing-from",  # Exception chaining not consistently used
+    "unspecified-encoding",  # Not critical for this project
+    "missing-timeout",  # Common pattern - requests without timeout
+    "import-error",  # False positives when packages are installed in CI
+    "broad-exception-caught",  # Common pattern for API error handling
+]

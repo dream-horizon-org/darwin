@@ -25,38 +25,39 @@ if [[ "$DEPLOYMENT_TYPE" == "container" ]]; then
   python3 -m venv .
   source bin/activate
   bin/python3 -m pip install --upgrade pip
-  export PATH=$PATH:"$BASE_DIR"/"$SERVICE_NAME"/bin
+  export PATH=$PATH:"$BASE_DIR"/bin
 
   echo "Installing app_layer package..."
   if [ -d "app_layer" ]; then
     bin/pip3 install -e app_layer/.
-    bin/pip3 install urllib3==1.26.6 --force-reinstall
-    pip install boto3 --force-reinstall
-    # Ensure uvicorn is available
-    bin/pip3 install uvicorn==0.23.2
     uvicorn --version
     echo "Requirements installed successfully"
   else
-    echo "ERROR: app_layer directory not found in $BASE_DIR/$SERVICE_NAME"
+    echo "ERROR: app_layer directory not found in $BASE_DIR"
     echo "Contents of current directory:"
     ls -la
     exit 1
   fi
 else
-  echo "Changing to directory: $BASE_DIR/$SERVICE_NAME"
-  cd "$BASE_DIR"/"$SERVICE_NAME" || { echo "Failed to change to $BASE_DIR/$SERVICE_NAME"; exit 1; }
+  # In local mode, check if SERVICE_NAME subdirectory exists
+  # If not, files are directly in BASE_DIR (e.g., GitHub CI)
+  if [ -d "$BASE_DIR/$SERVICE_NAME" ]; then
+    echo "Changing to directory: $BASE_DIR/$SERVICE_NAME"
+    cd "$BASE_DIR/$SERVICE_NAME" || { echo "Failed to change to $BASE_DIR/$SERVICE_NAME"; exit 1; }
+    APP_DIR_PATH="$BASE_DIR/$SERVICE_NAME"
+  else
+    echo "Changing to directory: $BASE_DIR (SERVICE_NAME subdirectory not found)"
+    cd "$BASE_DIR" || { echo "Failed to change to $BASE_DIR"; exit 1; }
+    APP_DIR_PATH="$BASE_DIR"
+  fi
   
   echo "Installing app_layer package..."
   if [ -d "app_layer" ]; then
-    pip3 install -e app_layer/. --force-reinstall
-    pip3 install urllib3==1.26.6 --force-reinstall
-    pip3 install boto3 --force-reinstall
-    pip3 install uvicorn==0.23.2
-    pip install "mlflow[auth]==2.12.2" --force-reinstall
+    pip3 install -e app_layer/.
     uvicorn --version
     echo "Requirements installed successfully"
   else
-    echo "ERROR: app_layer directory not found in $BASE_DIR/$SERVICE_NAME"
+    echo "ERROR: app_layer directory not found in $APP_DIR_PATH"
     echo "Contents of current directory:"
     ls -la
     exit 1

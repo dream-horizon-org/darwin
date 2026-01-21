@@ -11,14 +11,10 @@ from darwin.spark.spark_resources import SparkResources
 
 
 @responses.activate
-@pytest.mark.parametrize(
-    "mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True
-)
+@pytest.mark.parametrize("mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True)
 @patch("darwin.spark.spark.prepare_resources")
 @pytest.mark.skipif(os.getenv("ENV") == "stag", reason="skip this test for stag env")
-def test_spark_sql_get_databases(
-    mock_prepare_resources, mock_cluster_response, mock_compute_service
-):
+def test_spark_sql_get_databases(mock_prepare_resources, mock_cluster_response, mock_compute_service):
     mock_resources = SparkResources(
         driver_cores=2,
         driver_memory="1G",
@@ -34,14 +30,10 @@ def test_spark_sql_get_databases(
 
 
 @responses.activate
-@pytest.mark.parametrize(
-    "mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True
-)
+@pytest.mark.parametrize("mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True)
 @patch("darwin.spark.spark.prepare_resources")
 @pytest.mark.skipif(os.getenv("ENV") == "stag", reason="skip this test for stag env")
-def test_spark_sql_get_tables(
-    mock_prepare_resources, mock_cluster_response, mock_compute_service
-):
+def test_spark_sql_get_tables(mock_prepare_resources, mock_cluster_response, mock_compute_service):
     mock_resources = SparkResources(
         driver_cores=2,
         driver_memory="1G",
@@ -57,14 +49,10 @@ def test_spark_sql_get_tables(
 
 
 @responses.activate
-@pytest.mark.parametrize(
-    "mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True
-)
+@pytest.mark.parametrize("mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True)
 @patch("darwin.spark.spark.prepare_resources")
 @pytest.mark.skipif(os.getenv("ENV") == "stag", reason="skip this test for stag env")
-def test_get_data_from_hive_table(
-    mock_prepare_resources, mock_cluster_response, mock_compute_service
-):
+def test_get_data_from_hive_table(mock_prepare_resources, mock_cluster_response, mock_compute_service):
     ray.shutdown()
     ray.init(address="local", num_cpus=6, include_dashboard=False)
     mock_resources = SparkResources(
@@ -83,14 +71,10 @@ def test_get_data_from_hive_table(
 
 
 @responses.activate
-@pytest.mark.parametrize(
-    "mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True
-)
+@pytest.mark.parametrize("mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True)
 @patch("darwin.spark.spark.prepare_resources")
 @pytest.mark.skipif(os.getenv("ENV") == "stag", reason="skip this test for stag env")
-def test_get_data_from_iceberg_table(
-    mock_prepare_resources, mock_cluster_response, mock_compute_service
-):
+def test_get_data_from_iceberg_table(mock_prepare_resources, mock_cluster_response, mock_compute_service):
     ray.shutdown()
     ray.init(address="local", num_cpus=6, include_dashboard=False)
     mock_resources = SparkResources(
@@ -102,23 +86,17 @@ def test_get_data_from_iceberg_table(
     )
     mock_prepare_resources.return_value = mock_resources
     spark: SparkSession = darwin.init_spark()
-    df = spark.sql(
-        "select * from iceberg_catalog.org_transactions.org_roundmaster limit 10"
-    )
+    df = spark.sql("select * from iceberg_catalog.org_transactions.org_roundmaster limit 10")
     assert df.count() == 10
     assert "tourid" in df.columns
     assert "roundname" in df.columns
 
 
 @responses.activate
-@pytest.mark.parametrize(
-    "mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True
-)
+@pytest.mark.parametrize("mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True)
 @patch("darwin.spark.spark.prepare_resources")
 @pytest.mark.skipif(os.getenv("ENV") == "stag", reason="skip this test for stag env")
-def test_get_data_from_delta_table(
-    mock_prepare_resources, mock_cluster_response, mock_compute_service
-):
+def test_get_data_from_delta_table(mock_prepare_resources, mock_cluster_response, mock_compute_service):
     ray.shutdown()
     ray.init(address="local", num_cpus=6, include_dashboard=False)
     mock_resources = SparkResources(
@@ -137,14 +115,10 @@ def test_get_data_from_delta_table(
 
 
 @responses.activate
-@pytest.mark.parametrize(
-    "mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True
-)
+@pytest.mark.parametrize("mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True)
 @patch("darwin.spark.spark.prepare_resources")
 @pytest.mark.skipif(os.getenv("ENV") == "stag", reason="skip this test for stag env")
-def test_get_dbfs_table_in_aws_prod(
-    mock_prepare_resources, mock_cluster_response, mock_compute_service
-):
+def test_get_dbfs_table_in_aws_prod(mock_prepare_resources, mock_cluster_response, mock_compute_service):
     ray.shutdown()
     ray.init(address="local", num_cpus=6, include_dashboard=False)
     mock_resources = SparkResources(

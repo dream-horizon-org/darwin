@@ -51,7 +51,5 @@ class Version:
 
     def validate_spark_version(self):
         if self.__str__() not in self.SUPPORTED_SPARK_VERSIONS:
-            raise UnsupportedSparkVersionError(
-                f"Spark version {self.__str__()} is not supported"
-            )
+            raise UnsupportedSparkVersionError(f"Spark version {self.__str__()} is not supported")
         return True

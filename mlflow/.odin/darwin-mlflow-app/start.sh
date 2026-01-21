@@ -25,16 +25,19 @@ fi
 
 
 echo "----- Setup log file path -----"
-if [[ "$DEPLOYMENT_TYPE" == "container" ]]; then
-  mkdir -p /app/log/darwin-mlflow-app
-  chmod 777 /app/log/darwin-mlflow-app/
-  export LOG_DIR=/app/log/darwin-mlflow-app
-else
-  mkdir -p /var/log/darwin-mlflow-app
-  chmod 777 /var/log/darwin-mlflow-app/
-  export LOG_DIR=/var/log/darwin-mlflow-app
+if [[ -z "${LOG_DIR:-}" ]]; then
+  if [[ "$DEPLOYMENT_TYPE" == "container" ]]; then
+    mkdir -p /app/log/darwin-mlflow-app
+    chmod 777 /app/log/darwin-mlflow-app/
+    export LOG_DIR=/app/log/darwin-mlflow-app
+  else
+    mkdir -p /var/log/darwin-mlflow-app
+    chmod 777 /var/log/darwin-mlflow-app/
+    export LOG_DIR=/var/log/darwin-mlflow-app
+  fi
+  else
+    mkdir -p "${LOG_DIR}"
 fi
-
 echo "Cding into app dir.."
 cd "$APP_DIR" || exit
 

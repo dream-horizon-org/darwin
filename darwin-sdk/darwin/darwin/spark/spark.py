@@ -17,16 +17,14 @@ from darwin.util.utils import get_env, run_jupyter_line_magic, set_events_log_di
 from darwin.version import Version
 
 
-def _set_configs_from_resources(
-    default_spark_conf: Dict[str, Any], resources
-) -> Dict[str, Any]:
+def _set_configs_from_resources(default_spark_conf: Dict[str, Any], resources) -> Dict[str, Any]:
     num_executors: int = int(resources.num_executors)
     cores: int = int(resources.executor_cores)
     partitions: int = num_executors * cores * 2
     default_spark_conf["spark.sql.shuffle.partitions"] = partitions
     default_spark_conf["spark.dynamicCoreAllocation.taskRetriesFactor"] = min(4, cores)
-    default_spark_conf["spark.sql.adaptive.coalescePartitions.initialPartitionNum"] = (
-        min(INT_MAX, partitions * 2)
+    default_spark_conf["spark.sql.adaptive.coalescePartitions.initialPartitionNum"] = min(
+        INT_MAX, partitions * 2
     )  # stay within JVM int range
     return default_spark_conf
 

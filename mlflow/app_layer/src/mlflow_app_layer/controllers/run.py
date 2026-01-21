@@ -29,7 +29,8 @@ logger = get_logger(__name__)
 
 
 async def get_run_controller(
-    experiment_id: str, run_id: str, config: Config, email: str, mlflow_service: MLFlow
+    experiment_id: str, run_id: str, config: Config, email: str, \
+     mlflow_service: MLFlow  # pyright: ignore[reportUnusedParameter]
 ):
     try:
         run_get_res = requests.get(
@@ -38,10 +39,12 @@ async def get_run_controller(
         )
         run_data = run_get_res.json()
         logger.debug(f"Run get response: {run_data}")
-        users_data = mlflow_service.get_experiment_user(int(experiment_id))
-        user = None
-        if (users_data is not None) and len(users_data) > 0:
-            user = users_data[0]["username"]
+        # Note: User data retrieval is commented out as it's not currently used
+        # Keeping for future enhancement when user info is needed in response
+        # users_data = mlflow_service.get_experiment_user(int(experiment_id))
+        # user = None
+        # if (users_data is not None) and len(users_data) > 0:
+        #     user = users_data[0]["username"]
 
         if run_get_res.status_code == 200:
             return JSONResponse(

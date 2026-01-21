@@ -6,8 +6,8 @@ image:
   tag: 2.37.0
   pullPolicy: Always
 
-nameOverride: "ray-test"
-fullnameOverride: "ray-test"
+nameOverride: "kuberay"
+fullnameOverride: ""
 
 serviceAccount:
   create: false
@@ -15,13 +15,33 @@ serviceAccount:
 
 common:
   containerEnv:
+    - name: SPARK_CONF_DIR
+      value: /tmp/script
+    - name: TERMINATE_AFTER
+      value: "60"
+    - name: CLUSTER_NAME
+      value: id-test
+    - name: CLUSTER_ID
+      value: id-test
+    - name: INIT_SCRIPT_API
+      value: http://darwin-compute.darwin.svc.cluster.local:8000/init-script-status
+    - name: RAY_PROMETHEUS_HOST
+      value: http://id-test-prometheus.prometheus.svc.cluster.local:9090
+    - name: RAY_GRAFANA_HOST
+      value: http://id-test-grafana.prometheus.svc.cluster.local:3000
+    - name: RAY_GRAFANA_IFRAME_HOST
+      value: https://localhost/kind-0/id-test-metrics
     - name: ENV
       value: LOCAL
-    - name: CLUSTER_NAME
-      value: ray-test
+    - name: CREATED_BY
+      value: test@test.com
+    - name: CLOUD
+      value: LOCAL
+    - name: RSS
+      value: "False"
 
 head:
-  enableInTreeAutoscaling: false
+  enableInTreeAutoscaling: true
   serviceAccountName: "darwin-ds-role"
   rayStartParams:
     port: "6379"
@@ -30,29 +50,73 @@ head:
     node-ip-address: $MY_POD_IP
     block: "true"
     metrics-export-port: "8080"
+    redis-password: ""
   containerEnv:
     - name: TYPE
       value: head
+    - name: SHELL
+      value: /bin/bash
     - name: MY_POD_IP
       valueFrom:
         fieldRef:
           fieldPath: status.podIP
+  ports:
+    - containerPort: 6379
+      name: gcs
+    - containerPort: 8265
+      name: dashboard
+    - containerPort: 10001
+      name: client
+    - containerPort: 8000
+      name: serve
+    - containerPort: 8888
+      name: jupyter
+    - containerPort: 8080
+      name: metrics
+    - containerPort: 4040
+      name: sparkui
+    - containerPort: 3000
+      name: vscode
+  securityContext:
+    runAsGroup: 100
+    runAsUser: 1000
+    capabilities:
+      add:
+        - SYS_PTRACE
   resources:
     limits:
-      cpu: "1"
-      memory: "2G"
+      cpu: "2"
+      memory: "4G"
     requests:
-      cpu: "1"
-      memory: "2G"
+      cpu: "2"
+      memory: "4G"
   volumes:
     - name: log-volume
       emptyDir: {}
+    - name: id-test-scripts-vol
+      configMap:
+        name: id-test-script
+        defaultMode: 511
+    - name: id-test-remote-command-vol
+      configMap:
+        name: id-test-remote-command
+        defaultMode: 0777
+    - name: persistent-storage
+      persistentVolumeClaim:
+        claimName: fsx-claim-3
   volumeMounts:
     - mountPath: "/tmp/ray"
       name: log-volume
+    - mountPath: "/tmp/script"
+      name: id-test-scripts-vol
+    - mountPath: "/tmp/remote-command"
+      name: id-test-remote-command-vol
+    - name: persistent-storage
+      mountPath: "/home/ray/fsx"
   # Override command to run Ray directly without custom scripts
   command: []
-  args: []
+  args:
+    - "/tmp/script/head.sh"
 
 worker:
   groupName: wg
@@ -68,10 +132,21 @@ worker:
   containerEnv:
     - name: TYPE
       value: worker
+    - name: RAY_DISABLE_DOCKER_CPU_WARNING
+      value: "1"
+    - name: MY_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
     - name: MY_POD_IP
       valueFrom:
         fieldRef:
           fieldPath: status.podIP
+    - name: CPU_REQUEST
+      valueFrom:
+        resourceFieldRef:
+          containerName: ray-worker
+          resource: requests.cpu
   resources:
     limits:
       cpu: "1"
@@ -79,15 +154,32 @@ worker:
     requests:
       cpu: "1"
       memory: "2G"
+  ports:
+    - containerPort: 8080
+      name: metrics
+  # Override command to run Ray directly without custom scripts
   volumes:
     - name: log-volume
-      emptyDir: {}
+      emptyDir: { }
+    - name: id-test-scripts-vol
+      configMap:
+        name: id-test-script
+        defaultMode: 0777
+    - name: id-test-remote-command-vol
+      configMap:
+        name: id-test-remote-command
+        defaultMode: 0777
   volumeMounts:
     - mountPath: /tmp/ray
       name: log-volume
-  # Override command to run Ray directly without custom scripts
-  command: []
-  args: []
+    - mountPath: /tmp/script
+      name: id-test-scripts-vol
+    - mountPath: /tmp/remote-command
+      name: id-test-remote-command-vol
+  sidecarContainers: [ ]
+  command: [ ]
+  args:
+    - "/tmp/script/worker.sh"
 
 additionalWorkerGroups:
   smallGroup:
@@ -99,20 +191,42 @@ service:
 # Disable monitoring for simple test
 grafana:
   image: "localhost:5000/grafana:latest"
-  rootPath: "/ray-test-metrics/"
+  rootPath: "/kind-0/id-test-metrics/"
 
 prometheus:
   replicas: 0
 
 commands: []
-sparkConfig: {}
+sparkConfig:
+  spark.ui.proxyBase: "/kind-0/id-test-sparkui"
+  spark.ui.proxyRedirectUri: "/"
+  spark.metrics.conf.*.sink.prometheusServlet.class: org.apache.spark.metrics.sink.PrometheusServlet
+  spark.metrics.conf.*.sink.prometheusServlet.path: "/metrics/prometheus"
+  spark.metrics.conf.master.sink.prometheusServlet.path: "/metrics/master/prometheus"
+  spark.metrics.conf.applications.sink.prometheusServlet.path: "/metrics/applications/prometheus"
+  spark.ui.prometheus.enabled: "true"
 is_job_cluster: false
 env: local
 user: test
 email: test@test.com
-cluster_name: ray-test
-kube_cluster_key: kind
+cluster_name: id-test
+kube_cluster_key: kind-0
 domain: localhost
 terminate_after_minutes: 60
-cluster_id: ray-test
+cluster_id: id-test
+cluster_type: all_purpose_cluster
 
+labels:
+  project: darwin
+  service: darwin
+  squad: darwin
+  environment: local
+
+remoteCommand:
+  statusReportApi: "http://darwin-compute.darwin.svc.cluster.local:8000/cluster/command/pod/status"
+  statusReportInterval: 10
+  logsS3Bucket: "darwin"
+  logsS3Key: "mlp/logs/remote-command"
+  commands:
+    head: []
+    worker: []

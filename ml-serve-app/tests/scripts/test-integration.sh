@@ -8,7 +8,7 @@ GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ML_SERVE_APP_ROOT="$( cd "${SCRIPT_DIR}/../.." && pwd )"
 PROJECT_ROOT="$( cd "${ML_SERVE_APP_ROOT}/.." && pwd )"
-export KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/kind/config/kindkubeconfig.yaml}"
+export KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/.setup/kindkubeconfig.yaml}"
 
 echo -e "${GREEN}🧪 Running Integration Tests${NC}"
 
@@ -17,7 +17,8 @@ echo -e "${GREEN}🧪 Running Integration Tests${NC}"
 ! "${PROJECT_ROOT}/scripts/check-services.sh" ml-serve-app && { echo -e "${RED}❌ Services unhealthy${NC}"; exit 1; }
 
 # Setup Auth & Dir
-export TEST_AUTH_TOKEN="${TEST_AUTH_TOKEN:-admin-token-default-change-in-production}"
+# Use the bootstrap admin token (matches ML_SERVE_BOOTSTRAP_ADMIN_TOKEN default)
+export TEST_AUTH_TOKEN="${TEST_AUTH_TOKEN:-darwin-local-admin-token}"
 export MLFLOW_URI="${MLFLOW_URI:-http://localhost/mlflow-lib}"
 cd "${ML_SERVE_APP_ROOT}"
 

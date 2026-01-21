@@ -191,7 +191,7 @@ class TestSparkSession:
     def test_spark_dataframe_operations(self):
         """Test Spark DataFrame transformations and actions."""
         from pyspark.sql import SparkSession
-        from pyspark.sql.functions import col, lit
+        from pyspark.sql.functions import col
 
         spark = (
             SparkSession.builder.appName("darwin-df-test")
@@ -207,9 +207,7 @@ class TestSparkSession:
 
             # Transformations
             df_transformed = (
-                df.filter(col("amount") > 100)
-                .withColumn("doubled", col("amount") * 2)
-                .select("id", "name", "doubled")
+                df.filter(col("amount") > 100).withColumn("doubled", col("amount") * 2).select("id", "name", "doubled")
             )
 
             # Actions
@@ -250,10 +248,10 @@ class TestSparkSession:
 
             result = spark.sql(
                 """
-                SELECT name, price * 1.1 as price_with_tax 
-                FROM products 
+                SELECT name, price * 1.1 as price_with_tax
+                FROM products
                 WHERE price > 15
-            """
+                """
             ).collect()
             assert len(result) == 1
             assert result[0]["name"] == "product_b"
@@ -485,7 +483,7 @@ class TestDarwinExceptions:
         # Ensure no session exists
         try:
             darwin.stop_spark()
-        except:
+        except Exception:
             pass
 
         with pytest.raises(NoActiveSparkSessionError):

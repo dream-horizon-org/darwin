@@ -33,7 +33,7 @@ logger = get_logger(__name__)
 def process_filters(filters: Dict[str, Any]):
     try:
         processed_filters = {}
-        for key, value in filters.items():
+        for key in filters:
             if key == "name" and filters["name"]:
                 processed_filters["filter"] = f"name like '%{filters['name']}%'"
             if key == "tags":
@@ -43,7 +43,7 @@ def process_filters(filters: Dict[str, Any]):
 
         return processed_filters
     except Exception as e:
-        logger.error("Error in process_filters: ", e)
+        logger.error("Error in process_filters: %s", e)
         return {}
 
 
@@ -77,13 +77,14 @@ def process_models_response(models_data):
             models.append(processed_model)
         return models
     except Exception as e:
-        logger.error("Error in process_models_response: ", e)
+        logger.error("Error in process_models_response: %s", e)
         return []
 
 
 async def search_models_controller(request: Request, config: Config, email: str):
     try:
-        filters = json.loads(request.query_params.get("filters", {}))
+        filters_str = request.query_params.get("filters", "{}")
+        filters = json.loads(filters_str) if isinstance(filters_str, str) else {}
         page_token = request.query_params.get("page_token", None)
         page_size = int(request.query_params.get("page_size", 10))
 

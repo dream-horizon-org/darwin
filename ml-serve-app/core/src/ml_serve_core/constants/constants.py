@@ -47,3 +47,10 @@ DEFAULT_RUNTIME = os.getenv("DEFAULT_RUNTIME", f"{CONTAINER_REGISTRY}/{IMAGE_REP
 
 # Workflow serve configuration (only needed if using workflow serves)
 JOB_CLUSTER_RUNTIME = os.getenv("JOB_CLUSTER_RUNTIME", "")
+
+# Authentication Configuration
+# Bootstrap admin token - used to create the initial admin user on startup
+# For local dev: defaults to 'darwin-local-admin-token'
+# For production: set via K8s Secret or env var, leave empty to disable bootstrap
+ML_SERVE_BOOTSTRAP_ADMIN_TOKEN = os.getenv("ML_SERVE_BOOTSTRAP_ADMIN_TOKEN", "")
+ML_SERVE_BOOTSTRAP_ADMIN_USERNAME = os.getenv("ML_SERVE_BOOTSTRAP_ADMIN_USERNAME", "admin")

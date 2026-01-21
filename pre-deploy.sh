@@ -6,7 +6,7 @@ ENABLED_SERVICES_FILE=".setup/enabled-services.yaml"
 
 # Source the config.env file
 set -o allexport
-. config.env
+. .setup/config.env
 set +o allexport
 
 # Variables

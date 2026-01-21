@@ -1,10 +1,13 @@
-from typing import Callable
+from __future__ import annotations
+from typing import Callable, Optional, Any
 
 from typeguard import typechecked
 
 from mlflow_app_layer.constant.config import Config
 from mlflow_app_layer.util.mysql_connection import ConnectionPool, Connection
 
+# Module-level connection pool singleton
+# pylint: disable=invalid-name
 connection_pool = None
 
 
@@ -12,7 +15,7 @@ connection_pool = None
 class MySQLDao:
     def __init__(self):
         config = Config().db_config()
-        global connection_pool
+        global connection_pool  # pylint: disable=global-statement
         connection_pool = (
             connection_pool
             if connection_pool
@@ -38,7 +41,7 @@ class MySQLDao:
         finally:
             mysql_connection.close()
 
-    def create(self, query: str, data: dict, func: Callable = lambda: None):
+    def create(self, query: str, data: dict[str, Any], func: Callable[[], Any] = lambda: None):
         """
         For writing data to MySQL DB
         :param query: SQL query
@@ -54,7 +57,7 @@ class MySQLDao:
             if mysql_connection.connector.is_connected():
                 mysql_connection.close()
 
-    def read(self, query: str, data: dict = None):
+    def read(self, query: str, data: Optional[dict[str, Any]] = None):
         """
         For reading data from MySQL DB
         :param query: SQL query
@@ -70,7 +73,7 @@ class MySQLDao:
             if mysql_connection.connector.is_connected():
                 mysql_connection.close()
 
-    def update(self, query: str, data: dict, func: Callable = lambda: None):
+    def update(self, query: str, data: dict[str, Any], func: Callable[[], Any] = lambda: None):
         """
         For updating data from MySQL DB
         :param query: SQL query
@@ -86,7 +89,7 @@ class MySQLDao:
             if mysql_connection.connector.is_connected():
                 mysql_connection.close()
 
-    def delete(self, query: str, data: dict, func: Callable = lambda: None):
+    def delete(self, query: str, data: dict[str, Any], func: Callable[[], Any] = lambda: None):
         """
         For deleting data from MySQL DB
         :param query: SQL query

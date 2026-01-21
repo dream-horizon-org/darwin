@@ -10,13 +10,9 @@ from darwin.spark.spark_resources import SparkResources
 
 
 @responses.activate
-@pytest.mark.parametrize(
-    "mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True
-)
+@pytest.mark.parametrize("mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True)
 @patch("darwin.spark.spark.prepare_resources")
-def test_init_spark_runs_successfully(
-    mock_prepare_resources, mock_cluster_response, mock_compute_service
-):
+def test_init_spark_runs_successfully(mock_prepare_resources, mock_cluster_response, mock_compute_service):
     mock_resources = SparkResources(
         driver_cores=2,
         driver_memory="1G",
@@ -31,13 +27,9 @@ def test_init_spark_runs_successfully(
 
 
 @responses.activate
-@pytest.mark.parametrize(
-    "mock_cluster_response", ["compute_response_with_spark_conf.json"], indirect=True
-)
+@pytest.mark.parametrize("mock_cluster_response", ["compute_response_with_spark_conf.json"], indirect=True)
 @patch("darwin.spark.spark_resources.ray.nodes")
-def test_init_spark_with_compute_config(
-    mock_ray_nodes, mock_cluster_response, mock_compute_service
-):
+def test_init_spark_with_compute_config(mock_ray_nodes, mock_cluster_response, mock_compute_service):
     mock_ray_nodes.return_value = [
         {
             "NodeManagerHostname": "ray-worker-1",
@@ -54,13 +46,9 @@ def test_init_spark_with_compute_config(
 
 
 @responses.activate
-@pytest.mark.parametrize(
-    "mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True
-)
+@pytest.mark.parametrize("mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True)
 @patch("darwin.spark.spark.prepare_resources")
-def test_stop_spark(
-    mock_prepare_resources, mock_cluster_response, mock_compute_service
-):
+def test_stop_spark(mock_prepare_resources, mock_cluster_response, mock_compute_service):
     mock_resources = SparkResources(
         driver_cores=2,
         driver_memory="1G",
@@ -76,13 +64,9 @@ def test_stop_spark(
 
 
 @responses.activate
-@pytest.mark.parametrize(
-    "mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True
-)
+@pytest.mark.parametrize("mock_cluster_response", ["compute_response_with_ondemand_node.json"], indirect=True)
 @patch("darwin.spark.spark.prepare_resources")
-def test_get_spark_session(
-    mock_prepare_resources, mock_cluster_response, mock_compute_service
-):
+def test_get_spark_session(mock_prepare_resources, mock_cluster_response, mock_compute_service):
     mock_resources = SparkResources(
         driver_cores=2,
         driver_memory="1G",
@@ -103,9 +87,7 @@ def test_get_spark_session(
     indirect=True,
 )
 @patch("darwin.spark.spark.prepare_resources")
-def test_init_spark_with_celeborn(
-    mock_prepare_resources, mock_cluster_response, mock_compute_service
-):
+def test_init_spark_with_celeborn(mock_prepare_resources, mock_cluster_response, mock_compute_service):
     mock_resources = SparkResources(
         driver_cores=2,
         driver_memory="1G",

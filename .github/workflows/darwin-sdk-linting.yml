@@ -40,7 +40,7 @@ jobs:
         working-directory: darwin-sdk/darwin
         run: |
           echo "Checking code formatting with Black..."
-          black --check --diff darwin/ tests/ || {
+          black --line-length=120 --check --diff darwin/ tests/ || {
             echo "❌ Code formatting issues found. Run 'black darwin/ tests/' to fix."
             exit 1
           }
@@ -61,7 +61,8 @@ jobs:
           flake8 darwin/ tests/ \
             --max-line-length=120 \
             --extend-ignore=E203,W503 \
-            --exclude=__pycache__,.git,.venv,build,dist,*.egg-info \
+            --per-file-ignores=tests/test_integration.py:F401 \
+            --exclude=__pycache__,.git,.venv,build,dist,\*.egg-info \
             --statistics
 
       - name: Run Pylint (code analysis)
@@ -95,5 +96,3 @@ jobs:
           echo "✅ Style guide enforcement (Flake8)" >> $GITHUB_STEP_SUMMARY
           echo "ℹ️  Code analysis (Pylint) - informational" >> $GITHUB_STEP_SUMMARY
           echo "ℹ️  Type checking (MyPy) - informational" >> $GITHUB_STEP_SUMMARY
-
-

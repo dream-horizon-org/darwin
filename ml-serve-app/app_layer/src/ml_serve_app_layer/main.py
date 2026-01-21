@@ -73,6 +73,8 @@ async def validation_exception_handler(request: Request, exc: Exception):
 @app.on_event("startup")
 async def init():
     await db_client.init_tortoise()
+    # Bootstrap admin user from environment variable
+    await user_service.bootstrap_admin_user()
 
 
 @app.on_event("startup")
