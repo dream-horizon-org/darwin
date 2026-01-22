@@ -95,11 +95,14 @@ jobs:
       - name: Determine base image
         id: base_image
         run: |
-          # For PRs from forks, use public base image. For same-repo PRs or main branch, use darwinhq image
+          # For PRs from forks, use public base image (python:3.9.7-slim). 
+          # For same-repo PRs or main branch, use darwinhq custom image
           if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
-            BASE_IMAGE="${{ env.BASE_IMAGE }}"
+            # Use public Python slim image (valid Docker Hub image)
+            BASE_IMAGE="python:3.9.7-slim"
             echo "Using public base image: $BASE_IMAGE (PR from fork)"
           else
+            # Use darwinhq custom image (built from python:3.9.7-slim-bullseye)
             BASE_IMAGE="darwinhq/${{ env.BASE_IMAGE }}"
             echo "Using darwinhq base image: $BASE_IMAGE"
           fi
