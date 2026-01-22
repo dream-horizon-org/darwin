@@ -77,7 +77,7 @@ EOFPYTHON
     echo ""
 fi
 
-# Wait for Elasticsearch to be ready
+# Wait for Elasticsearch to be ready.
 echo "⏳ Waiting for Elasticsearch to be available..."
 max_attempts=30
 attempt=0
