@@ -85,8 +85,32 @@ jobs:
           driver-opts: network=host
           buildkitd-flags: --allow-insecure-entitlement network.host
 
+      - name: Check if PR is from fork
+        id: is_fork
+        run: |
+          # Default to false (not a fork)
+          echo "is_fork=false" >> $GITHUB_OUTPUT
+          
+          # Only check for PRs
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # Check if PR is from a fork (head repo different from base repo)
+            HEAD_REPO="${{ github.event.pull_request.head.repo.full_name }}"
+            BASE_REPO="${{ github.repository }}"
+            
+            if [[ -z "$HEAD_REPO" ]]; then
+              echo "⚠️  head.repo.full_name is empty, assuming same-repo PR"
+            elif [[ "$HEAD_REPO" != "$BASE_REPO" ]]; then
+              echo "is_fork=true" >> $GITHUB_OUTPUT
+              echo "PR is from fork: $HEAD_REPO != $BASE_REPO"
+            else
+              echo "PR is from same repository: $HEAD_REPO == $BASE_REPO"
+            fi
+          else
+            echo "Not a PR, defaulting to is_fork=false"
+          fi
+
       - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name != 'pull_request' || steps.is_fork.outputs.is_fork != 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -97,7 +121,7 @@ jobs:
         run: |
           # For PRs from forks, use public base image (python:3.9.7-slim). 
           # For same-repo PRs or main branch, use darwinhq custom image
-          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ steps.is_fork.outputs.is_fork }}" == "true" ]]; then
             # Use public Python slim image (valid Docker Hub image)
             BASE_IMAGE="python:3.9.7-slim"
             echo "Using public base image: $BASE_IMAGE (PR from fork)"
@@ -114,7 +138,7 @@ jobs:
           context: .
           file: ./deployer/images/Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+          push: ${{ github.event_name != 'pull_request' || steps.is_fork.outputs.is_fork != 'true' }}
           network: host
           allow: network.host
           tags: |
