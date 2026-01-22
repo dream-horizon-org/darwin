@@ -20,6 +20,8 @@ RUN chmod +x /app/.odin/*.sh 2>/dev/null || true
 # Set environment variables needed by setup.sh
 ENV BASE_DIR=/app
 ENV DEPLOYMENT_TYPE=container
+# Set ENV=local by default for Docker builds (can be overridden via EXTRA_ENV_VARS)
+ENV ENV=local
 
 RUN if [ -f "/app/.odin/setup.sh" ]; then \
       env $(echo ${EXTRA_ENV_VARS_FINAL} | tr '|' ' ') bash -x /app/.odin/setup.sh; \
