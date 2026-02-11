@@ -50,7 +50,7 @@ org_name: dream11
 component_type: pod
 resource_type: application
 provisioned-by-user: {{ .Values.user }}
-environment_name: {{ default .Values.env (index $labels "environment") }}
+environment_name: {{ default "local" (index $labels "environment") }}
 service_name: {{ default "darwin" (index $labels "service") }}
 component_name: {{ default .Values.cluster_name (index $labels "project") }}
 squad: {{ default "data-science" (index $labels "squad") }}
@@ -83,7 +83,7 @@ org_name: dream11
 component_type: pod
 resource_type: application
 provisioned-by-user: {{ .Values.user }}
-environment_name: {{ default .Values.env (index $labels "environment") }}
+environment_name: {{ default "local" (index $labels "environment") }}
 service_name: {{ default "darwin" (index $labels "service") }}
 component_name: {{ default .Values.cluster_name (index $labels "project") }}
 squad: {{ default "data-science" (index $labels "squad") }}

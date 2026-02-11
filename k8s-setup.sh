@@ -14,9 +14,9 @@ export KUBECONFIG=$KUBECONFIG
 # Install kuberay operator (using local registry image)
 echo "🚀 Installing kuberay-operator..."
 helm repo add kuberay https://ray-project.github.io/kuberay-helm/
-helm upgrade --install kuberay-operator kuberay/kuberay-operator --version 1.1.0 -n ray-system --create-namespace \
+helm upgrade --install kuberay-operator kuberay/kuberay-operator --version 1.5.1 -n ray-system --create-namespace \
   --set image.repository=localhost:5000/quay.io/kuberay/operator \
-  --set image.tag=v1.1.0
+  --set image.tag=v1.5.1
 kubectl wait --for=condition=Available --timeout=120s deployment/kuberay-operator -n ray-system
 echo "✅ kuberay-operator installed successfully"
 

@@ -227,7 +227,7 @@ datastores:
 operators:
   - name: kuberay-operator
     image: quay.io/kuberay/operator
-    tag: "v1.1.0"
+    tag: "v1.5.1"
     enabled: true
   - name: nginx
     image: nginx

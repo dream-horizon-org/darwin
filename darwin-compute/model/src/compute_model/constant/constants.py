@@ -23,7 +23,7 @@ INSTANCE_ROLE = [
 ]
 
 
-CPU_NODE_LIMITS= {"cores": {"min": 1, "max": 90}, "memory": {"min": 1, "max": 736} }
+CPU_NODE_LIMITS = {"cores": {"min": 1, "max": 90}, "memory": {"min": 1, "max": 736}}
 
 
 # TODO: AZS is a placeholder - should be dynamically fetched from AWS or configured per environment

@@ -35,6 +35,7 @@ class MonitoringHandler(ConfigHandler):
             values["grafana"]["nodeSelector"] = {"cloud.google.com/compute-class": "darwin-default"}
         if env == "darwin-local":
             values["grafana"]["nodeSelector"] = {}
+        values["grafana"]["domain"] = CONFIGS_MAP[env]["host_url"]
 
     def handle(
         self,

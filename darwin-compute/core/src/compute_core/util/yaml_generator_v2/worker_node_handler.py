@@ -124,7 +124,7 @@ class WorkerNodeUpdateHandler(ConfigHandler):
         if compute_request.labels.get("workspace") == "shared":
             workspace_claim_name = f"fsx-claim-{randint(0, 19)}"
             add_volume_mount("persistent-storage", workspace_claim_name, WORKSPACE_MOUNT_PATH, worker_group)
-        
+
         # add_log_central_worker_pod_annotation(worker_group, compute_request)
         # add_pod_affinity(worker_group, compute_request)
 
