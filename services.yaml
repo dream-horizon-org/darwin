@@ -2,7 +2,7 @@ applications:
   - application: darwin-ofs-v2
     base-path: feature-store
     path: app
-    base-image: darwin/java:11-maven-bookworm-slim
+    base-image: darwin/java-11-maven-bookworm-slim:latest
     enabled: false
     env:
       - name: VAULT_SERVICE_MYSQL_USERNAME
@@ -19,7 +19,7 @@ applications:
   - application: darwin-ofs-v2-admin
     base-path: feature-store
     path: admin
-    base-image: darwin/java:11-maven-bookworm-slim
+    base-image: darwin/java-11-maven-bookworm-slim:latest
     enabled: false
     env:
       - name: VAULT_SERVICE_MYSQL_USERNAME
@@ -36,7 +36,7 @@ applications:
   - application: darwin-ofs-v2-consumer
     base-path: feature-store
     path: consumer
-    base-image: darwin/java:11-maven-bookworm-slim
+    base-image: darwin/java-11-maven-bookworm-slim:latest
     enabled: false
     env:
       - name: VAULT_SERVICE_MYSQL_USERNAME
@@ -53,7 +53,7 @@ applications:
   - application: darwin-mlflow
     base-path: mlflow
     path: .
-    base-image: darwin/python:3.9.7-pip-bookworm-slim
+    base-image: darwin/python-3.9.7-pip-bookworm-slim:latest
     enabled: true
     env:
       - name: VAULT_SERVICE_MLFLOW_ADMIN_USERNAME
@@ -76,7 +76,7 @@ applications:
   - application: darwin-mlflow-app
     base-path: mlflow
     path: .
-    base-image: darwin/python:3.9.7-pip-bookworm-slim
+    base-image: darwin/python-3.9.7-pip-bookworm-slim:latest
     enabled: true
     env:
       - name: VAULT_SERVICE_MLFLOW_ADMIN_USERNAME
@@ -99,56 +99,56 @@ applications:
   - application: chronos
     base-path: chronos
     path: .
-    base-image: darwin/python:3.9.7-pip-bookworm-slim
+    base-image: darwin/python-3.9.7-pip-bookworm-slim:latest
     enabled: false
     env: []
 
   - application: chronos-consumer
     base-path: chronos
     path: .
-    base-image: darwin/python:3.9.7-pip-bookworm-slim
+    base-image: darwin/python-3.9.7-pip-bookworm-slim:latest
     enabled: false
     env: []
 
   - application: darwin-compute
     base-path: darwin-compute
     path: .
-    base-image: darwin/python:3.9.7-pip-bookworm-slim
+    base-image: darwin/python-3.9.7-pip-bookworm-slim:latest
     enabled: true
     env: []
 
   - application: darwin-cluster-manager
     base-path: darwin-cluster-manager
     path: .
-    base-image: darwin/golang:1.18-bookworm-slim
+    base-image: darwin/golang-1.18-bookworm-slim:latest
     enabled: true
     env: []
 
   - application: darwin-workspace
     base-path: workspace
     path: .
-    base-image: darwin/python:3.9.7-pip-bookworm-slim
+    base-image: darwin/python-3.9.7-pip-bookworm-slim:latest
     enabled: false
     env: []
 
   - application: ml-serve-app
     base-path: ml-serve-app
     path: .
-    base-image: darwin/python:3.9.7-pip-bookworm-slim
+    base-image: darwin/python-3.9.7-pip-bookworm-slim:latest
     enabled: true
     env: []
 
   - application: artifact-builder
     base-path: artifact-builder
     path: .
-    base-image: darwin/python:3.9.7-pip-bookworm-slim
+    base-image: darwin/python-3.9.7-pip-bookworm-slim:latest
     enabled: true
     env: []
 
   - application: darwin-workflow
     base-path: darwin-workflow
     path: .
-    base-image: darwin/python:3.9.7-pip-bookworm-slim
+    base-image: darwin/python-3.9.7-pip-bookworm-slim:latest
     enabled: true
     env:
       - name: ENV
@@ -157,23 +157,23 @@ applications:
   - application: darwin-catalog
     base-path: darwin-catalog
     path: .
-    base-image: darwin/java:11-maven-bookworm-slim
+    base-image: darwin/java-11-maven-bookworm-slim:latest
     enabled: true
     env:
       - name: LOAD_TEST_DATA
         value: "true"
 
 ray-images:
-  - image-name: ray:2.37.0
+  - image-name: ray-2.37.0:latest
     dockerfile-path: darwin-compute/runtimes/cpu/New-Lightweight/Ray2.37_Py3.10
     registry: localhost:5000
-  - image-name: ray:2.53.0
+  - image-name: ray-2.53.0:latest
     dockerfile-path: darwin-compute/runtimes/cpu/Ray2.53.0_Py3.10
     registry: localhost:5000
 
 darwin-sdk-runtime:
   enabled: true
-  image-name: ray:2.37.0-darwin-sdk
+  image-name: ray-2.37.0-darwin-sdk:latest
   spark-version: "3.5.0"
   registry: localhost:5000
 
@@ -227,7 +227,7 @@ datastores:
 operators:
   - name: kuberay-operator
     image: quay.io/kuberay/operator
-    tag: "v1.1.0"
+    tag: "v1.5.1"
     enabled: true
   - name: nginx
     image: nginx

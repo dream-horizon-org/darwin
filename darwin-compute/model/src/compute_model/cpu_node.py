@@ -32,15 +32,9 @@ class CPUNode(DataClassJsonMixin):
         if self.node_capacity_type is not None and not isinstance(self.node_capacity_type, str):
             raise TypeError("node_capacity_type must be str")
 
-        if (
-            self.cores < CPU_NODE_LIMITS["cores"]["min"]
-            or self.cores >= CPU_NODE_LIMITS["cores"]["max"]
-        ):
+        if self.cores < CPU_NODE_LIMITS["cores"]["min"] or self.cores >= CPU_NODE_LIMITS["cores"]["max"]:
             raise ValueError(f"cores {self.cores} is not a valid input")
-        if (
-            self.memory < CPU_NODE_LIMITS["memory"]["min"]
-            or self.memory >= CPU_NODE_LIMITS["memory"]["max"]
-        ):
+        if self.memory < CPU_NODE_LIMITS["memory"]["min"] or self.memory >= CPU_NODE_LIMITS["memory"]["max"]:
             raise ValueError(f"memory {self.memory} is not a valid input")
         if self.node_type is not None and self.node_type not in NODE_TYPE:
             raise ValueError(f"node_type {self.node_type} is not a valid input")

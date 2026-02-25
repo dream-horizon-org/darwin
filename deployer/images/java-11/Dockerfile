@@ -39,9 +39,17 @@ RUN MAVEN_URL="https://archive.apache.org/dist/maven/maven-3/$MAVEN_VERSION/bina
 
 ENV PATH="/opt/maven/bin:$PATH"
 
-# Create .m2 directory and copy Maven settings
-RUN mkdir -p /root/.m2
-COPY tmp/settings.xml /root/.m2/settings.xml
+# Create .m2 directory and generate default Maven settings
+RUN mkdir -p /root/.m2 && \
+    cat > /root/.m2/settings.xml << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0
+                              https://maven.apache.org/xsd/settings-1.2.0.xsd">
+  <localRepository>/root/.m2/repository</localRepository>
+</settings>
+EOF
 
 # --- Final runtime image ---
 FROM debian:bookworm-slim

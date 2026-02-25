@@ -1,57 +1,35 @@
-# Default values for ray-cluster.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
 image:
   repository: localhost:5000/ray
   tag: 2.37.0
   pullPolicy: IfNotPresent
 
 nameOverride: "kuberay"
+
 fullnameOverride: ""
 
-imagePullSecrets: [ ]
-# - name: an-existing-secret
+imagePullSecrets: []
 
-serviceAccount:
-  create: false
-  name: "ray"
+gcsFaultTolerance:
+  enabled: false
 
-# common defined values shared between the head and worker
 common:
-  # containerEnv specifies environment variables for the Ray head and worker containers.
-  # Follows standard K8s container env schema.
   containerEnv:
     - name: SPARK_CONF_DIR
       value: /tmp/script
 
-livenessProbe:
-  # Liveness Probe settings for all the pods of the Ray Cluster.
-  failureThreshold: 10
-  initialDelaySeconds: 60
-  periodSeconds: 15
-  successThreshold: 1
-  timeoutSeconds: 5
-
-readinessProbe:
-  # Readiness Probe settings for all the pods of the Ray Cluster.
-  failureThreshold: 2
-  initialDelaySeconds: 60
-  periodSeconds: 15
-  successThreshold: 1
-  timeoutSeconds: 5
-
 head:
   # rayVersion determines the autoscaler's image version.
   # It should match the Ray version in the image of the containers.
-  # rayVersion: 2.9.0
+  # rayVersion: 2.46.0
+
   # If enableInTreeAutoscaling is true, the autoscaler sidecar will be added to the Ray head pod.
   # Ray autoscaler integration is supported only for Ray versions >= 1.11.0
   # Ray autoscaler integration is Beta with KubeRay >= 0.3.0 and Ray >= 2.0.0.
   enableInTreeAutoscaling: true
-    # autoscalerOptions is an OPTIONAL field specifying configuration overrides for the Ray autoscaler.
-    # The example configuration shown below represents the DEFAULT values.
-    # autoscalerOptions:
+
+  # autoscalerOptions is an OPTIONAL field specifying configuration overrides for the Ray autoscaler.
+  # The example configuration shown below represents the DEFAULT values.
+  # autoscalerOptions:
     # upscalingMode: Default
     # idleTimeoutSeconds is the number of seconds to wait before scaling down a worker pod which is not using Ray resources.
     # idleTimeoutSeconds: 60
@@ -70,20 +48,17 @@ head:
     #   requests:
     #     cpu: "500m"
     #     memory: "512Mi"
-  labels: { }
+
+  # -- Init containers to add to the head pod
+  initContainers: []
+  # -- Labels for the head pod
+  labels: {}
+
   # Note: From KubeRay v0.6.0, users need to create the ServiceAccount by themselves if they specify the `serviceAccountName`
   # in the headGroupSpec. See https://github.com/ray-project/kuberay/pull/1128 for more details.
-  serviceAccountName: "ray"
-  rayStartParams:
-    port: "6379"
-    dashboard-host: "0.0.0.0"
-    num-cpus: "0"  # can be auto-completed from the limits
-    node-ip-address: $MY_POD_IP  # auto-completed as the head pod IP
-    block: "true"
-    metrics-export-port: "8080"
-    redis-password: ""
-  # containerEnv specifies environment variables for the Ray container,
-  # Follows standard K8s container env schema.
+  serviceAccountName: "darwin-ds-role"
+  restartPolicy: ""
+
   containerEnv:
     - name: TYPE
       value: head
@@ -95,15 +70,12 @@ head:
           fieldPath: status.podIP
     - name: PYTHONPATH
       value: "/home/ray/fsx/workspace/shared_code:$PYTHONPATH"
-  # - name: EXAMPLE_ENV
-  #   value: "1"
+
   envFrom:
     - secretRef:
         name: secret-manager-token
         optional: true
-  # - secretRef:
-  #     name: my-env-secret
-  # ports optionally allows specifying ports for the Ray container.
+
   ports:
     - containerPort: 6379
       name: gcs
@@ -131,15 +103,7 @@ head:
       name: custom-2
     - containerPort: 8003
       name: custom-3
-  # resource requests and limits for the Ray head container.
-  # Modify as needed for your application.
-  # Note that the resources in this example are much too small for production;
-  # we don't recommend allocating less than 8G memory for a Ray pod in production.
-  # Ray pods should be sized to take up entire K8s nodes when possible.
-  # Always set CPU and memory limits for Ray pods.
-  # It is usually best to set requests equal to limits.
-  # See https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/config.html#resources
-  # for further guidance.
+
   resources:
     limits:
       cpu: "2"
@@ -148,22 +112,35 @@ head:
     requests:
       cpu: "2"
       memory: "4G"
-  annotations: { }
-  nodeSelector: { }
-  tolerations: [ ]
-  affinity: { }
-  # Ray container security context.
+
+  # -- Extra annotations for head pod
+  annotations: {}
+
+  # -- Node labels for head pod assignment
+  nodeSelector: {}
+
+  # -- Node tolerations for head pod scheduling to nodes with taints
+  tolerations: []
+
+  # -- Head pod affinity
+  affinity: {}
+
+  # -- Head pod security context.
+  podSecurityContext: {}
+
+  # -- Ray container security context.
   securityContext:
     runAsGroup: 100
     runAsUser: 1000
     capabilities:
       add:
         - SYS_PTRACE
+
   # Optional: The following volumes/volumeMounts configurations are optional but recommended because
   # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
   volumes:
     - name: log-volume
-      emptyDir: { }
+      emptyDir: {}
     - name: CLUSTER_ID-scripts-vol
       configMap:
         name: CLUSTER_ID-script
@@ -181,33 +158,69 @@ head:
       name: CLUSTER_ID-remote-command-vol
   # sidecarContainers specifies additional containers to attach to the Ray pod.
   # Follows standard K8s container spec.
-  sidecarContainers: [ ]
+  sidecarContainers: []
+
   # See docs/guidance/pod-command.md for more details about how to specify
   # container command for head Pod.
-  command: [ ]
-  args: [ "/tmp/script/head.sh" ]
+  command: []
+  args:
+    - "/tmp/script/head.sh"
+
   # Optional, for the user to provide any additional fields to the service.
   # See https://pkg.go.dev/k8s.io/Kubernetes/pkg/api/v1#Service
-  headService: { }
+  headService: {}
     # metadata:
     #   annotations:
     #     prometheus.io/scrape: "true"
+
+  # Custom pod DNS configuration
+  # See https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
+  # dnsConfig:
+  #   nameservers:
+  #     - 8.8.8.8
+  #   searches:
+  #     - example.local
+  #   options:
+  #     - name: ndots
+  #       value: "2"
+  #     - name: edns0
+  topologySpreadConstraints: []
+
+  # https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/configuring-autoscaling.html#set-the-raystartparams-and-the-resource-limits-for-the-ray-container
+  rayStartParams:
+    port: "6379"
+    dashboard-host: "0.0.0.0"
+    num-cpus: "0"  # can be auto-completed from the limits
+    node-ip-address: $MY_POD_IP  # auto-completed as the head pod IP
+    block: "true"
+    metrics-export-port: "8080"
+    redis-password: ""
 
 worker:
   # If you want to disable the default workergroup
   # uncomment the line below
   # disabled: true
+
+  # -- The name of the workergroup
   groupName: wg
+
+  # -- The number of replicas for the worker pod
   replicas: 1
+
+  # -- The minimum number of replicas for the worker pod
   minReplicas: 1
+
+  # -- The maximum number of replicas for the worker pod
   maxReplicas: 3
-  labels: { }
-  serviceAccountName: "ray"
-  rayStartParams:
-    node-ip-address: $MY_POD_IP
-    redis-password: LetMeInRay
-    block: "true"
-    metrics-export-port: "8080"
+
+  # -- Labels for the worker pod
+  labels: {}
+  serviceAccountName: "darwin-ds-role"
+  restartPolicy: ""
+
+  # -- Init containers to add to the worker pod
+  initContainers: []
+
   # containerEnv specifies environment variables for the Ray container,
   # Follows standard K8s container env schema.
   containerEnv:
@@ -228,16 +241,18 @@ worker:
         resourceFieldRef:
           containerName: ray-worker
           resource: requests.cpu
+
+  # -- envFrom to pass to worker pod
   envFrom:
     - secretRef:
         name: secret-manager-token
         optional: true
-  # - secretRef:
-  #     name: my-env-secret
+
   # ports optionally allows specifying ports for the Ray container.
   ports:
     - containerPort: 8080
       name: metrics
+
   # resource requests and limits for the Ray head container.
   # Modify as needed for your application.
   # Note that the resources in this example are much too small for production;
@@ -249,25 +264,38 @@ worker:
   # for further guidance.
   resources:
     limits:
-      cpu: "2"
-      memory: "4G"
+      cpu: "1"
+      memory: "1G"
     requests:
-      cpu: "2"
-      memory: "4G"
-  annotations: { }
-  nodeSelector: { }
-  tolerations: [ ]
-  affinity: { }
-  # Ray container security context.
+      cpu: "1"
+      memory: "1G"
+
+  # -- Extra annotations for worker pod
+  annotations: {}
+
+  # -- Node labels for worker pod assignment
+  nodeSelector: {}
+
+  # -- Node tolerations for worker pod scheduling to nodes with taints
+  tolerations: []
+
+  # -- Worker pod affinity
+  affinity: {}
+
+  # -- Worker pod security context.
+  podSecurityContext: {}
+
+  # -- Ray container security context.
   securityContext:
-    capabilities: # For enabling flame graph profiling
+    capabilities:
       add:
         - SYS_PTRACE
+
   # Optional: The following volumes/volumeMounts configurations are optional but recommended because
   # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
   volumes:
     - name: log-volume
-      emptyDir: { }
+      emptyDir: {}
     - name: CLUSTER_ID-scripts-vol
       configMap:
         name: CLUSTER_ID-script
@@ -285,11 +313,33 @@ worker:
       name: CLUSTER_ID-remote-command-vol
   # sidecarContainers specifies additional containers to attach to the Ray pod.
   # Follows standard K8s container spec.
-  sidecarContainers: [ ]
+  sidecarContainers: []
+
   # See docs/guidance/pod-command.md for more details about how to specify
   # container command for worker Pod.
-  command: [ ]
-  args: [ "/tmp/script/worker.sh" ]
+  command: []
+  args:
+    - "/tmp/script/worker.sh"
+  topologySpreadConstraints: []
+
+  # https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/configuring-autoscaling.html#set-the-raystartparams-and-the-resource-limits-for-the-ray-container
+  rayStartParams:
+    node-ip-address: $MY_POD_IP
+    redis-password: LetMeInRay
+    block: "true"
+    metrics-export-port: "8080"
+
+  # Custom pod DNS configuration
+  # See https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
+  # dnsConfig:
+  #   nameservers:
+  #     - 8.8.8.8
+  #   searches:
+  #     - example.local
+  #   options:
+  #     - name: ndots
+  #       value: "2"
+  #     - name: edns0
 
 # The map's key is used as the groupName.
 # For example, key:small-group in the map below
@@ -298,16 +348,21 @@ additionalWorkerGroups:
   wg1:
     # Disabled by default
     disabled: true
+
+    # -- The number of replicas for the additional worker pod
     replicas: 0
+
+    # -- The minimum number of replicas for the additional worker pod
     minReplicas: 0
+
+    # -- The maximum number of replicas for the additional worker pod
     maxReplicas: 3
-    labels: { }
-    serviceAccountName: "ray"
-    rayStartParams:
-      node-ip-address: $MY_POD_IP
-      redis-password: LetMeInRay
-      block: 'true'
-      metrics-export-port: "8080"
+
+    # -- Labels for the additional worker pod
+    labels: {}
+    serviceAccountName: "darwin-ds-role"
+    restartPolicy: ""
+
     # containerEnv specifies environment variables for the Ray container,
     # Follows standard K8s container env schema.
     containerEnv:
@@ -328,16 +383,18 @@ additionalWorkerGroups:
           resourceFieldRef:
             containerName: ray-worker
             resource: requests.cpu
+
+    # -- envFrom to pass to additional worker pod
     envFrom:
       - secretRef:
           name: secret-manager-token
           optional: true
-    # - secretRef:
-    #     name: my-env-secret
+
     # ports optionally allows specifying ports for the Ray container.
     ports:
       - containerPort: 8080
         name: metrics
+
     # resource requests and limits for the Ray head container.
     # Modify as needed for your application.
     # Note that the resources in this example are much too small for production;
@@ -354,20 +411,33 @@ additionalWorkerGroups:
       requests:
         cpu: 1
         memory: "1G"
-    annotations: { }
-    nodeSelector: { }
-    tolerations: [ ]
-    affinity: { }
-    # Ray container security context.
+
+    # -- Extra annotations for additional worker pod
+    annotations: {}
+
+    # -- Node labels for additional worker pod assignment
+    nodeSelector: {}
+
+    # -- Node tolerations for additional worker pod scheduling to nodes with taints
+    tolerations: []
+
+    # -- Additional worker pod affinity
+    affinity: {}
+
+    # -- Additional worker pod security context.
+    podSecurityContext: {}
+
+    # -- Ray container security context.
     securityContext:
       capabilities:
         add:
           - SYS_PTRACE
+
     # Optional: The following volumes/volumeMounts configurations are optional but recommended because
     # Ray writes logs to /tmp/ray/session_latests/logs instead of stdout/stderr.
     volumes:
       - name: log-volume
-        emptyDir: { }
+        emptyDir: {}
       - name: CLUSTER_ID-scripts-vol
         configMap:
           name: CLUSTER_ID-script
@@ -383,11 +453,37 @@ additionalWorkerGroups:
         name: CLUSTER_ID-scripts-vol
       - mountPath: /tmp/remote-command
         name: CLUSTER_ID-remote-command-vol
-    sidecarContainers: [ ]
+
+    sidecarContainers: []
+
     # See docs/guidance/pod-command.md for more details about how to specify
     # container command for worker Pod.
-    command: [ ]
-    args: [ "/tmp/script/worker.sh" ]
+    command: []
+    args:
+      - "/tmp/script/worker.sh"
+
+    # Topology Spread Constraints for worker pods
+    # See: https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
+    topologySpreadConstraints: []
+
+    # Custom pod DNS configuration
+    # See https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
+    # dnsConfig:
+    #   nameservers:
+    #     - 8.8.8.8
+    #   searches:
+    #     - example.local
+    #   options:
+    #     - name: ndots
+    #       value: "2"
+    #     - name: edns0
+
+    # https://docs.ray.io/en/latest/cluster/kubernetes/user-guides/configuring-autoscaling.html#set-the-raystartparams-and-the-resource-limits-for-the-ray-container
+    rayStartParams:
+      node-ip-address: $MY_POD_IP
+      redis-password: LetMeInRay
+      block: "true"
+      metrics-export-port: "8080"
 
 # Configuration for Head's Kubernetes Service
 service:
@@ -396,7 +492,8 @@ service:
 
 grafana:
   image: "localhost:5000/grafana:latest"
-  rootPath: "/kind-0/test-metrics/"
+  rootPath: "/kind-0/CLUSTER_ID-metrics/"
+  domain: localhost
   nodeSelector:
     app: default
 
@@ -407,31 +504,32 @@ prometheus:
   remoteWrite:
     - url: "http://darwin-thanos:10908/api/v1/receive"
 
-commands: [ ]
-sparkConfig: { }
+sparkConfig: {}
 
-is_job_cluster: false
-env: local
+remoteCommand:
+  statusReportApi: "http://darwin-compute:8000/cluster/command/pod/status"
+  statusReportInterval: 10
+  logsS3Bucket: "darwin"
+  logsS3Key: "mlp/logs/remote-command"
+  commands:
+    head: []
+    worker: []
+
+commands: []
+
+# User name and email of the user who is provisioning the cluster
 user: darwin
-email: darwin@test.com
-cluster_name: test-cluster
-kube_cluster_key: kind-0
-domain: localhost
+email: darwin@darwin.com
 
-TEAM_SUFFIX: ""
-VPC_SUFFIX: ""
+# Cluster Details
+cluster_name: test-cluster
+cluster_type: all_purpose_cluster # all_purpose_cluster, job_cluster
+
+# Key of the kube cluster in the browser URL
+kube_cluster_key: kind-0
 
 labels:
   project: darwin
   service: darwin
   squad: darwin
   environment: local
-
-remoteCommand:
-  statusReportApi: "localhost/compute/cluster/command/pod/status"
-  statusReportInterval: 10
-  logsS3Bucket: "darwin"
-  logsS3Key: "mlp/logs/remote-command"
-  commands:
-    head: [ ]
-    worker: [ ]

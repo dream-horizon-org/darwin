@@ -64,6 +64,13 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       
+      - name: Transform base image name for tagging
+        id: image_name
+        run: |
+          # Replace colon with dash (e.g., "golang:1.18-bookworm-slim" -> "golang-1.18-bookworm-slim")
+          IMAGE_NAME=$(echo "${{ matrix.base.image }}" | tr ':' '-')
+          echo "name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+      
       - name: Build and push ${{ matrix.base.name }}
         id: build
         continue-on-error: true
@@ -76,8 +83,8 @@ jobs:
           network: host
           allow: network.host
           tags: |
-            ${{ env.ORG_NAME }}/${{ matrix.base.image }}-${{ steps.version.outputs.version }}
-            ${{ github.event_name == 'release' && format('{0}/{1}', env.ORG_NAME, matrix.base.image) || '' }}
+            ${{ env.ORG_NAME }}/${{ steps.image_name.outputs.name }}:${{ steps.version.outputs.version }}
+            ${{ github.event_name == 'release' && format('{0}/{1}:latest', env.ORG_NAME, steps.image_name.outputs.name) || '' }}
           labels: |
             org.opencontainers.image.title=${{ matrix.base.name }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
@@ -266,13 +273,13 @@ jobs:
           
           - name: ray-darwin-sdk
             dockerfile: darwin-compute/runtimes/cpu/New-Lightweight/Ray2.37_Py3.10_Spark3.5.0_DarwinSDK/Dockerfile
-            context: darwin-compute/runtimes/cpu/New-Lightweight/Ray2.37_Py3.10_Spark3.5.0_DarwinSDK
+            context: .
             image: ray:2.37.0-darwin-sdk
           
           - name: serve-runtime
             dockerfile: ml-serve-app/runtime/darwin-serve-runtime/Dockerfile
             context: ml-serve-app/runtime/darwin-serve-runtime
-            image: serve-md-runtime:latest
+            image: serve-md-runtime
     
     steps:
       - uses: actions/checkout@v4
@@ -287,6 +294,13 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Transform runtime image name for tagging
+        id: image_name
+        run: |
+          # Replace colon with dash (e.g., "ray:2.37.0" -> "ray-2.37.0")
+          IMAGE_NAME=$(echo "${{ matrix.runtime.image }}" | tr ':' '-')
+          echo "name=$IMAGE_NAME" >> $GITHUB_OUTPUT
       
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -315,8 +329,8 @@ jobs:
           network: host
           allow: network.host
           tags: |
-            ${{ env.ORG_NAME }}/${{ matrix.runtime.image }}-${{ steps.version.outputs.version }}
-            ${{ github.event_name == 'release' && format('{0}/{1}', env.ORG_NAME, matrix.runtime.image) || '' }}
+            ${{ env.ORG_NAME }}/${{ steps.image_name.outputs.name }}:${{ steps.version.outputs.version }}
+            ${{ github.event_name == 'release' && format('{0}/{1}:latest', env.ORG_NAME, steps.image_name.outputs.name) || '' }}
           labels: |
             org.opencontainers.image.title=${{ matrix.runtime.name }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
@@ -377,10 +391,12 @@ jobs:
           cat runtime-results.txt 2>/dev/null >> all-results.txt || true
           
           # Count successes and failures with safer logic
-          SUCCESS_COUNT=$(grep -c "✅" all-results.txt 2>/dev/null || echo "0")
-          FAILURE_COUNT=$(grep -c "❌" all-results.txt 2>/dev/null || echo "0")
+          SUCCESS_COUNT=$(grep -c "✅" all-results.txt 2>/dev/null) || SUCCESS_COUNT=0
+          FAILURE_COUNT=$(grep -c "❌" all-results.txt 2>/dev/null) || FAILURE_COUNT=0
           
-          # Ensure we have valid integers
+          # Ensure we have valid integers (strip any whitespace/newlines)
+          SUCCESS_COUNT=$(echo "$SUCCESS_COUNT" | tr -d '[:space:]')
+          FAILURE_COUNT=$(echo "$FAILURE_COUNT" | tr -d '[:space:]')
           SUCCESS_COUNT=${SUCCESS_COUNT:-0}
           FAILURE_COUNT=${FAILURE_COUNT:-0}
           TOTAL_COUNT=$((SUCCESS_COUNT + FAILURE_COUNT))

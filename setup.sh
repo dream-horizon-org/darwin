@@ -322,7 +322,7 @@ if [ "$IMAGE_MODE" = "release" ] || [ "$IMAGE_MODE" = "snapshot" ]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
   
-  BASE_IMAGES=("java:11-maven-bookworm-slim" "python:3.9.7-pip-bookworm-slim" "golang:1.18-bookworm-slim")
+  BASE_IMAGES=("java-11-maven-bookworm-slim:latest" "python-3.9.7-pip-bookworm-slim:latest" "golang-1.18-bookworm-slim:latest")
   BASE_IMAGE_FAILED=false
   for base_img in "${BASE_IMAGES[@]}"; do
     echo ">>> Pulling $REMOTE_REGISTRY/$base_img..."

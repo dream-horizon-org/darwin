@@ -9,7 +9,7 @@ stringData:
     [date_formats]
     default_timezone = Asia/Kolkata
     [server]
-    domain = {{.Values.domain}}
+    domain = {{.Values.grafana.domain}}
     root_url = %(protocol)s://%(domain)s{{.Values.grafana.rootPath}}
     serve_from_sub_path = false
     [auth.anonymous]

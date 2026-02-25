@@ -107,7 +107,7 @@ RUN pip install \
     raydp==1.6.2
 
 # Copy and install darwin-sdk from local source
-COPY --chown=ray:users darwin-sdk /tmp/darwin-sdk
+COPY --chown=ray:users darwin-sdk/darwin /tmp/darwin-sdk
 RUN cd /tmp/darwin-sdk && pip install . && cd / && rm -rf /tmp/darwin-sdk
 
 RUN pip install jupyterlab==4.3.0 \

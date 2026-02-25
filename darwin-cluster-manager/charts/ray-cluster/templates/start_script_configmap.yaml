@@ -33,7 +33,7 @@ data:
       echo \"--- jupyterlab.sh completed with status \$JUPYTER_STATUS ---\"
     " >> $START_SCRIPT_LOG 2>&1 &
 
-    # {{- if not .Values.is_job_cluster }}
+    # {{- if ne .Values.cluster_type "job_cluster" }}
     # /tmp/script/code-server.sh >> $START_SCRIPT_LOG 2>&1 &
     # {{- end }}
     nohup /tmp/remote-command/execute-remote-commands.sh > ./logs/remote-command.log &

@@ -13,7 +13,7 @@ class PredictAPI:
         if node_capacity_type == "ondemand":
             return instance[3]
         else:
-            # TODO: Lets remove this 
+            # TODO: Lets remove this
             return max(instance[4], 0.3 * instance[3])
             # temp[4] is the minimum spot price. Spot price ranges b/w 10-50% of on-demand - logic assumes an avg. of 30% and takes the maximum of the two
 
