@@ -1,0 +1,154 @@
+name: "CI Cleanup"
+description: "Cleans up CI resources with configurable options"
+
+inputs:
+  service_name:
+    description: "Specific service to cleanup (e.g., ml-serve-app). If empty, cleanup all Darwin images."
+    required: false
+    default: ""
+  delete_cluster:
+    description: "Whether to delete the Kind cluster"
+    required: false
+    default: "true"
+  cluster_name:
+    description: "Name of the Kind cluster to delete"
+    required: false
+    default: "kind"
+  prune_darwin_images:
+    description: "Prune images labeled with maintainer=darwin (or specific service if service_name provided)"
+    required: false
+    default: "true"
+  prune_volumes:
+    description: "Prune Docker volumes"
+    required: false
+    default: "true"
+  prune_containers:
+    description: "Prune Docker containers"
+    required: false
+    default: "true"
+  cleanup_workspace:
+    description: "Clean up workspace directories with permission issues"
+    required: false
+    default: "true"
+  workspace_dir:
+    description: "Workspace directory path"
+    required: false
+    default: ""
+  delete_deployment:
+    description: "Delete Kubernetes deployment for the service"
+    required: false
+    default: "false"
+  namespace:
+    description: "Kubernetes namespace for deployment deletion"
+    required: false
+    default: "darwin"
+  uninstall_helm_release:
+    description: "Uninstall the entire Helm release before cleanup"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Kill port-forwards
+      shell: bash
+      run: |
+        echo "🧹 Killing any port-forwards..."
+        pkill -f "kubectl port-forward" || true
+
+    - name: Uninstall Helm release
+      if: inputs.uninstall_helm_release == 'true'
+      shell: bash
+      run: |
+        echo "🧹 Uninstalling Helm release 'darwin'..."
+        helm uninstall darwin -n ${{ inputs.namespace }} --ignore-not-found --wait || true
+        kubectl delete job -n ${{ inputs.namespace }} -l app.kubernetes.io/instance=darwin --ignore-not-found || true
+        echo "✅ Helm release uninstalled"
+
+    - name: Delete service deployment
+      if: inputs.delete_deployment == 'true' && inputs.service_name != ''
+      shell: bash
+      run: |
+        echo "🧹 Deleting deployment for service: ${{ inputs.service_name }}..."
+        kubectl delete deployment darwin-${{ inputs.service_name }} -n ${{ inputs.namespace }} --ignore-not-found=true || true
+        kubectl delete service darwin-${{ inputs.service_name }} -n ${{ inputs.namespace }} --ignore-not-found=true || true
+        echo "✅ Service deployment deleted"
+
+    - name: Cleanup service-specific images
+      if: inputs.prune_darwin_images == 'true' && inputs.service_name != ''
+      shell: bash
+      run: |
+        SERVICE_NAME="${{ inputs.service_name }}"
+        echo "🧹 Cleaning up images for service: $SERVICE_NAME..."
+        
+        # Use label-based cleanup to remove all images (application + runtime) for this service
+        # This catches both application images (e.g., ml-serve-app:latest) and runtime images (e.g., serve-md-runtime:latest)
+        echo "  Removing images labeled with darwin.service=$SERVICE_NAME..."
+        docker image prune -af --filter "label=darwin.service=$SERVICE_NAME" || true
+        
+        # Also remove by name pattern for backward compatibility and images without labels
+        echo "  Removing images by name pattern: $SERVICE_NAME..."
+        docker rmi -f "$SERVICE_NAME:latest" 2>/dev/null || true
+        docker rmi -f "localhost:5000/$SERVICE_NAME:latest" 2>/dev/null || true
+        
+        # Also try with registry port variations
+        docker images --format '{{.Repository}}:{{.Tag}}' | grep "$SERVICE_NAME" | xargs -r docker rmi -f 2>/dev/null || true
+        
+        echo "✅ Service images cleaned up (other services preserved)"
+
+    - name: Prune all Darwin-labeled images
+      if: inputs.prune_darwin_images == 'true' && inputs.service_name == ''
+      shell: bash
+      run: |
+        echo "🧹 Pruning ALL Darwin-labeled images..."
+        docker image prune -af --filter "label=maintainer=darwin" || true
+        echo "✅ Darwin images pruned (base images preserved)"
+
+    - name: Delete Kind cluster
+      if: inputs.delete_cluster == 'true'
+      shell: bash
+      run: |
+        echo "🧹 Deleting Kind cluster '${{ inputs.cluster_name }}'..."
+        if kind get clusters 2>/dev/null | grep -q "${{ inputs.cluster_name }}"; then
+          kind delete cluster --name "${{ inputs.cluster_name }}" || true
+          echo "✅ Cluster deleted"
+        else
+          echo "📋 Cluster not found, skipping"
+        fi
+
+    - name: Prune containers
+      if: inputs.prune_containers == 'true'
+      shell: bash
+      run: |
+        echo "🧹 Pruning containers..."
+        docker container prune -f || true
+
+    - name: Prune volumes
+      if: inputs.prune_volumes == 'true'
+      shell: bash
+      run: |
+        echo "🧹 Pruning volumes..."
+        docker volume prune -f || true
+
+    - name: Cleanup workspace directories
+      if: inputs.cleanup_workspace == 'true' && inputs.workspace_dir != ''
+      shell: bash
+      run: |
+        WORKSPACE_DIR="${{ inputs.workspace_dir }}"
+        echo "🧹 Cleaning up workspace directory: $WORKSPACE_DIR"
+        
+        if [ -d "$WORKSPACE_DIR/kind" ]; then
+          echo "Cleaning up kind directory..."
+          sudo chmod -R u+w "$WORKSPACE_DIR/kind" 2>/dev/null || true
+          sudo rm -rf "$WORKSPACE_DIR/kind/shared-storage" 2>/dev/null || true
+          find "$WORKSPACE_DIR/kind" -type d -name "shared-storage" -exec sudo rm -rf {} + 2>/dev/null || true
+        fi
+        
+        echo "✅ Workspace cleanup completed"
+
+    - name: Show disk usage
+      shell: bash
+      run: |
+        echo ""
+        echo "📊 Disk usage after cleanup:"
+        df -h

@@ -1,4 +1,4 @@
-name: Darwin MLflow - CI
+name: Darwin Chronos - CI
 
 on:
   workflow_call: # Called by infrastructure-ci.yml after infra passes
@@ -10,13 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mlflow
-
-    strategy:
-      matrix:
-        module:
-          - app_layer
-          - sdk
+        working-directory: chronos
 
     steps:
       - name: Checkout repository
@@ -34,16 +28,16 @@ jobs:
 
       - name: Run flake8
         run: |
-          if [ -d "${{ matrix.module }}/src" ]; then
-            echo "Running flake8 on ${{ matrix.module }}/src..."
+          if [ -d "src" ]; then
+            echo "Running flake8 on src..."
             # flake8 --max-line-length=160 \
             #   --extend-ignore=E203,W503,W293,W291,W292,W391,F401,E501,E231,E302,E303,E305,E251,E252,E127,E128,E131,E122,E114,E117,E265,E266,E402,E722,E741,E731,F841,F811,F541,F403 \
             #   --select=F821,E9 \
-            #   ${{ matrix.module }}/src || true
+            #   src || true
             echo "⚠️ Linting temporarily disabled - uncomment flake8 command to enable"
-            echo "✅ flake8 placeholder completed for ${{ matrix.module }}"
+            echo "✅ flake8 placeholder completed"
           else
-            echo "⚠️  No src directory found in ${{ matrix.module }}, skipping"
+            echo "⚠️  No src directory found, skipping"
           fi
 
   unit-tests:
@@ -51,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mlflow
+        working-directory: chronos
 
     steps:
       - name: Checkout repository
@@ -109,7 +103,7 @@ jobs:
         run: |
           echo "📋 Running init.sh..."
           rm -f .setup/enabled-services.yaml
-          printf "n\nn\nn\ny\nn\nn\nn\nn\ny\nn\n" | ./init.sh --dev-mode
+          printf "n\nn\nn\nn\nn\nn\ny\nn\ny\nn\n" | ./init.sh --dev-mode
           cat .setup/enabled-services.yaml
 
       - name: Build and setup
@@ -198,61 +192,66 @@ jobs:
 
           echo "✅ Deployment completed successfully"
 
-      - name: Wait for darwin-mlflow pod
+      - name: Wait for chronos pods
         run: |
-          echo "⏳ Waiting for darwin-mlflow pod..."
+          echo "⏳ Waiting for chronos pods..."
+          
           max_attempts=60
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            POD_STATUS=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-lib -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
-            READY=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-lib -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
-            
-            if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
-              echo "✅ darwin-mlflow pod is ready"
-              kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-lib
-              break
+            POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep "darwin-chronos" | grep -v "consumer" | head -1 | awk '{print $1}')
+            if [ -n "$POD" ]; then
+              POD_STATUS=$(kubectl get pod "$POD" -n darwin -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+              READY=$(kubectl get pod "$POD" -n darwin -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+              
+              if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
+                echo "✅ chronos pod is ready: $POD"
+                break
+              fi
             fi
             
-            echo "Attempt $((attempt+1))/$max_attempts: Waiting... (Status: $POD_STATUS, Ready: $READY)"
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for chronos..."
             sleep 5
             attempt=$((attempt+1))
           done
 
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow pod not ready after $max_attempts attempts"
-            kubectl get pods -n darwin | grep mlflow || true
+            echo "❌ chronos pod not ready after $max_attempts attempts"
+            kubectl get pods -n darwin | grep chronos || true
             exit 1
           fi
 
-      - name: Wait for darwin-mlflow-app pod
-        run: |
-          echo "⏳ Waiting for darwin-mlflow-app pod..."
+          echo "Waiting for chronos-consumer..."
           max_attempts=60
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            POD_STATUS=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-app -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
-            READY=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-app -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
-            
-            if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
-              echo "✅ darwin-mlflow-app pod is ready"
-              kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-app
-              break
+            POD=$(kubectl get pods -n darwin --no-headers 2>/dev/null | grep "darwin-chronos-consumer" | head -1 | awk '{print $1}')
+            if [ -n "$POD" ]; then
+              POD_STATUS=$(kubectl get pod "$POD" -n darwin -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
+              READY=$(kubectl get pod "$POD" -n darwin -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+              
+              if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
+                echo "✅ chronos-consumer pod is ready: $POD"
+                break
+              fi
             fi
             
-            echo "Attempt $((attempt+1))/$max_attempts: Waiting... (Status: $POD_STATUS, Ready: $READY)"
+            echo "Attempt $((attempt+1))/$max_attempts: Waiting for chronos-consumer..."
             sleep 5
             attempt=$((attempt+1))
           done
 
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow-app pod not ready after $max_attempts attempts"
-            kubectl get pods -n darwin | grep mlflow || true
+            echo "❌ chronos-consumer pod not ready after $max_attempts attempts"
+            kubectl get pods -n darwin | grep chronos || true
             exit 1
           fi
+
+          kubectl get pods -n darwin | grep chronos
 
       - name: Verify healthcheck
         run: |
-          echo "🏥 Testing Darwin MLflow healthcheck..."
+          echo "🏥 Testing Darwin Chronos healthcheck..."
 
           max_attempts=30
           attempt=0
@@ -265,14 +264,14 @@ jobs:
             attempt=$((attempt+1))
           done
 
-          HEALTH_URL="http://localhost/mlflow-app/healthcheck"
+          HEALTH_URL="http://localhost/chronos/healthcheck"
           echo "Testing endpoint: $HEALTH_URL"
 
           max_attempts=30
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
             if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
-              echo "✅ darwin-mlflow health check endpoint is accessible"
+              echo "✅ Chronos health check endpoint is accessible"
               break
             fi
             echo "Attempt $((attempt+1))/$max_attempts: Waiting..."
@@ -281,28 +280,37 @@ jobs:
           done
 
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow health check not accessible"
+            echo "❌ Chronos health check not accessible"
             exit 1
           fi
 
           response=$(curl -s "$HEALTH_URL")
           echo "Response: $response"
 
-          if echo "$response" | grep -q "OK"; then
-            echo "✅ darwin-mlflow health check passed!"
-          else
-            echo "❌ darwin-mlflow: Unexpected response"
-            exit 1
-          fi
+          python3 << EOF
+          import json
+          import sys
+          try:
+              data = json.loads('''$response''')
+              status = data.get('status', '')
+              valid_statuses = ['OK', 'ok', 'SUCCESS']
+              if status not in valid_statuses:
+                  print(f"❌ chronos: status is '{status}', expected one of {valid_statuses}")
+                  sys.exit(1)
+              print("✅ Chronos health check passed!")
+          except json.JSONDecodeError as e:
+              print(f"❌ chronos: Invalid JSON: {e}")
+              sys.exit(1)
+          EOF
 
-          HEALTH_URL="http://localhost/mlflow-app/healthcheck"
+          HEALTH_URL="http://localhost/chronos-consumer/healthcheck"
           echo "Testing endpoint: $HEALTH_URL"
 
           max_attempts=30
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
             if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
-              echo "✅ darwin-mlflow-app health check endpoint is accessible"
+              echo "✅ Chronos-consumer health check endpoint is accessible"
               break
             fi
             echo "Attempt $((attempt+1))/$max_attempts: Waiting..."
@@ -311,22 +319,31 @@ jobs:
           done
 
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow-app health check not accessible"
+            echo "❌ Chronos-consumer health check not accessible"
             exit 1
           fi
 
           response=$(curl -s "$HEALTH_URL")
           echo "Response: $response"
 
-          if echo "$response" | python3 -c "import sys, json; data = json.load(sys.stdin); sys.exit(0 if 'SUCCESS' in data.get('status', '') else 1)"; then
-            echo "✅ darwin-mlflow-app health check passed!"
-          else
-            echo "❌ Invalid response - expected status containing SUCCESS"
-            exit 1
-          fi
+          python3 << EOF
+          import json
+          import sys
+          try:
+              data = json.loads('''$response''')
+              status = data.get('status', '')
+              valid_statuses = ['OK', 'ok', 'SUCCESS']
+              if status not in valid_statuses:
+                  print(f"❌ chronos-consumer: status is '{status}', expected one of {valid_statuses}")
+                  sys.exit(1)
+              print("✅ Chronos-consumer health check passed!")
+          except json.JSONDecodeError as e:
+              print(f"❌ chronos-consumer: Invalid JSON: {e}")
+              sys.exit(1)
+          EOF
 
           echo ""
-          echo "✅ All MLflow health checks passed!"
+          echo "✅ All Chronos health checks passed!"
 
       # --- INTEGRATION TESTS ---
       - name: Run integration tests
@@ -336,11 +353,11 @@ jobs:
           echo "✅ Integration tests placeholder completed"
 
       # --- CLEANUP (always runs) ---
-      - name: Cleanup mlflow
+      - name: Cleanup chronos
         if: always()
         uses: ./.github/actions/cleanup
         with:
-          service_name: "darwin-mlflow"
+          service_name: "chronos"
           delete_cluster: "false"
           delete_deployment: "true"
           prune_darwin_images: "true"
@@ -348,11 +365,11 @@ jobs:
           prune_containers: "false"
           workspace_dir: ${{ github.workspace }}
 
-      - name: Cleanup mlflow-app
+      - name: Cleanup chronos-consumer
         if: always()
         uses: ./.github/actions/cleanup
         with:
-          service_name: "darwin-mlflow-app"
+          service_name: "chronos-consumer"
           delete_cluster: "false"
           delete_deployment: "true"
           prune_darwin_images: "true"

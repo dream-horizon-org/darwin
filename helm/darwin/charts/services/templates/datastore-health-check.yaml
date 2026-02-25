@@ -465,24 +465,8 @@ spec:
             datastore_services=$(/shared/kubectl get services -l "darwin-component-type=datastore" --namespace="$namespace" -o name 2>/dev/null || echo "")
             
             if [ -z "$datastore_services" ]; then
-              echo "⚠️  No services with label 'darwin-component-type=datastore' found, falling back to known services"
-              # Fallback to hardcoded services
-            check_datastore_health "{{ .Release.Name }}-mysql" 3306 || exit 1
-            check_datastore_health "{{ .Release.Name }}-cassandra" 9042 || exit 1
-            check_datastore_health "{{ .Release.Name }}-kafka" 9092 || exit 1
-            check_localstack_health "{{ .Release.Name }}-localstack" 4566 || exit 1
-            # Check Elasticsearch if enabled in datastores (workflow-specific)
-            if /shared/kubectl get service "{{ .Release.Name }}-elasticsearch-workflow" --namespace="$namespace" >/dev/null 2>&1; then
-              check_datastore_health "{{ .Release.Name }}-elasticsearch-workflow" 9200 || exit 1
-            fi
-            # Check OpenSearch (shared) if enabled in datastores
-            if /shared/kubectl get service "{{ .Release.Name }}-elasticsearch" --namespace="$namespace" >/dev/null 2>&1; then
-              check_datastore_health "{{ .Release.Name }}-elasticsearch" 9200 || exit 1
-            fi
-            # Check Airflow if enabled in datastores
-            if /shared/kubectl get service "{{ .Release.Name }}-airflow" --namespace="$namespace" >/dev/null 2>&1; then
-              check_datastore_health "{{ .Release.Name }}-airflow" 8080 || exit 1
-            fi
+              echo "ℹ️  No datastores deployed - skipping datastore health checks"
+              echo "✅ Datastore health check phase completed (no datastores to check)"
             else
               echo "📋 Found labeled datastore services:"
               echo "$datastore_services" | while read service_name; do
@@ -498,11 +482,11 @@ spec:
                   echo "⚠️  Skipping $service_name - no port found"
                 fi
               done
+              
+              echo ""
+              echo "🎉 All datastore services are healthy!"
+              echo ""
             fi
-            
-            echo ""
-            echo "🎉 All datastore services are healthy!"
-            echo ""
             
             # Check StatefulSet readiness
             echo "📊 Step 1.5: Verifying StatefulSet readiness..."

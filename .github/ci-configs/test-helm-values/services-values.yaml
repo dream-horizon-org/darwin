@@ -1,0 +1,96 @@
+# CI Test Helm Values - Services
+# Only ci-test-service enabled, all others use minimal overrides to disable
+# Used by: start.sh --ci-test
+
+# 'services' is the subchart name in the umbrella chart
+services:
+  enabled: true  # Enable the services subchart
+  
+  # The 'services' key within the subchart's values
+  services:
+    # CI Test Service - ENABLED (only for CI testing)
+    ci-test-service:
+      enabled: true
+      replicaCount: 1
+      serviceName: darwin-ci-test-service
+      image:
+        registry: localhost:5000
+        name: ci-test-service
+        tag: latest
+        pullPolicy: Always
+      service:
+        type: ClusterIP
+        port: 8000
+      ingress:
+        enabled: false
+      autoscaling:
+        enabled: false
+      healthcheck:
+        path: /healthcheck
+        initialDelaySeconds: 10
+        readinessDelay: 5
+      extraEnvVars:
+        - name: ENV
+          value: "ci-test"
+        - name: ROOT_PATH
+          value: "/ci-test"
+
+    ## How Helm Merges Values
+
+    # When you run:
+    # ```bash
+    # helm upgrade --install darwin ./helm/darwin \
+    #   -f .github/ci-configs/test-helm-values/services-values.yaml
+    # ```
+
+    # Helm merges values in this order:
+    # 1. **Base values** from `helm/darwin/charts/services/values.yaml` (ALL services defined here)
+    # 2. **Override values** from `-f test-helm-values/services-values.yaml` (only ci-test-service defined)
+
+    # **If a service is NOT mentioned in the override file, Helm uses the default from base values!**
+
+    feature-store:
+      enabled: false
+    feature-store-admin:
+      enabled: false
+    feature-store-consumer:
+      enabled: false
+    workspace:
+      enabled: false
+    workflow:
+      enabled: false
+    chronos:
+      enabled: false
+    chronos-consumer:
+      enabled: false
+    compute:
+      enabled: false
+    cluster-manager:
+      enabled: false
+    ml-serve-app:
+      enabled: false
+    artifact-builder:
+      enabled: false
+    catalog:
+      enabled: false
+    mlflow-lib:
+      enabled: false
+    mlflow-app:
+      enabled: false
+
+  # Ingress for ci-test-service
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+      nginx.ingress.kubernetes.io/use-regex: "true"
+    host: "localhost"
+    paths:
+      - path: "/ci-test(/|$)(.*)"
+        service: "ci-test-service"
+        port: 8000
+
+  # Disable shared storage for CI testing
+  storage:
+    enabled: false

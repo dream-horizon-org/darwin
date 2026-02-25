@@ -30,7 +30,7 @@ echo "   Dockerfile: Dockerfile.airflow"
 echo ""
 
 # Build the image - use Dockerfile.airflow which handles all dependencies correctly
-docker build -t darwin-airflow:latest -f Dockerfile.airflow --label "maintainer=darwin" . || {
+docker build -t darwin-airflow:latest -f Dockerfile.airflow --label "maintainer=darwin" --label "darwin.service=darwin-workflow" . || {
     echo "❌ Docker build failed"
     exit 1
 }

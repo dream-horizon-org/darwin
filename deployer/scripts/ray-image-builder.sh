@@ -15,7 +15,14 @@ PLATFORM="${PLATFORM:-$DEFAULT_PLATFORM}"
 while getopts n:p:P:r:h flag
 do
     case "${flag}" in
-        n) IMAGE_NAME=${OPTARG};;
+        n) 
+            IMAGE_NAME=${OPTARG}
+            case "$IMAGE_NAME" in
+                ray:*)   SERVICE_NAME="darwin-compute" ;;
+                serve-*) SERVICE_NAME="ml-serve-app"   ;;
+                *)       SERVICE_NAME="${IMAGE_NAME%%:*}" ;;
+            esac
+            ;;
         p) DOCKERFILE_PATH=${OPTARG};;
         P) PLATFORM=${OPTARG};;
         r) REGISTRY=${OPTARG};;
@@ -67,6 +74,7 @@ docker build \
     --platform=$PLATFORM \
     -t "$IMAGE_NAME" \
     --label "maintainer=darwin" \
+    --label "darwin.service=$SERVICE_NAME" \
     -f "$DOCKERFILE_PATH/Dockerfile" \
     "$DOCKERFILE_PATH"
 

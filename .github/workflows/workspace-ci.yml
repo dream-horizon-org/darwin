@@ -1,4 +1,4 @@
-name: Darwin MLflow - CI
+name: Darwin Workspace - CI
 
 on:
   workflow_call: # Called by infrastructure-ci.yml after infra passes
@@ -10,12 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mlflow
+        working-directory: workspace
 
     strategy:
       matrix:
         module:
-          - app_layer
+          - app-layer
+          - core
           - sdk
 
     steps:
@@ -51,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mlflow
+        working-directory: workspace
 
     steps:
       - name: Checkout repository
@@ -109,7 +110,7 @@ jobs:
         run: |
           echo "📋 Running init.sh..."
           rm -f .setup/enabled-services.yaml
-          printf "n\nn\nn\ny\nn\nn\nn\nn\ny\nn\n" | ./init.sh --dev-mode
+          printf "n\ny\nn\nn\nn\nn\nn\nn\ny\nn\nn\nn\nn\n" | ./init.sh --dev-mode
           cat .setup/enabled-services.yaml
 
       - name: Build and setup
@@ -198,18 +199,18 @@ jobs:
 
           echo "✅ Deployment completed successfully"
 
-      - name: Wait for darwin-mlflow pod
+      - name: Wait for darwin-workspace pod
         run: |
-          echo "⏳ Waiting for darwin-mlflow pod..."
+          echo "⏳ Waiting for darwin-workspace pod..."
           max_attempts=60
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            POD_STATUS=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-lib -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
-            READY=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-lib -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+            POD_STATUS=$(kubectl get pods -n darwin -l app.kubernetes.io/component=workspace -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+            READY=$(kubectl get pods -n darwin -l app.kubernetes.io/component=workspace -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
             
             if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
-              echo "✅ darwin-mlflow pod is ready"
-              kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-lib
+              echo "✅ darwin-workspace pod is ready"
+              kubectl get pods -n darwin -l app.kubernetes.io/component=workspace
               break
             fi
             
@@ -219,40 +220,14 @@ jobs:
           done
 
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow pod not ready after $max_attempts attempts"
-            kubectl get pods -n darwin | grep mlflow || true
-            exit 1
-          fi
-
-      - name: Wait for darwin-mlflow-app pod
-        run: |
-          echo "⏳ Waiting for darwin-mlflow-app pod..."
-          max_attempts=60
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            POD_STATUS=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-app -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
-            READY=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-app -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
-            
-            if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
-              echo "✅ darwin-mlflow-app pod is ready"
-              kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-app
-              break
-            fi
-            
-            echo "Attempt $((attempt+1))/$max_attempts: Waiting... (Status: $POD_STATUS, Ready: $READY)"
-            sleep 5
-            attempt=$((attempt+1))
-          done
-
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow-app pod not ready after $max_attempts attempts"
-            kubectl get pods -n darwin | grep mlflow || true
+            echo "❌ darwin-workspace pod not ready after $max_attempts attempts"
+            kubectl get pods -n darwin
             exit 1
           fi
 
       - name: Verify healthcheck
         run: |
-          echo "🏥 Testing Darwin MLflow healthcheck..."
+          echo "🏥 Testing Darwin Workspace healthcheck..."
 
           max_attempts=30
           attempt=0
@@ -265,14 +240,14 @@ jobs:
             attempt=$((attempt+1))
           done
 
-          HEALTH_URL="http://localhost/mlflow-app/healthcheck"
+          HEALTH_URL="http://localhost/workspace/healthcheck"
           echo "Testing endpoint: $HEALTH_URL"
 
           max_attempts=30
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
             if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
-              echo "✅ darwin-mlflow health check endpoint is accessible"
+              echo "✅ Health check endpoint is accessible"
               break
             fi
             echo "Attempt $((attempt+1))/$max_attempts: Waiting..."
@@ -281,37 +256,7 @@ jobs:
           done
 
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow health check not accessible"
-            exit 1
-          fi
-
-          response=$(curl -s "$HEALTH_URL")
-          echo "Response: $response"
-
-          if echo "$response" | grep -q "OK"; then
-            echo "✅ darwin-mlflow health check passed!"
-          else
-            echo "❌ darwin-mlflow: Unexpected response"
-            exit 1
-          fi
-
-          HEALTH_URL="http://localhost/mlflow-app/healthcheck"
-          echo "Testing endpoint: $HEALTH_URL"
-
-          max_attempts=30
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
-              echo "✅ darwin-mlflow-app health check endpoint is accessible"
-              break
-            fi
-            echo "Attempt $((attempt+1))/$max_attempts: Waiting..."
-            sleep 2
-            attempt=$((attempt+1))
-          done
-
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow-app health check not accessible"
+            echo "❌ Health check not accessible"
             exit 1
           fi
 
@@ -319,14 +264,11 @@ jobs:
           echo "Response: $response"
 
           if echo "$response" | python3 -c "import sys, json; data = json.load(sys.stdin); sys.exit(0 if 'SUCCESS' in data.get('status', '') else 1)"; then
-            echo "✅ darwin-mlflow-app health check passed!"
+            echo "✅ Darwin Workspace health check passed!"
           else
             echo "❌ Invalid response - expected status containing SUCCESS"
             exit 1
           fi
-
-          echo ""
-          echo "✅ All MLflow health checks passed!"
 
       # --- INTEGRATION TESTS ---
       - name: Run integration tests
@@ -336,23 +278,11 @@ jobs:
           echo "✅ Integration tests placeholder completed"
 
       # --- CLEANUP (always runs) ---
-      - name: Cleanup mlflow
+      - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
         with:
-          service_name: "darwin-mlflow"
-          delete_cluster: "false"
-          delete_deployment: "true"
-          prune_darwin_images: "true"
-          prune_volumes: "false"
-          prune_containers: "false"
-          workspace_dir: ${{ github.workspace }}
-
-      - name: Cleanup mlflow-app
-        if: always()
-        uses: ./.github/actions/cleanup
-        with:
-          service_name: "darwin-mlflow-app"
+          service_name: "darwin-workspace"
           delete_cluster: "false"
           delete_deployment: "true"
           prune_darwin_images: "true"

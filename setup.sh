@@ -7,20 +7,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
 CONFIG_ENV="$PROJECT_ROOT/.setup/config.env"
 
-# Check for init configuration
-ENABLED_SERVICES_FILE=".setup/enabled-services.yaml"
-if [ ! -f "$ENABLED_SERVICES_FILE" ]; then
-    echo "❌ No configuration found at $ENABLED_SERVICES_FILE"
-    echo "   Please run ./init.sh first to configure which services to enable."
-    exit 1
-fi
-echo "✅ Found configuration: $ENABLED_SERVICES_FILE"
-
 # Parse command line arguments
 AUTO_YES=false
 FORCE_CLEAN=false
 DEV_MODE=false        # Developer mode flag
 SNAPSHOT_VERSION=""   # Snapshot version (used with dev mode)
+CI_TEST=false         # CI test mode flag
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes)
@@ -44,6 +36,10 @@ while [ $# -gt 0 ]; do
       SNAPSHOT_VERSION="$2"
       shift 2
       ;;
+    --ci-test)
+      CI_TEST=true
+      shift
+      ;;
     -h|--help)
       echo "Usage: $0 [OPTIONS]"
       echo ""
@@ -53,6 +49,7 @@ while [ $# -gt 0 ]; do
       echo "  -d, --dev          Developer mode: build images locally or pull snapshots"
       echo "  --snapshot VERSION Pull snapshot images (requires -d/--dev flag)"
       echo "                     Example: --snapshot snapshot-abc12345"
+      echo "  --ci-test          CI test mode: uses minimal test configurations"
       echo "  -h, --help         Show this help message"
       echo ""
       echo "Examples:"
@@ -61,15 +58,32 @@ while [ $# -gt 0 ]; do
       echo "  $0 -d --snapshot snapshot-abc12345  # Pull snapshot images for testing"
       echo "  $0 -y                        # Non-interactive, pull release images"
       echo "  $0 -y -c -d                  # Non-interactive, clean install, build locally"
+      echo "  $0 -y -d --ci-test           # CI test mode (builds only ci-test-service)"
       exit 0
       ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: $0 [-y|--yes] [-c|--clean] [-d|--dev] [--snapshot VERSION] [-h|--help]"
+      echo "Usage: $0 [-y|--yes] [-c|--clean] [-d|--dev] [--snapshot VERSION] [--ci-test] [-h|--help]"
       exit 1
       ;;
   esac
 done
+
+# Support CI_TEST_MODE environment variable also for backward compatibility
+if [ "${CI_TEST_MODE:-}" = "true" ]; then
+  CI_TEST=true
+fi
+
+# Check for init configuration (skip this check in CI_TEST mode)
+if [ "$CI_TEST" != "true" ]; then
+  ENABLED_SERVICES_FILE=".setup/enabled-services.yaml"
+  if [ ! -f "$ENABLED_SERVICES_FILE" ]; then
+      echo "❌ No configuration found at $ENABLED_SERVICES_FILE"
+      echo "   Please run ./init.sh first to configure which services to enable."
+      exit 1
+  fi
+  echo "✅ Found configuration: $ENABLED_SERVICES_FILE"
+fi
 
 # Determine IMAGE_MODE based on flags
 if [ "$DEV_MODE" = "true" ]; then
@@ -376,6 +390,13 @@ fi
 # Path to your YAML files
 YAML_FILE="services.yaml"
 ENABLED_FILE=".setup/enabled-services.yaml"
+
+# Override paths for CI test mode
+if [ "$CI_TEST" = "true" ]; then
+  echo "🔬 CI test mode enabled - using minimal test configuration"
+  YAML_FILE=".github/ci-configs/test-services.yaml"
+  ENABLED_FILE=".github/ci-configs/test-enabled-services.yaml"
+fi
 
 dynamic_build_args=""
 

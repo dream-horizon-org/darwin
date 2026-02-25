@@ -1,0 +1,31 @@
+# CI Test Services Configuration
+# This file defines ONLY the ci-test-service for infrastructure CI testing
+# Used by: setup.sh --ci-test
+
+applications:
+  - application: ci-test-service
+    base-path: .github/ci-test-service
+    path: .
+    base-image: python:3.9-slim
+    enabled: true
+    env:
+      - name: ENV
+        value: "ci-test"
+      - name: ROOT_PATH
+        value: "/ci-test"
+
+# No Ray images needed for CI testing
+ray-images: []
+
+# Darwin SDK runtime disabled for CI testing
+darwin-sdk-runtime:
+  enabled: false
+
+# No Serve images needed for CI testing
+serve-images: []
+
+# No datastores needed for CI testing (ci-test-service is standalone)
+datastores: []
+
+# No operators needed for CI testing (Kind cluster has them pre-installed)
+operators: []

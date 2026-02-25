@@ -1,0 +1,100 @@
+name: Final Cleanup
+
+on:
+  workflow_run:
+    workflows:
+      - "Infrastructure CI"
+    types: [completed]
+  workflow_call:
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  cleanup:
+    name: Final Cleanup
+    runs-on: [self-hosted, Linux, X64, darwin]
+    timeout-minutes: 20
+    # Always run cleanup, regardless of triggering workflow's success/failure
+    if: always()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Runner identity (debug)
+        run: |
+          echo "Runner name: $RUNNER_NAME"
+          echo "Runner OS: $RUNNER_OS"
+          echo "Triggered by: ${{ github.event.workflow_run.name || 'workflow_call' }}"
+          echo "Triggering workflow status: ${{ github.event.workflow_run.conclusion || 'N/A' }}"
+          hostname
+
+      - name: Kill any lingering port-forwards
+        run: |
+          echo "🧹 Killing any lingering port-forwards..."
+          pkill -f "kubectl port-forward" || true
+
+      - name: Prune ALL Darwin-labeled images
+        run: |
+          echo "🧹 Pruning ALL Darwin-labeled images..."
+          echo ""
+          echo "Images before cleanup:"
+          docker images --filter "label=maintainer=darwin" --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" || true
+          echo ""
+          docker image prune -af --filter "label=maintainer=darwin" || true
+          echo ""
+          echo "✅ Darwin images pruned (base images preserved)"
+
+      - name: Delete Kind cluster if exists
+        run: |
+          echo "🧹 Checking for Kind cluster..."
+          if command -v kind >/dev/null 2>&1; then
+            if kind get clusters 2>/dev/null | grep -q kind; then
+              echo "Deleting Kind cluster..."
+              kind delete cluster --name kind || true
+              echo "✅ Cluster deleted"
+            else
+              echo "📋 No Kind cluster found"
+            fi
+          else
+            echo "📋 Kind not installed, skipping"
+          fi
+
+      - name: Prune containers
+        run: |
+          echo "🧹 Pruning stopped containers..."
+          docker container prune -f || true
+
+      - name: Prune volumes
+        run: |
+          echo "🧹 Pruning unused volumes..."
+          docker volume prune -f || true
+
+      - name: Cleanup workspace directories
+        run: |
+          echo "🧹 Cleaning up workspace directories..."
+
+          # Common workspace paths for self-hosted runners
+          for WORKSPACE_DIR in "$GITHUB_WORKSPACE" "$RUNNER_WORKSPACE" "/home/runner/work"; do
+            if [ -d "$WORKSPACE_DIR" ]; then
+              echo "Checking $WORKSPACE_DIR..."
+              find "$WORKSPACE_DIR" -type d -name "shared-storage" 2>/dev/null | while read dir; do
+                echo "Removing: $dir"
+                sudo chmod -R u+w "$dir" 2>/dev/null || true
+                sudo rm -rf "$dir" 2>/dev/null || true
+              done
+            fi
+          done
+
+          echo "✅ Workspace cleanup completed"
+
+      - name: Show final disk usage
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Final disk usage after cleanup:"
+          df -h
+          echo ""
+          echo "📊 Docker disk usage:"
+          docker system df || true
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Final cleanup completed!"

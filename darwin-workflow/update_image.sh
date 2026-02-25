@@ -44,6 +44,7 @@ docker build \
   --no-cache \
   -t darwin-workflow:latest \
   --label "maintainer=darwin" \
+  --label "darwin.service=darwin-workflow" \
   -f deployer/images/Dockerfile .
 
 # Step 4: Load image into kind

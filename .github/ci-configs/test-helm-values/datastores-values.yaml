@@ -1,0 +1,8 @@
+# CI Test Helm Values - Datastores
+# Disable the entire datastores subchart (ci-test-service doesn't need any)
+# Used by: start.sh --ci-test
+
+# This disables the ENTIRE datastores subchart
+# (condition: datastores.enabled in Chart.yaml)
+datastores:
+  enabled: false

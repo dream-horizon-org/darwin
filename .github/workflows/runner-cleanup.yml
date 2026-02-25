@@ -1,0 +1,36 @@
+# .github/workflows/runner-cleanup.yml
+name: Runner Cleanup
+
+on:
+  workflow_dispatch:  # Manual trigger from GitHub UI
+
+jobs:
+  cleanup:
+    runs-on: [self-hosted, Linux, X64, darwin]
+    steps:
+      - name: Clean disk space
+        run: |
+          echo "📊 Disk usage BEFORE cleanup:"
+          df -h
+          
+          echo ""
+          echo "🧹 Cleaning buildx builders..."
+          docker buildx ls || true
+          docker buildx rm --all-inactive --force 2>/dev/null || true
+          docker buildx prune -af 2>/dev/null || true
+          
+          echo ""
+          echo "🧹 Cleaning Docker system..."
+          docker system prune -af --volumes
+          
+          echo ""
+          echo "🧹 Cleaning /tmp buildkit files..."
+          sudo rm -rf /tmp/buildkit* 2>/dev/null || true
+          
+          echo ""
+          echo "🧹 Cleaning Kind cluster if exists..."
+          kind delete cluster --name kind 2>/dev/null || true
+          
+          echo ""
+          echo "📊 Disk usage AFTER cleanup:"
+          df -h

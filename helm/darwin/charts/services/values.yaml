@@ -578,7 +578,7 @@ services:
       enabled: false
     extraEnvVars:
       - name: MYSQL_URL
-        value: "jdbc:mysql://darwin-mysql:3306/darwincatalog?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+        value: "jdbc:mysql://darwin-mysql:3306/darwin_catalog?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
       - name: MYSQL_USERNAME
         value: "darwin"
       - name: MYSQL_PASSWORD

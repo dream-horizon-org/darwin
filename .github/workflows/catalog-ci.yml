@@ -1,4 +1,4 @@
-name: Darwin MLflow - CI
+name: Darwin Catalog - CI
 
 on:
   workflow_call: # Called by infrastructure-ci.yml after infra passes
@@ -10,73 +10,97 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mlflow
-
-    strategy:
-      matrix:
-        module:
-          - app_layer
-          - sdk
+        working-directory: darwin-catalog
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
         with:
-          python-version: "3.9"
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
 
-      - name: Install linting tools
+      - name: Install Maven (if not present)
         run: |
-          python -m pip install --upgrade pip
-          pip install flake8==6.0.0
-
-      - name: Run flake8
-        run: |
-          if [ -d "${{ matrix.module }}/src" ]; then
-            echo "Running flake8 on ${{ matrix.module }}/src..."
-            # flake8 --max-line-length=160 \
-            #   --extend-ignore=E203,W503,W293,W291,W292,W391,F401,E501,E231,E302,E303,E305,E251,E252,E127,E128,E131,E122,E114,E117,E265,E266,E402,E722,E741,E731,F841,F811,F541,F403 \
-            #   --select=F821,E9 \
-            #   ${{ matrix.module }}/src || true
-            echo "⚠️ Linting temporarily disabled - uncomment flake8 command to enable"
-            echo "✅ flake8 placeholder completed for ${{ matrix.module }}"
-          else
-            echo "⚠️  No src directory found in ${{ matrix.module }}, skipping"
+          if ! command -v mvn &> /dev/null; then
+            echo "Maven not found, installing..."
+            cd /tmp
+            curl -sL https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz | tar xz
+            sudo mv apache-maven-3.9.6 /opt/maven
+            echo "/opt/maven/bin" >> $GITHUB_PATH
+            export PATH="/opt/maven/bin:$PATH"
           fi
+          mvn --version
+        working-directory: /
+
+      - name: Run Spotless Check (Code Formatting)
+        run: |
+          echo "========================================"
+          echo "Running Spotless Code Format Check..."
+          echo "========================================"
+          mvn spotless:check -B
+
+      - name: Output Spotless Result
+        if: success()
+        run: |
+          echo ""
+          echo "✅ Code formatting check passed!"
+          echo "All Java files follow Google Java Format standards."
+
+      - name: Output Spotless Failure Details
+        if: failure()
+        run: |
+          echo ""
+          echo "❌ Code formatting check failed!"
+          echo ""
+          echo "Some files do not follow Google Java Format standards."
+          echo "Run the following command locally to fix formatting:"
+          echo ""
+          echo "  cd darwin-catalog && mvn spotless:apply"
+          echo ""
+          echo "Then commit and push the changes."
 
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mlflow
+        working-directory: darwin-catalog
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
         with:
-          python-version: "3.9"
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
 
-      - name: Install dependencies
+      - name: Install Maven (if not present)
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt || true
+          if ! command -v mvn &> /dev/null; then
+            echo "Maven not found, installing..."
+            cd /tmp
+            curl -sL https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz | tar xz
+            sudo mv apache-maven-3.9.6 /opt/maven
+            echo "/opt/maven/bin" >> $GITHUB_PATH
+            export PATH="/opt/maven/bin:$PATH"
           fi
-          pip install pytest pytest-cov
+          mvn --version
+        working-directory: /
 
       - name: Run unit tests
         run: |
-          if [ -d "tests" ]; then
+          if [ -d "src" ]; then
             echo "Running unit tests..."
-            pytest tests/ -v --tb=short || echo "⚠️ Some tests failed"
+            mvn test -B || echo "⚠️ Some tests failed"
           else
-            echo "⚠️ No tests directory found, skipping"
+            echo "⚠️ No src directory found, skipping"
           fi
         continue-on-error: true
 
@@ -99,6 +123,26 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install Maven (if not present)
+        run: |
+          if ! command -v mvn &> /dev/null; then
+            echo "Maven not found, installing..."
+            cd /tmp
+            curl -sL https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz | tar xz
+            sudo mv apache-maven-3.9.6 /opt/maven
+            echo "/opt/maven/bin" >> $GITHUB_PATH
+            export PATH="/opt/maven/bin:$PATH"
+          fi
+          mvn --version
+        working-directory: /
+
       - name: Setup cluster
         uses: ./.github/actions/setup-cluster
         with:
@@ -109,7 +153,7 @@ jobs:
         run: |
           echo "📋 Running init.sh..."
           rm -f .setup/enabled-services.yaml
-          printf "n\nn\nn\ny\nn\nn\nn\nn\ny\nn\n" | ./init.sh --dev-mode
+          printf "n\nn\nn\nn\nn\ny\nn\nn\ny\nn\n" | ./init.sh --dev-mode
           cat .setup/enabled-services.yaml
 
       - name: Build and setup
@@ -198,18 +242,18 @@ jobs:
 
           echo "✅ Deployment completed successfully"
 
-      - name: Wait for darwin-mlflow pod
+      - name: Wait for darwin-catalog pod
         run: |
-          echo "⏳ Waiting for darwin-mlflow pod..."
+          echo "⏳ Waiting for darwin-catalog pod..."
           max_attempts=60
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            POD_STATUS=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-lib -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
-            READY=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-lib -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
+            POD_STATUS=$(kubectl get pods -n darwin -l app.kubernetes.io/component=catalog -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+            READY=$(kubectl get pods -n darwin -l app.kubernetes.io/component=catalog -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
             
             if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
-              echo "✅ darwin-mlflow pod is ready"
-              kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-lib
+              echo "✅ darwin-catalog pod is ready"
+              kubectl get pods -n darwin -l app.kubernetes.io/component=catalog
               break
             fi
             
@@ -219,40 +263,14 @@ jobs:
           done
 
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow pod not ready after $max_attempts attempts"
-            kubectl get pods -n darwin | grep mlflow || true
-            exit 1
-          fi
-
-      - name: Wait for darwin-mlflow-app pod
-        run: |
-          echo "⏳ Waiting for darwin-mlflow-app pod..."
-          max_attempts=60
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            POD_STATUS=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-app -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
-            READY=$(kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-app -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
-            
-            if [ "$POD_STATUS" = "Running" ] && [ "$READY" = "true" ]; then
-              echo "✅ darwin-mlflow-app pod is ready"
-              kubectl get pods -n darwin -l app.kubernetes.io/component=mlflow-app
-              break
-            fi
-            
-            echo "Attempt $((attempt+1))/$max_attempts: Waiting... (Status: $POD_STATUS, Ready: $READY)"
-            sleep 5
-            attempt=$((attempt+1))
-          done
-
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow-app pod not ready after $max_attempts attempts"
-            kubectl get pods -n darwin | grep mlflow || true
+            echo "❌ Pod not ready after $max_attempts attempts"
+            kubectl get pods -n darwin
             exit 1
           fi
 
       - name: Verify healthcheck
         run: |
-          echo "🏥 Testing Darwin MLflow healthcheck..."
+          echo "🏥 Testing Darwin Catalog healthcheck..."
 
           max_attempts=30
           attempt=0
@@ -265,14 +283,14 @@ jobs:
             attempt=$((attempt+1))
           done
 
-          HEALTH_URL="http://localhost/mlflow-app/healthcheck"
+          HEALTH_URL="http://localhost/darwin-catalog/healthcheck"
           echo "Testing endpoint: $HEALTH_URL"
 
           max_attempts=30
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
             if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
-              echo "✅ darwin-mlflow health check endpoint is accessible"
+              echo "✅ Health check endpoint is accessible"
               break
             fi
             echo "Attempt $((attempt+1))/$max_attempts: Waiting..."
@@ -281,7 +299,7 @@ jobs:
           done
 
           if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow health check not accessible"
+            echo "❌ Health check not accessible"
             exit 1
           fi
 
@@ -289,44 +307,11 @@ jobs:
           echo "Response: $response"
 
           if echo "$response" | grep -q "OK"; then
-            echo "✅ darwin-mlflow health check passed!"
+            echo "✅ Darwin Catalog health check passed!"
           else
-            echo "❌ darwin-mlflow: Unexpected response"
+            echo "❌ Invalid response - expected 'OK'"
             exit 1
           fi
-
-          HEALTH_URL="http://localhost/mlflow-app/healthcheck"
-          echo "Testing endpoint: $HEALTH_URL"
-
-          max_attempts=30
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
-              echo "✅ darwin-mlflow-app health check endpoint is accessible"
-              break
-            fi
-            echo "Attempt $((attempt+1))/$max_attempts: Waiting..."
-            sleep 2
-            attempt=$((attempt+1))
-          done
-
-          if [ $attempt -eq $max_attempts ]; then
-            echo "❌ darwin-mlflow-app health check not accessible"
-            exit 1
-          fi
-
-          response=$(curl -s "$HEALTH_URL")
-          echo "Response: $response"
-
-          if echo "$response" | python3 -c "import sys, json; data = json.load(sys.stdin); sys.exit(0 if 'SUCCESS' in data.get('status', '') else 1)"; then
-            echo "✅ darwin-mlflow-app health check passed!"
-          else
-            echo "❌ Invalid response - expected status containing SUCCESS"
-            exit 1
-          fi
-
-          echo ""
-          echo "✅ All MLflow health checks passed!"
 
       # --- INTEGRATION TESTS ---
       - name: Run integration tests
@@ -336,23 +321,11 @@ jobs:
           echo "✅ Integration tests placeholder completed"
 
       # --- CLEANUP (always runs) ---
-      - name: Cleanup mlflow
+      - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
         with:
-          service_name: "darwin-mlflow"
-          delete_cluster: "false"
-          delete_deployment: "true"
-          prune_darwin_images: "true"
-          prune_volumes: "false"
-          prune_containers: "false"
-          workspace_dir: ${{ github.workspace }}
-
-      - name: Cleanup mlflow-app
-        if: always()
-        uses: ./.github/actions/cleanup
-        with:
-          service_name: "darwin-mlflow-app"
+          service_name: "darwin-catalog"
           delete_cluster: "false"
           delete_deployment: "true"
           prune_darwin_images: "true"

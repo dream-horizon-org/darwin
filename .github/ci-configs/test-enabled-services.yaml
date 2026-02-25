@@ -1,0 +1,23 @@
+# CI Test Enabled Services Configuration
+# This file specifies that ONLY ci-test-service is enabled
+# Used by: setup.sh --ci-test
+
+applications:
+  ci-test-service: true
+
+# No Ray images enabled
+ray-images: {}
+
+# No Serve images enabled
+serve-images: {}
+
+# No datastores enabled (ci-test-service doesn't need databases)
+datastores: {}
+
+# Darwin SDK runtime disabled
+darwin-sdk-runtime:
+  enabled: false
+
+# CLI tools disabled
+cli-tools:
+  darwin-cli: false

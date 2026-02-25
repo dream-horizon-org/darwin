@@ -411,6 +411,7 @@ docker build \
     --platform "${PLATFORM}" \
     -t "${IMAGE_NAME}:${TAG}" \
     --label "maintainer=darwin" \
+    --label "darwin.service=darwin-compute" \
     "${BUILD_CONTEXT}"
 
 log_info "Built image: ${IMAGE_NAME}:${TAG}"

@@ -1,0 +1,205 @@
+name: "Setup Kind Cluster"
+description: "Sets up a Kind Kubernetes cluster with local registry"
+
+inputs:
+  kubeconfig_path:
+    description: "Path to store the kubeconfig file"
+    required: false
+    default: "./.setup/kindkubeconfig.yaml"
+  cluster_name:
+    description: "Name of the Kind cluster"
+    required: false
+    default: "kind"
+  skip_if_exists:
+    description: "Skip cluster creation if it already exists"
+    required: false
+    default: "false"
+
+outputs:
+  kubeconfig:
+    description: "Path to the kubeconfig file"
+    value: ${{ inputs.kubeconfig_path }}
+  registry:
+    description: "Docker registry URL"
+    value: "localhost:5000"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check if cluster exists
+      id: check-cluster
+      shell: bash
+      run: |
+        if kind get clusters 2>/dev/null | grep -q "${{ inputs.cluster_name }}"; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "✅ Cluster '${{ inputs.cluster_name }}' already exists"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "📋 Cluster '${{ inputs.cluster_name }}' does not exist"
+        fi
+
+    - name: Ensure kubeconfig exists for existing cluster
+      if: steps.check-cluster.outputs.exists == 'true'
+      shell: bash
+      run: |
+        echo "📋 Ensuring kubeconfig exists for existing cluster..."
+        
+        # Create directory if it doesn't exist
+        mkdir -p "$(dirname "${{ inputs.kubeconfig_path }}")"
+        
+        # Debug: Check directory status
+        echo "📋 Directory status:"
+        ls -la "$(dirname "${{ inputs.kubeconfig_path }}")" || echo "  ⚠️ Directory not found!"
+        
+        # Debug: Check kubeconfig file before regeneration
+        echo "📋 Kubeconfig file before regeneration:"
+        if [ -f "${{ inputs.kubeconfig_path }}" ]; then
+          echo "  ✅ File exists"
+          echo "  Size: $(wc -c < "${{ inputs.kubeconfig_path }}") bytes"
+        else
+          echo "  ⚠️ File does not exist (will be created)"
+        fi
+        
+        # Debug: Test cluster Docker containers
+        echo "📋 Testing cluster Docker containers:"
+        docker ps --filter "name=${{ inputs.cluster_name }}" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+        
+        # Debug: Test cluster API endpoint
+        echo "📋 Testing cluster API endpoint:"
+        CLUSTER_IP=$(docker inspect ${{ inputs.cluster_name }}-control-plane --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "not-found")
+        echo "  Cluster IP: $CLUSTER_IP"
+        
+        # Export/regenerate kubeconfig (handles case where file was deleted by checkout or doesn't exist across jobs)
+        echo "📋 Regenerating kubeconfig..."
+        if kind export kubeconfig --name "${{ inputs.cluster_name }}" --kubeconfig "${{ inputs.kubeconfig_path }}" 2>&1; then
+          echo "  ✅ Kubeconfig regeneration successful"
+        else
+          echo "  ⚠️ Warning: kind export kubeconfig failed, but continuing..."
+          echo "  This may indicate a problem with the cluster or kubeconfig path."
+        fi
+        
+        # Debug: Verify kubeconfig file after regeneration
+        echo "📋 Kubeconfig file after regeneration:"
+        if [ -f "${{ inputs.kubeconfig_path }}" ]; then
+          echo "  ✅ File exists"
+          echo "  Size: $(wc -c < "${{ inputs.kubeconfig_path }}") bytes"
+          echo "  Permissions: $(ls -l "${{ inputs.kubeconfig_path }}" | awk '{print $1, $3, $4}')"
+        else
+          echo "  ❌ File does not exist - this will cause kubectl to fail!"
+          exit 1
+        fi
+        
+        echo "✅ Kubeconfig validation complete"
+
+    - name: Validate cluster prerequisites
+      if: steps.check-cluster.outputs.exists == 'true'
+      shell: bash
+      run: |
+        echo "📋 Validating cluster prerequisites..."
+        
+        # Check shared-storage directory
+        SHARED_STORAGE="./kind/shared-storage"
+        if [ ! -d "$SHARED_STORAGE" ]; then
+          echo "⚠️  $SHARED_STORAGE missing - creating it..."
+          mkdir -p "$SHARED_STORAGE"
+          echo "✅ Created $SHARED_STORAGE"
+        else
+          echo "✅ $SHARED_STORAGE exists"
+        fi
+        
+        # Check if darwin namespace exists with stuck PVCs
+        if kubectl get namespace darwin >/dev/null 2>&1; then
+          echo "📋 Checking PVC status in darwin namespace..."
+          PENDING_PVCS=$(kubectl get pvc -n darwin -o jsonpath='{.items[?(@.status.phase!="Bound")].metadata.name}' 2>/dev/null || echo "")
+          if [ -n "$PENDING_PVCS" ]; then
+            echo "⚠️  Found pending PVCs: $PENDING_PVCS"
+            kubectl get pvc -n darwin
+          else
+            echo "✅ All PVCs are bound (or no PVCs exist)"
+          fi
+        else
+          echo "✅ Darwin namespace doesn't exist yet (will be created during deployment)"
+        fi
+        
+        echo "✅ Cluster prerequisites validation complete"
+
+    - name: Install prerequisites
+      if: steps.check-cluster.outputs.exists == 'false' || inputs.skip_if_exists == 'false'
+      shell: bash
+      run: |
+        # Install kubectl if not present
+        if ! command -v kubectl >/dev/null 2>&1; then
+          KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+          echo "Installing kubectl version: $KUBECTL_VERSION"
+          curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          if ! file kubectl | grep -q "ELF\|executable"; then
+            rm -f kubectl
+            curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          fi
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+        fi
+        kubectl version --client
+
+        # Install Helm if not present
+        if ! command -v helm >/dev/null 2>&1; then
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        fi
+        helm version
+
+        # Install Kind if not present
+        if ! command -v kind >/dev/null 2>&1; then
+          curl -Lo /tmp/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x /tmp/kind
+          sudo mv /tmp/kind /usr/local/bin/kind
+        fi
+        kind version
+
+        # Install yq if not present
+        if ! command -v yq >/dev/null 2>&1; then
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+        fi
+        yq --version
+
+    - name: Create Kind cluster
+      if: steps.check-cluster.outputs.exists == 'false'
+      shell: bash
+      run: |
+        echo "🔧 Creating Kind cluster..."
+        export ENV=local
+        
+        # Create kind config
+        envsubst < ./kind/kind-config.yaml > ./kind/kind-config-tmp.yaml
+        
+        export CLUSTER_NAME=${{ inputs.cluster_name }}
+        export KIND_CONFIG=./kind/kind-config-tmp.yaml
+        export KUBECONFIG=${{ inputs.kubeconfig_path }}
+        
+        sh ./kind/start-cluster.sh
+        
+        rm -f ./kind/kind-config-tmp.yaml
+        
+        echo "✅ Kind cluster created"
+
+    - name: Verify cluster
+      shell: bash
+      run: |
+        export KUBECONFIG=${{ inputs.kubeconfig_path }}
+        
+        echo "🔍 Verifying cluster status..."
+        max_attempts=30
+        attempt=0
+        while [ $attempt -lt $max_attempts ]; do
+          if kubectl get nodes >/dev/null 2>&1; then
+            echo "✅ Cluster is accessible"
+            kubectl get nodes
+            exit 0
+          fi
+          echo "Attempt $((attempt+1))/$max_attempts: Waiting for cluster..."
+          sleep 5
+          attempt=$((attempt+1))
+        done
+        
+        echo "❌ Cluster is not accessible after $max_attempts attempts"
+        exit 1
