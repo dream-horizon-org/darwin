@@ -20,8 +20,8 @@ spec:
       {{- include "service-deployment.selectorLabels" . | nindent 6 }}
   strategy:
     rollingUpdate:
-      maxSurge: {{ .Values.flagger.maxSurge }}
-      maxUnavailable: {{ .Values.flagger.maxUnavailable }}
+      maxSurge: {{ .Values.deployment.rollingUpdate.maxSurge | default "10%" }}
+      maxUnavailable: {{ .Values.deployment.rollingUpdate.maxUnavailable | default 1 }}
     type: RollingUpdate
   template:
     metadata:

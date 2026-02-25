@@ -3,6 +3,28 @@
 Podinfo is a tiny web application made with Go 
 that showcases best practices of running microservices in Kubernetes.
 
+## Deployment Strategies (Darwin FastAPI Serve)
+
+This chart is used by Darwin Cluster Manager to deploy FastAPI-based serves. It supports:
+
+- **Rolling (default)**: standard Kubernetes rolling update.
+  - Configure via:
+    - `deployment.rollingUpdate.maxSurge`
+    - `deployment.rollingUpdate.maxUnavailable`
+- **Canary (Flagger + Istio)**: progressive delivery controlled by Flagger.
+  - Required cluster prerequisites:
+    - Istio installed
+    - Flagger installed (CRDs + controller)
+  - Enable via values:
+    - `flagger.enabled=true`
+    - `istio.enabled=true`
+    - `service.enabled=false` (Flagger manages services/traffic shifting)
+    - `ingressInt.serviceName=<istio-ingressgateway-service-name>` (so ingress routes to the Istio ingress gateway)
+  - This chart creates an Istio `Gateway` named `<fullname>-gateway` when `flagger.enabled` and `istio.enabled` are both true.
+  - Key Flagger knobs:
+    - `flagger.interval`, `flagger.threshold`, `flagger.maxWeight`, `flagger.stepWeight`
+    - `flagger.progressDeadlineSeconds`
+
 ## Installing the Chart
 
 To install the chart with the release name `my-release`:

@@ -1,6 +1,5 @@
-import os
 import re
-from typing import Optional, List
+from typing import Optional, List, Any
 
 from fastapi import HTTPException
 from tortoise.transactions import in_transaction
@@ -18,10 +17,15 @@ from ml_serve_core.constants.constants import (
 )
 from ml_serve_core.config.configs import Config
 from ml_serve_core.dtos.dtos import EnvConfig
+from ml_serve_core.deployment_strategies.errors import DeploymentStrategyError
 from ml_serve_core.service.serve_config_service import ServeConfigService
 from ml_serve_core.utils.utils import get_host_name, get_service_url, get_service_url_for_one_click
-from ml_serve_core.utils.yaml_utils import generate_fastapi_values, generate_fastapi_infra_values, \
-    generate_fastapi_values_for_one_click_model_deployment
+from ml_serve_core.utils.yaml_utils import (
+    generate_fastapi_values_with_strategy,
+    generate_fastapi_infra_values,
+    generate_fastapi_values_for_one_click_model_deployment,
+    apply_deployment_strategy_to_values,
+)
 from ml_serve_core.utils.storage_strategy import determine_storage_strategy
 from ml_serve_model import Serve, Artifact, Environment, APIServeInfraConfig, User, ScheduledWorkflowDeployment, \
     Deployment
@@ -48,6 +52,24 @@ class DeploymentService:
         sanitized = re.sub(r"[^a-z0-9-]", "-", value.lower())
         sanitized = re.sub(r"-+", "-", sanitized).strip("-")
         return sanitized
+
+    @staticmethod
+    def _strategy_config_to_dict(config: Any) -> Optional[dict]:
+        """
+        Convert a deployment strategy config into a JSON-serializable dict.
+
+        Accepts:
+            - None
+            - dict
+            - Pydantic models (duck-typed via `model_dump`)
+        """
+        if config is None:
+            return None
+        if isinstance(config, dict):
+            return config
+        if hasattr(config, "model_dump"):
+            return config.model_dump(exclude_none=True)
+        raise TypeError("deployment_strategy_config must be a dict or a pydantic model")
 
     def _default_space(self, user: User) -> str:
         username = (user.username or "").replace("@", "-")
@@ -212,7 +234,7 @@ class DeploymentService:
                 environment_variables = None
             else:
                 deployment_strategy = api_deployment_config.deployment_strategy
-                deployment_params = api_deployment_config.deployment_strategy_config
+                deployment_params = self._strategy_config_to_dict(api_deployment_config.deployment_strategy_config)
                 environment_variables = api_deployment_config.environment_variables
 
             api_deployment = await AppLayerDeployment.create(
@@ -235,18 +257,28 @@ class DeploymentService:
     ):
         if api_deployment_config is None:
             environment_variables = None
+            deployment_strategy = None
+            deployment_strategy_config = None
         else:
             environment_variables = api_deployment_config.environment_variables
-        values_json = generate_fastapi_values(
-            name=serve.name,
-            env=env.name,
-            runtime=artifact.image_url,
-            env_config=EnvConfig(**env.env_configs),
-            user_email=user.username,
-            serve_infra_config=infra_config,
-            environment_variables=environment_variables,
-            is_environment_protected=env.is_protected,
-        )
+            deployment_strategy = api_deployment_config.deployment_strategy
+            deployment_strategy_config = api_deployment_config.deployment_strategy_config
+
+        try:
+            values_json = generate_fastapi_values_with_strategy(
+                name=serve.name,
+                env=env.name,
+                runtime=artifact.image_url,
+                env_config=EnvConfig(**env.env_configs),
+                user_email=user.username,
+                serve_infra_config=infra_config,
+                environment_variables=environment_variables,
+                is_environment_protected=env.is_protected,
+                deployment_strategy=deployment_strategy,
+                deployment_strategy_config=deployment_strategy_config,
+            )
+        except (DeploymentStrategyError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         build_resp = await self.dcm_client.build_resource(
             darwin_resource=FASTAPI_SERVE_RESOURCE_NAME,
@@ -390,9 +422,22 @@ class DeploymentService:
         current_deployment: Deployment = await active_deployment.deployment
         artifact: Artifact = await current_deployment.artifact
 
+        # Rehydrate strategy intent from the active deployment so infra-only updates remain strategy-safe.
+        app_layer_deployment = await AppLayerDeployment.get_or_none(deployment=current_deployment)
+        deployment_strategy = getattr(app_layer_deployment, "deployment_strategy", None) if app_layer_deployment else None
+        deployment_strategy_config = getattr(app_layer_deployment, "deployment_params", None) if app_layer_deployment else None
+
         values = generate_fastapi_infra_values(
             api_serve_config
         )
+        try:
+            values = apply_deployment_strategy_to_values(
+                values,
+                deployment_strategy=deployment_strategy,
+                deployment_strategy_config=deployment_strategy_config,
+            )
+        except (DeploymentStrategyError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         try:
             # Try to update the existing artifact
@@ -424,7 +469,8 @@ class DeploymentService:
             )
 
             # Generate full values (not just infra)
-            full_values = generate_fastapi_values(
+            try:
+                full_values = generate_fastapi_values_with_strategy(
                 name=serve.name,
                 env=env.name,
                 runtime=artifact.image_url,
@@ -433,10 +479,13 @@ class DeploymentService:
                 serve_infra_config=api_serve_config,
                 environment_variables=None,  # Will use existing env vars from deployment
                 is_environment_protected=env.is_protected,
-            )
+                    deployment_strategy=deployment_strategy,
+                    deployment_strategy_config=deployment_strategy_config,
+                )
+            except (DeploymentStrategyError, TypeError) as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
 
             # Get existing environment variables from the deployment
-            app_layer_deployment = await AppLayerDeployment.get_or_none(deployment=current_deployment)
             if app_layer_deployment and app_layer_deployment.environment_variables:
                 for key, val in app_layer_deployment.environment_variables.items():
                     full_values['envs'][str.upper(key)] = val

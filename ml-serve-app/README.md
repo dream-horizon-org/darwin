@@ -453,12 +453,54 @@ For more control over the deployment process, use Artifact Builder to create cus
      "artifact_version": "v1.0.0",
      "api_serve_deployment_config": {
        "deployment_strategy": "rolling",
+       "deployment_strategy_config": {
+         "max_surge": "25%",
+         "max_unavailable": 0
+       },
        "environment_variables": {
          "MODEL_PATH": "/models/production"
        }
      }
    }
    ```
+
+### Deployment Strategies
+
+API serves support rollout strategies via `api_serve_deployment_config`:
+
+- **`rolling` (default)**: Standard Kubernetes rolling update / Helm upgrade behavior.
+- **`canary`**: Progressive delivery using Flagger with Istio as the traffic router.
+
+#### Canary prerequisites
+
+To use `canary`:
+- Your target cluster MUST have **Flagger** installed and configured.
+- Your target cluster MUST have **Istio** installed.
+- `ml-serve-app` MUST run with `ENABLE_ISTIO=true` (and optionally set `ISTIO_SERVICE_NAME` if your ingress gateway service name differs).
+
+#### Canary example
+
+```bash
+POST /api/v1/serve/{serve_name}/deploy
+{
+  "env": "prod",
+  "artifact_version": "v1.0.1",
+  "api_serve_deployment_config": {
+    "deployment_strategy": "canary",
+    "deployment_strategy_config": {
+      "interval": "1m",
+      "threshold": 2,
+      "max_weight": 50,
+      "step_weight": 10,
+      "progress_deadline_seconds": 600,
+      "skip_analysis": false
+    },
+    "environment_variables": {
+      "MODEL_PATH": "/models/production"
+    }
+  }
+}
+```
 
 ### Updating Infrastructure Configuration
 

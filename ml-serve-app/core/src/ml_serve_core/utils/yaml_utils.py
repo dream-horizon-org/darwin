@@ -1,11 +1,13 @@
 import os
 
 import yaml
-from typing import Optional
+from typing import Optional, Any
 import importlib.resources as pkg_resource
 import ml_serve_core.resources as rs
 from ml_serve_core.config.configs import Config
 
+from ml_serve_core.deployment_strategies.base import DeploymentStrategyContext
+from ml_serve_core.deployment_strategies.factory import get_deployment_strategy
 from ml_serve_core.constants.constants import (
     APPLICATION_PORT,
     HEALTHCHECK_PATH,
@@ -167,11 +169,9 @@ def generate_fastapi_values_for_one_click_model_deployment(
 
     # Configure Istio if enabled
     if ENABLE_ISTIO:
-        values['ingressInt']['serviceName'] = ISTIO_SERVICE_NAME
         values['istio']['serviceName'] = ISTIO_SERVICE_NAME
         values['istio']['enabled'] = True
     else:
-        values['ingressInt']['serviceName'] = ""
         values['istio']['enabled'] = False
 
     values['ingressInt']['healthcheckPath'] = HEALTHCHECK_PATH
@@ -247,11 +247,9 @@ def generate_fastapi_values(
 
     # Configure Istio if enabled
     if ENABLE_ISTIO:
-        values['ingressInt']['serviceName'] = ISTIO_SERVICE_NAME
         values['istio']['serviceName'] = ISTIO_SERVICE_NAME
         values['istio']['enabled'] = True
     else:
-        values['ingressInt']['serviceName'] = ""
         values['istio']['enabled'] = False
 
     values['ingressInt']['healthcheckPath'] = HEALTHCHECK_PATH
@@ -274,6 +272,87 @@ def generate_fastapi_values(
     )
     update_node_selector(values, serve_infra_config.fast_api_config_object.node_capacity_type)
     return values
+
+
+def _strategy_config_to_dict(config: Any) -> Optional[dict]:
+    """
+    Convert a strategy config into a plain JSON-serializable dict.
+
+    Accepts:
+        - None
+        - dict
+        - Pydantic models (duck-typed via `model_dump`)
+    """
+    if config is None:
+        return None
+    if isinstance(config, dict):
+        return config
+    if hasattr(config, "model_dump"):
+        return config.model_dump(exclude_none=True)
+    raise TypeError("deployment_strategy_config must be a dict or a pydantic model")
+
+
+def apply_deployment_strategy_to_values(
+    values: dict,
+    deployment_strategy: Optional[str],
+    deployment_strategy_config: Any,
+    *,
+    istio_enabled: Optional[bool] = None,
+) -> dict:
+    """
+    Apply deployment strategy toggles/settings to base Helm values.
+
+    Args:
+        values: Base values generated for the `darwin-fastapi-serve` chart.
+        deployment_strategy: Strategy ID (e.g., rolling, canary). Defaults to rolling when None/empty.
+        deployment_strategy_config: Strategy config (dict or pydantic model).
+        istio_enabled: Whether Istio support is enabled in the control-plane configuration.
+
+    Returns:
+        Updated values dict.
+
+    Raises:
+        DeploymentStrategyError: for unsupported strategies, invalid configs, or missing prerequisites.
+        TypeError: if config type is unsupported.
+    """
+    strategy = get_deployment_strategy(deployment_strategy)
+    cfg = _strategy_config_to_dict(deployment_strategy_config)
+    ctx = DeploymentStrategyContext(istio_enabled=ENABLE_ISTIO if istio_enabled is None else istio_enabled)
+    strategy.validate(cfg, ctx)
+    return strategy.apply(values, cfg, ctx)
+
+
+def generate_fastapi_values_with_strategy(
+    *,
+    name: str,
+    env: str,
+    runtime: str,
+    env_config: EnvConfig,
+    user_email: str,
+    serve_infra_config: APIServeInfraConfig,
+    environment_variables: Optional[dict[str, str]],
+    is_environment_protected: bool,
+    deployment_strategy: Optional[str],
+    deployment_strategy_config: Any,
+) -> dict:
+    """
+    Generate Helm values for a FastAPI serve, including deployment strategy toggles.
+    """
+    values = generate_fastapi_values(
+        name=name,
+        env=env,
+        runtime=runtime,
+        env_config=env_config,
+        user_email=user_email,
+        serve_infra_config=serve_infra_config,
+        environment_variables=environment_variables,
+        is_environment_protected=is_environment_protected,
+    )
+    return apply_deployment_strategy_to_values(
+        values,
+        deployment_strategy=deployment_strategy,
+        deployment_strategy_config=deployment_strategy_config,
+    )
 
 
 def generate_fastapi_infra_values(api_serve_config: APIServeInfraConfig) -> dict:

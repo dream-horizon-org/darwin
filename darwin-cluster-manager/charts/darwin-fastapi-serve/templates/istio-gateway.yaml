@@ -1,0 +1,30 @@
+{{- if (and (.Values.flagger.enabled) (.Values.istio.enabled)) -}}
+{{- $fullName := include "service-deployment.fullname" . -}}
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{ $fullName }}-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "service-deployment.labels" . | nindent 4 }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        {{- with $.Values.ingressInt.hosts }}
+        {{- range . }}
+        - {{ . | quote }}
+        {{- end }}
+        {{- end }}
+        {{- with $.Values.ingressExt.hosts }}
+        {{- range . }}
+        - {{ . | quote }}
+        {{- end }}
+        {{- end }}
+{{- end -}}
+

@@ -1,6 +1,6 @@
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field, validator, model_validator, field_validator
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Union, Any
 from ml_serve_model.enums import BackendType, ServeType
 from ml_serve_core.client.mlflow_client import MLflowClient
 
@@ -208,11 +208,172 @@ class ServeConfigRequest(BaseModel):
         return self
 
 
+DeploymentStrategyId = Literal["rolling", "canary"]
+
+
+class RollingDeploymentStrategyConfigRequest(BaseModel):
+    """
+    Rolling-update tuning parameters for Kubernetes Deployments.
+
+    These map to `spec.strategy.rollingUpdate.{maxSurge,maxUnavailable}`.
+    Kubernetes accepts either an integer or a percentage string (e.g., "10%").
+    """
+
+    max_surge: Optional[Union[int, str]] = Field(
+        None,
+        description="Max surge for rolling update (int or percentage string, e.g. 1 or '10%').",
+    )
+    max_unavailable: Optional[Union[int, str]] = Field(
+        None,
+        description="Max unavailable for rolling update (int or percentage string, e.g. 0 or '25%').",
+    )
+
+    @field_validator("max_surge", "max_unavailable", mode="before")
+    def _normalize_int_or_percent(cls, value: Any) -> Any:
+        """Normalize whitespace and allow int-like strings for rolling update knobs."""
+        if value is None:
+            return value
+        if isinstance(value, str):
+            v = value.strip()
+            if v == "":
+                return None
+            # Accept "1" as int, but keep "10%" as string.
+            if v.isdigit():
+                return int(v)
+            return v
+        return value
+
+    @field_validator("max_surge", "max_unavailable", mode="after")
+    def _validate_int_or_percent(cls, value: Any) -> Any:
+        """Validate that rolling update knobs are either non-negative ints or percent strings."""
+        if value is None:
+            return value
+        if isinstance(value, int):
+            if value < 0:
+                raise RequestValidationError("rolling strategy config values must be >= 0")
+            return value
+        if isinstance(value, str):
+            if value.endswith("%") and value[:-1].isdigit():
+                return value
+            raise RequestValidationError(
+                "rolling strategy config values must be an int or a percentage string like '10%'"
+            )
+        raise RequestValidationError("rolling strategy config values must be an int or percentage string")
+
+
+class CanaryMetricConfigRequest(BaseModel):
+    """Metric configuration for Flagger canary analysis."""
+
+    name: str = Field(..., min_length=1, description="Metric template name used by Flagger.")
+    threshold_max: float = Field(
+        ...,
+        ge=0,
+        description="Max allowed value for the metric (Flagger thresholdRange.max).",
+    )
+    interval: str = Field("1m", min_length=2, description="Metric check interval (e.g., '30s', '1m').")
+
+    @field_validator("name", mode="before")
+    def _normalize_name(cls, value: Any) -> Any:
+        """Trim metric name whitespace."""
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+
+class CanaryDeploymentStrategyConfigRequest(BaseModel):
+    """
+    Flagger/Istio canary rollout configuration.
+
+    These map to `.Values.flagger.*` in the `darwin-fastapi-serve` chart.
+    """
+
+    interval: str = Field("1m", min_length=2, description="Analysis interval (e.g., '30s', '1m').")
+    threshold: int = Field(2, ge=1, description="Max failed checks before rollback.")
+    max_weight: int = Field(60, ge=1, le=100, description="Maximum traffic percentage routed to canary.")
+    step_weight: int = Field(20, ge=1, le=100, description="Traffic increment step for canary.")
+    progress_deadline_seconds: int = Field(600, ge=1, description="Max seconds for canary to make progress.")
+    skip_analysis: bool = Field(False, description="Skip canary analysis (dangerous; for debugging only).")
+    metrics: Optional[List[CanaryMetricConfigRequest]] = Field(
+        None,
+        description="Optional list of Flagger metric templates to use during analysis.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_weights(self) -> "CanaryDeploymentStrategyConfigRequest":
+        """Validate step/max weight constraints."""
+        if self.step_weight > self.max_weight:
+            raise RequestValidationError("canary step_weight must be <= max_weight")
+        return self
+
+
 class APIServeDeploymentConfigRequest(BaseModel):
-    deployment_strategy: Optional[str] = Field(None, description="Deployment strategy for the API serve.")
-    deployment_strategy_config: Optional[dict] = Field(None,
-                                                       description="Deployment strategy configuration for the API serve.")
+    deployment_strategy: Optional[DeploymentStrategyId] = Field(
+        None,
+        description="Deployment strategy for the API serve. Supported: 'rolling', 'canary'. Defaults to 'rolling'.",
+    )
+    deployment_strategy_config: Optional[
+        Union[RollingDeploymentStrategyConfigRequest, CanaryDeploymentStrategyConfigRequest]
+    ] = Field(
+        None,
+        description="Deployment strategy configuration (typed per strategy).",
+    )
     environment_variables: Optional[dict] = Field(None, description="Environment variables for the API serve.")
+
+    @model_validator(mode="before")
+    def _normalize_and_parse_strategy(cls, data: Any) -> Any:
+        """
+        Normalize strategy identifiers and parse the strategy config into a typed model.
+
+        This keeps the public API shape stable (`deployment_strategy` + `deployment_strategy_config`)
+        while ensuring callers get strong validation and canonical IDs.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        strategy = data.get("deployment_strategy")
+        config = data.get("deployment_strategy_config")
+
+        # Treat empty config as absent (common in clients that always send an object).
+        if config == {}:
+            config = None
+            data["deployment_strategy_config"] = None
+
+        if strategy is None:
+            # Avoid ambiguous config parsing when strategy is missing.
+            if config is not None:
+                raise RequestValidationError(
+                    "deployment_strategy is required when deployment_strategy_config is provided"
+                )
+            return data
+
+        if isinstance(strategy, str):
+            strategy = strategy.strip().lower()
+            data["deployment_strategy"] = strategy
+
+        if strategy not in ("rolling", "canary"):
+            raise RequestValidationError("Unsupported deployment_strategy. Must be one of: rolling, canary")
+
+        if config is None or isinstance(
+            config, (RollingDeploymentStrategyConfigRequest, CanaryDeploymentStrategyConfigRequest)
+        ):
+            return data
+
+        if not isinstance(config, dict):
+            raise RequestValidationError("deployment_strategy_config must be an object")
+
+        if strategy == "rolling":
+            data["deployment_strategy_config"] = RollingDeploymentStrategyConfigRequest(**config)
+        elif strategy == "canary":
+            data["deployment_strategy_config"] = CanaryDeploymentStrategyConfigRequest(**config)
+
+        return data
+
+    @model_validator(mode="after")
+    def _default_strategy(self) -> "APIServeDeploymentConfigRequest":
+        """Default the deployment strategy to rolling when omitted."""
+        if self.deployment_strategy is None:
+            self.deployment_strategy = "rolling"
+        return self
 
 
 class WorkflowServeDeploymentConfigRequest(BaseModel):

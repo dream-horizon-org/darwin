@@ -21,6 +21,8 @@ from ml_serve_core.service.deployment_service import DeploymentService
 from ml_serve_core.service.artifact_service import ArtifactService
 from ml_serve_core.service.serve_service import ServeService
 from ml_serve_core.service.serve_config_service import ServeConfigService
+from ml_serve_core.constants.constants import ISTIO_SERVICE_NAME
+import ml_serve_core.utils.yaml_utils as yaml_utils
 from ml_serve_model import Serve, Artifact, Deployment
 from ml_serve_model.enums import ServeType, BackendType, DeploymentStatus
 from ml_serve_model.serve_configs import APIServeInfraConfig
@@ -312,6 +314,162 @@ class TestArtifactDeployment:
         deployment = await active.deployment
         artifact = await deployment.artifact
         assert artifact.id == test_artifact.id
+
+    @pytest.mark.asyncio
+    async def test_rolling_strategy_emits_expected_chart_toggles(
+        self,
+        db_session,
+        test_user,
+        test_serve,
+        test_artifact,
+        test_environment,
+        mock_dcm_client,
+    ):
+        """Rolling deployments should disable Flagger and keep Service enabled."""
+        service = DeploymentService()
+        service.dcm_client = mock_dcm_client
+
+        infra_config = await APIServeInfraConfig.create(
+            serve=test_serve,
+            environment=test_environment,
+            backend_type=BackendType.FastAPI.value,
+            fast_api_config={
+                "cores": 2,
+                "memory": 4,
+                "min_replicas": 1,
+                "max_replicas": 3,
+                "node_capacity_type": "spot",
+            },
+            created_by=test_user,
+            updated_by=test_user,
+        )
+
+        deployment_config = APIServeDeploymentConfigRequest(
+            deployment_strategy="rolling",
+            deployment_strategy_config={"max_surge": "25%", "max_unavailable": 0},
+        )
+
+        await service.deploy_api_serve(
+            serve=test_serve,
+            artifact=test_artifact,
+            env=test_environment,
+            api_serve_config=infra_config,
+            api_deployment_config=deployment_config,
+            user=test_user,
+        )
+
+        values = mock_dcm_client.build_resource.call_args.kwargs["values"]
+        assert values["flagger"]["enabled"] is False
+        assert values["service"]["enabled"] is True
+        assert values["deployment"]["rollingUpdate"]["maxSurge"] == "25%"
+        assert values["deployment"]["rollingUpdate"]["maxUnavailable"] == 0
+
+    @pytest.mark.asyncio
+    async def test_canary_strategy_emits_expected_chart_toggles(
+        self,
+        db_session,
+        test_user,
+        test_serve,
+        test_artifact,
+        test_environment,
+        mock_dcm_client,
+        monkeypatch,
+    ):
+        """Canary deployments should enable Flagger, disable Service, and route ingress via Istio."""
+        monkeypatch.setattr(yaml_utils, "ENABLE_ISTIO", True, raising=False)
+
+        service = DeploymentService()
+        service.dcm_client = mock_dcm_client
+
+        infra_config = await APIServeInfraConfig.create(
+            serve=test_serve,
+            environment=test_environment,
+            backend_type=BackendType.FastAPI.value,
+            fast_api_config={
+                "cores": 2,
+                "memory": 4,
+                "min_replicas": 1,
+                "max_replicas": 3,
+                "node_capacity_type": "spot",
+            },
+            created_by=test_user,
+            updated_by=test_user,
+        )
+
+        deployment_config = APIServeDeploymentConfigRequest(
+            deployment_strategy="canary",
+            deployment_strategy_config={
+                "interval": "30s",
+                "threshold": 1,
+                "max_weight": 20,
+                "step_weight": 10,
+                "progress_deadline_seconds": 600,
+                "skip_analysis": False,
+            },
+        )
+
+        await service.deploy_api_serve(
+            serve=test_serve,
+            artifact=test_artifact,
+            env=test_environment,
+            api_serve_config=infra_config,
+            api_deployment_config=deployment_config,
+            user=test_user,
+        )
+
+        values = mock_dcm_client.build_resource.call_args.kwargs["values"]
+        assert values["flagger"]["enabled"] is True
+        assert values["service"]["enabled"] is False
+        assert values["ingressInt"]["serviceName"] == ISTIO_SERVICE_NAME
+        assert values["flagger"]["interval"] == "30s"
+        assert values["flagger"]["maxWeight"] == 20
+        assert values["flagger"]["stepWeight"] == 10
+
+    @pytest.mark.asyncio
+    async def test_canary_rejected_when_istio_disabled(
+        self,
+        db_session,
+        test_user,
+        test_serve,
+        test_artifact,
+        test_environment,
+        mock_dcm_client,
+        monkeypatch,
+    ):
+        """Canary deployments should be rejected when Istio support is disabled."""
+        monkeypatch.setattr(yaml_utils, "ENABLE_ISTIO", False, raising=False)
+
+        service = DeploymentService()
+        service.dcm_client = mock_dcm_client
+
+        infra_config = await APIServeInfraConfig.create(
+            serve=test_serve,
+            environment=test_environment,
+            backend_type=BackendType.FastAPI.value,
+            fast_api_config={
+                "cores": 2,
+                "memory": 4,
+                "min_replicas": 1,
+                "max_replicas": 3,
+                "node_capacity_type": "spot",
+            },
+            created_by=test_user,
+            updated_by=test_user,
+        )
+
+        deployment_config = APIServeDeploymentConfigRequest(deployment_strategy="canary")
+
+        with pytest.raises(HTTPException) as exc:
+            await service.deploy_api_serve(
+                serve=test_serve,
+                artifact=test_artifact,
+                env=test_environment,
+                api_serve_config=infra_config,
+                api_deployment_config=deployment_config,
+                user=test_user,
+            )
+
+        assert exc.value.status_code == 400
 
 
 @pytest.mark.unit

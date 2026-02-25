@@ -92,6 +92,13 @@ hpa:
     target: Utilization
     value: 80
     unit: Mi
+
+# Deployment strategy knobs (independent from Flagger).
+# Used for standard rolling updates.
+deployment:
+  rollingUpdate:
+    maxSurge: 10%
+    maxUnavailable: 1
 livenessProbe:
   initialDelaySeconds: 20
   periodSeconds: 5
@@ -118,6 +125,9 @@ serviceMonitor:
 ingressInt:
   namespace: darwin
   ingressClass: alb
+  # Optional override for ingress backend Service.
+  # Used for Istio/Flagger canary mode where Ingress should point to istio-ingressgateway.
+  serviceName: ""
   annotations:
     external-dns.alpha.kubernetes.io/hostname: ml-serve-demo.darwin.dream11-k8s.local
   enabled: true
@@ -170,6 +180,8 @@ flagger:
   maxWeight: 60
   stepWeight: 20
   iterations: 2
+  progressDeadlineSeconds: 600
+  # Deprecated for rolling updates; use `deployment.rollingUpdate.*` instead.
   maxSurge: 10%
   maxUnavailable: 1
   slackChannel: darwin-serve-alerts

@@ -2,7 +2,7 @@
 {{- $fullName := include "service-deployment.fullname" . -}}
 {{- $ingressPath := .Values.ingressExt.path -}}
 {{- $ingressPathType := .Values.ingressExt.pathType -}}
-{{- $ingressServiceName := include "service-deployment.ingressServiceName" . -}}
+{{- $ingressServiceName := .Values.ingressExt.serviceName | default (include "service-deployment.ingressServiceName" .) -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

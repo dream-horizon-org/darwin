@@ -14,6 +14,8 @@ from ml_serve_app_layer.dtos.requests import (
 )
 from ml_serve_core.service.deployment_service import DeploymentService
 from ml_serve_core.service.serve_config_service import ServeConfigService
+from ml_serve_core.constants.constants import ISTIO_SERVICE_NAME
+import ml_serve_core.utils.yaml_utils as yaml_utils
 from ml_serve_model import Deployment
 from ml_serve_model.enums import BackendType, DeploymentStatus
 from ml_serve_model.serve_configs import APIServeInfraConfig
@@ -340,6 +342,146 @@ class TestAutoRedeployment:
         assert "envs" in values
         for key in original_env_vars:
             assert key.upper() in values["envs"]
+
+    @pytest.mark.asyncio
+    async def test_redeploy_preserves_strategy_on_rebuild_fallback(
+        self,
+        db_session,
+        test_user,
+        test_serve,
+        test_artifact,
+        test_environment,
+        mock_dcm_client,
+        monkeypatch,
+    ):
+        """Rebuild fallback should preserve canary vs rolling strategy intent."""
+        monkeypatch.setattr(yaml_utils, "ENABLE_ISTIO", True, raising=False)
+
+        service = DeploymentService()
+        service.dcm_client = mock_dcm_client
+
+        config = await APIServeInfraConfig.create(
+            serve=test_serve,
+            environment=test_environment,
+            backend_type=BackendType.FastAPI.value,
+            fast_api_config={
+                "cores": 2,
+                "memory": 4,
+                "min_replicas": 1,
+                "max_replicas": 3,
+                "node_capacity_type": "spot",
+            },
+            created_by=test_user,
+            updated_by=test_user,
+        )
+
+        deployment = await Deployment.create(
+            serve=test_serve,
+            artifact=test_artifact,
+            environment=test_environment,
+            created_by=test_user,
+        )
+
+        await AppLayerDeployment.create(
+            deployment=deployment,
+            deployment_strategy="canary",
+            deployment_params={
+                "interval": "30s",
+                "threshold": 1,
+                "max_weight": 20,
+                "step_weight": 10,
+                "progress_deadline_seconds": 600,
+            },
+            environment_variables={"TEST": "value"},
+        )
+
+        await ActiveDeployment.create(
+            serve=test_serve,
+            environment=test_environment,
+            deployment=deployment,
+        )
+
+        # Force rebuild fallback path.
+        mock_dcm_client.update_resource.side_effect = Exception("Update failed")
+        mock_dcm_client.build_resource.return_value = MockDCMResponses.BUILD_SUCCESS
+        mock_dcm_client.start_resource.return_value = MockDCMResponses.START_SUCCESS
+
+        await service.redeploy_api_serve_with_updated_infra_config(
+            serve=test_serve,
+            api_serve_config=config,
+            env=test_environment,
+            user=test_user,
+        )
+
+        values = mock_dcm_client.build_resource.call_args.kwargs["values"]
+        assert values["flagger"]["enabled"] is True
+        assert values["service"]["enabled"] is False
+        assert values["ingressInt"]["serviceName"] == ISTIO_SERVICE_NAME
+
+    @pytest.mark.asyncio
+    async def test_infra_patch_applies_strategy_toggles(
+        self,
+        db_session,
+        test_user,
+        test_serve,
+        test_artifact,
+        test_environment,
+        mock_dcm_client,
+        monkeypatch,
+    ):
+        """Infra-only patches should include strategy toggles so canary remains canary."""
+        monkeypatch.setattr(yaml_utils, "ENABLE_ISTIO", True, raising=False)
+
+        service = DeploymentService()
+        service.dcm_client = mock_dcm_client
+
+        config = await APIServeInfraConfig.create(
+            serve=test_serve,
+            environment=test_environment,
+            backend_type=BackendType.FastAPI.value,
+            fast_api_config={
+                "cores": 2,
+                "memory": 4,
+                "min_replicas": 1,
+                "max_replicas": 3,
+                "node_capacity_type": "spot",
+            },
+            created_by=test_user,
+            updated_by=test_user,
+        )
+
+        deployment = await Deployment.create(
+            serve=test_serve,
+            artifact=test_artifact,
+            environment=test_environment,
+            created_by=test_user,
+        )
+
+        await AppLayerDeployment.create(
+            deployment=deployment,
+            deployment_strategy="canary",
+            deployment_params={"max_weight": 20, "step_weight": 10},
+        )
+
+        await ActiveDeployment.create(
+            serve=test_serve,
+            environment=test_environment,
+            deployment=deployment,
+        )
+
+        mock_dcm_client.update_resource.return_value = MockDCMResponses.UPDATE_SUCCESS
+        mock_dcm_client.start_resource.return_value = MockDCMResponses.START_SUCCESS
+
+        await service.redeploy_api_serve_with_updated_infra_config(
+            serve=test_serve,
+            api_serve_config=config,
+            env=test_environment,
+            user=test_user,
+        )
+
+        patch_values = mock_dcm_client.update_resource.call_args.kwargs["values"]
+        assert patch_values["flagger"]["enabled"] is True
+        assert patch_values["service"]["enabled"] is False
     
     @pytest.mark.asyncio
     async def test_redeploy_handles_dcm_update_failure_gracefully(
