@@ -1,6 +1,6 @@
 import os
 import re
-from typing import Optional, List
+from typing import Optional, List, Tuple, Any
 
 from fastapi import HTTPException
 from tortoise.transactions import in_transaction
@@ -21,7 +21,7 @@ from ml_serve_core.dtos.dtos import EnvConfig
 from ml_serve_core.service.serve_config_service import ServeConfigService
 from ml_serve_core.utils.utils import get_host_name, get_service_url, get_service_url_for_one_click
 from ml_serve_core.utils.yaml_utils import generate_fastapi_values, generate_fastapi_infra_values, \
-    generate_fastapi_values_for_one_click_model_deployment
+    generate_fastapi_values_for_one_click_model_deployment, apply_deployment_strategy
 from ml_serve_core.utils.storage_strategy import determine_storage_strategy
 from ml_serve_model import Serve, Artifact, Environment, APIServeInfraConfig, User, ScheduledWorkflowDeployment, \
     Deployment
@@ -45,16 +45,19 @@ class DeploymentService:
 
     @staticmethod
     def _sanitize_identifier(value: str) -> str:
+        """Convert an identifier to a DNS-safe kebab-case string."""
         sanitized = re.sub(r"[^a-z0-9-]", "-", value.lower())
         sanitized = re.sub(r"-+", "-", sanitized).strip("-")
         return sanitized
 
     def _default_space(self, user: User) -> str:
+        """Compute a default "space" label for one-click serves."""
         username = (user.username or "").replace("@", "-")
         sanitized = self._sanitize_identifier(username) if username else "one-click"
         return sanitized or "one-click"
 
     def _build_one_click_env_vars(self, model_uri: str, artifact_version: str) -> dict:
+        """Build environment variables injected into one-click model deployments."""
         env_vars = {
             "MLFLOW_MODEL_URI": model_uri,
             "MODEL_VERSION": artifact_version
@@ -68,6 +71,7 @@ class DeploymentService:
         return env_vars
 
     async def _update_active_deployment(self, serve: Serve, env: Environment, deployment: Deployment):
+        """Update the active deployment pointer and mark the previous as ended."""
         active_deployment = await ActiveDeployment.get_or_none(serve=serve, environment=env)
         if not active_deployment:
             await ActiveDeployment.create(serve=serve, environment=env, deployment=deployment)
@@ -84,6 +88,7 @@ class DeploymentService:
         await active_deployment.save()
 
     async def get_deployment_by_serve_id(self, serve_id: int) -> Optional[list[Deployment]]:
+        """Fetch active deployments for a serve id (ordered by creation time)."""
         if not await Deployment.exists(serve_id=serve_id):
             return None
 
@@ -128,6 +133,12 @@ class DeploymentService:
             deployment_request: DeploymentRequest,
             user: User
     ):
+        """
+        Deploy an artifact to a serve/environment.
+
+        For API serves, this method will reuse the previous active deployment's strategy/config
+        when the request omits `api_serve_deployment_config`.
+        """
         previous_active_deployment = await ActiveDeployment.get_or_none(serve=serve, environment=env)
         api_deployment_resp = None
 
@@ -142,10 +153,20 @@ class DeploymentService:
             if previous_deployment_obj:
                 api_deployment_obj = await self.get_app_layer_deployment_by_id(previous_deployment_obj.id)
                 if deployment_request.api_serve_deployment_config is None:
+                    if not api_deployment_obj:
+                        previous_strategy = "rolling"
+                        previous_env_vars = None
+                        previous_params = None
+                    else:
+                        previous_strategy = (api_deployment_obj.deployment_strategy or "").strip().lower()
+                        if previous_strategy not in {"rolling", "canary"}:
+                            previous_strategy = "rolling"
+                        previous_env_vars = api_deployment_obj.environment_variables
+                        previous_params = api_deployment_obj.deployment_params
                     deployment_request.api_serve_deployment_config = APIServeDeploymentConfigRequest(
-                        environment_variables=api_deployment_obj.environment_variables,
-                        deployment_strategy=api_deployment_obj.deployment_strategy,
-                        deployment_strategy_config=api_deployment_obj.deployment_params
+                        environment_variables=previous_env_vars,
+                        deployment_strategy=previous_strategy,
+                        deployment_strategy_config=previous_params
                     )
                 elif (
                         deployment_request.api_serve_deployment_config.environment_variables is None
@@ -193,10 +214,25 @@ class DeploymentService:
             api_deployment_config: APIServeDeploymentConfigRequest,
             user: User
     ):
+        """Deploy an API serve using the requested strategy."""
         resp = None
         if api_serve_config.backend_type == BackendType.FastAPI.value:
+            input_strategy = api_deployment_config.deployment_strategy if api_deployment_config else None
+            input_config = api_deployment_config.deployment_strategy_config if api_deployment_config else None
+            normalized_strategy, normalized_config = self._validate_and_normalize_strategy(
+                input_strategy,
+                input_config,
+                env,
+            )
             resp = await self.deploy_fastapi_serve(
-                serve, artifact, env, api_deployment_config, api_serve_config, user
+                serve,
+                artifact,
+                env,
+                api_deployment_config,
+                api_serve_config,
+                user,
+                deployment_strategy=normalized_strategy,
+                deployment_strategy_config=normalized_config,
             )
 
         async with in_transaction():
@@ -206,14 +242,9 @@ class DeploymentService:
                 environment=env,
                 created_by=user,
             )
-            if api_deployment_config is None:
-                deployment_strategy = None
-                deployment_params = None
-                environment_variables = None
-            else:
-                deployment_strategy = api_deployment_config.deployment_strategy
-                deployment_params = api_deployment_config.deployment_strategy_config
-                environment_variables = api_deployment_config.environment_variables
+            deployment_strategy = normalized_strategy
+            deployment_params = normalized_config
+            environment_variables = api_deployment_config.environment_variables if api_deployment_config else None
 
             api_deployment = await AppLayerDeployment.create(
                 deployment=deployment,
@@ -231,8 +262,17 @@ class DeploymentService:
             env: Environment,
             api_deployment_config: APIServeDeploymentConfigRequest,
             infra_config: APIServeInfraConfig,
-            user: User
+            user: User,
+            deployment_strategy: str = "rolling",
+            deployment_strategy_config: Optional[dict] = None,
     ):
+        """
+        Deploy a FastAPI serve via DCM.
+
+        Args:
+            deployment_strategy: normalized strategy name (lowercase)
+            deployment_strategy_config: strategy-specific config (validated upstream)
+        """
         if api_deployment_config is None:
             environment_variables = None
         else:
@@ -247,6 +287,7 @@ class DeploymentService:
             environment_variables=environment_variables,
             is_environment_protected=env.is_protected,
         )
+        apply_deployment_strategy(values_json, deployment_strategy, deployment_strategy_config)
 
         build_resp = await self.dcm_client.build_resource(
             darwin_resource=FASTAPI_SERVE_RESOURCE_NAME,
@@ -266,6 +307,124 @@ class DeploymentService:
         return {
             "service_url": get_service_url(serve.name, env.name, EnvConfig(**env.env_configs), env.is_protected)
         }
+
+    @staticmethod
+    def _is_canary_supported() -> bool:
+        """
+        Determine whether this runtime environment supports canary deployments.
+
+        This is a pragmatic check used by `ml-serve-app` before attempting a canary deployment.
+        The default is disabled to avoid starting canary execution in environments without
+        the required progressive delivery prerequisites.
+        """
+        return os.getenv("ENABLE_CANARY", "false").strip().lower() == "true"
+
+    def _validate_and_normalize_strategy(
+            self,
+            strategy: Optional[str],
+            strategy_config: Optional[dict],
+            env: Environment,
+    ) -> Tuple[str, Optional[dict]]:
+        """
+        Validate and normalize deployment strategy inputs for API serves.
+
+        Returns:
+            A tuple of (normalized_strategy, normalized_config).
+
+        Raises:
+            HTTPException(400) for unknown strategies, invalid configs, or missing prerequisites.
+        """
+        normalized = (strategy or "").strip().lower() or "rolling"
+
+        if normalized not in {"rolling", "canary"}:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported deployment_strategy '{strategy}'. Supported: rolling, canary.",
+            )
+
+        if normalized == "rolling":
+            self._validate_rolling_config(strategy_config)
+            return "rolling", strategy_config
+
+        # canary
+        self._validate_canary_config(strategy_config)
+
+        if not self._is_canary_supported():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Canary deployments are not supported in this environment. "
+                    "Missing prerequisite: set ENABLE_CANARY=true and ensure the progressive delivery provider "
+                    "(e.g., Flagger + routing provider) is installed."
+                ),
+            )
+
+        return "canary", strategy_config
+
+    @staticmethod
+    def _validate_rolling_config(strategy_config: Optional[dict]) -> None:
+        """
+        Validate optional rolling strategy configuration.
+
+        Allowed keys: max_surge, max_unavailable, progress_deadline_seconds.
+        """
+        if strategy_config is None:
+            return
+        if not isinstance(strategy_config, dict):
+            raise HTTPException(status_code=400, detail="deployment_strategy_config must be an object for rolling.")
+
+        if "progress_deadline_seconds" in strategy_config:
+            v = strategy_config["progress_deadline_seconds"]
+            if not isinstance(v, int) or v <= 0:
+                raise HTTPException(status_code=400, detail="progress_deadline_seconds must be a positive integer.")
+
+        for key in ("max_surge", "max_unavailable"):
+            if key not in strategy_config:
+                continue
+            v = strategy_config[key]
+            if isinstance(v, int):
+                if v < 0:
+                    raise HTTPException(status_code=400, detail=f"{key} must be >= 0.")
+                continue
+            if isinstance(v, str):
+                if not v.endswith("%"):
+                    raise HTTPException(status_code=400, detail=f"{key} percentage must end with '%'.")
+                continue
+            raise HTTPException(status_code=400, detail=f"{key} must be an integer or percentage string.")
+
+    @staticmethod
+    def _validate_canary_config(strategy_config: Optional[dict]) -> None:
+        """
+        Validate canary strategy configuration.
+
+        Required keys: provider, interval, threshold, max_weight, step_weight, metrics.
+        """
+        if strategy_config is None:
+            raise HTTPException(status_code=400, detail="deployment_strategy_config is required for canary.")
+        if not isinstance(strategy_config, dict):
+            raise HTTPException(status_code=400, detail="deployment_strategy_config must be an object for canary.")
+
+        required = ["provider", "interval", "threshold", "max_weight", "step_weight", "metrics"]
+        missing = [k for k in required if k not in strategy_config or strategy_config[k] in (None, "")]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"Missing canary config keys: {', '.join(missing)}.")
+
+        provider = str(strategy_config.get("provider", "")).strip().lower()
+        if provider != "flagger":
+            raise HTTPException(status_code=400, detail="Only provider 'flagger' is supported for canary.")
+
+        threshold = strategy_config.get("threshold")
+        if not isinstance(threshold, int) or threshold < 0:
+            raise HTTPException(status_code=400, detail="threshold must be a non-negative integer.")
+
+        for key in ("max_weight", "step_weight"):
+            v = strategy_config.get(key)
+            if not isinstance(v, int) or not (0 <= v <= 100):
+                raise HTTPException(status_code=400, detail=f"{key} must be an integer between 0 and 100.")
+
+        metrics = strategy_config.get("metrics")
+        if not isinstance(metrics, list):
+            raise HTTPException(status_code=400, detail="metrics must be a list.")
 
     async def deploy_workflow_serve(
             self,
@@ -390,9 +549,28 @@ class DeploymentService:
         current_deployment: Deployment = await active_deployment.deployment
         artifact: Artifact = await current_deployment.artifact
 
+        app_layer_deployment = await AppLayerDeployment.get_or_none(deployment=current_deployment)
+        stored_strategy = (app_layer_deployment.deployment_strategy if app_layer_deployment else None)
+        stored_config = (app_layer_deployment.deployment_params if app_layer_deployment else None)
+
+        # Normalize/validate the stored strategy. For legacy unknown values, default to rolling.
+        try:
+            normalized_strategy, normalized_config = self._validate_and_normalize_strategy(
+                stored_strategy,
+                stored_config,
+                env,
+            )
+        except HTTPException:
+            legacy = (stored_strategy or "").strip().lower()
+            if legacy and legacy not in {"rolling", "canary"}:
+                normalized_strategy, normalized_config = "rolling", None
+            else:
+                raise
+
         values = generate_fastapi_infra_values(
             api_serve_config
         )
+        apply_deployment_strategy(values, normalized_strategy, normalized_config)
 
         try:
             # Try to update the existing artifact
@@ -436,10 +614,10 @@ class DeploymentService:
             )
 
             # Get existing environment variables from the deployment
-            app_layer_deployment = await AppLayerDeployment.get_or_none(deployment=current_deployment)
             if app_layer_deployment and app_layer_deployment.environment_variables:
                 for key, val in app_layer_deployment.environment_variables.items():
                     full_values['envs'][str.upper(key)] = val
+            apply_deployment_strategy(full_values, normalized_strategy, normalized_config)
 
             # Rebuild the artifact from scratch
             build_resp = await self.dcm_client.build_resource(
@@ -631,6 +809,7 @@ class DeploymentService:
             tracking_username=self.config.mlflow_tracking_username,
             tracking_password=self.config.mlflow_tracking_password,
         )
+        apply_deployment_strategy(values_json, "rolling", None)
 
         artifact_identifier = f"{env.name}-{serve.name}-{artifact.version}"
 
@@ -658,7 +837,7 @@ class DeploymentService:
             )
             await AppLayerDeployment.create(
                 deployment=deployment,
-                deployment_strategy=None,
+                deployment_strategy="rolling",
                 deployment_params=None,
                 environment_variables=environment_variables
             )

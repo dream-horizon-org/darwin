@@ -28,6 +28,62 @@ ENV = os.getenv("ENV", "local")
 # Namespace where serves are deployed in local environment
 LOCAL_SERVE_NAMESPACE = os.getenv("LOCAL_SERVE_NAMESPACE", "serve")
 
+def apply_deployment_strategy(
+        values: dict,
+        strategy: str,
+        strategy_config: Optional[dict],
+) -> dict:
+    """
+    Apply deployment strategy overrides to a Helm values dict for FastAPI serves.
+
+    This function is intentionally side-effecting: it mutates the provided `values` dict
+    and returns it for convenience.
+
+    Args:
+        values: Base Helm values (usually parsed from `fastapi_values.yaml`).
+        strategy: Normalized strategy name (lowercase), e.g. "rolling" or "canary".
+        strategy_config: Strategy-specific configuration object (may be None for rolling).
+
+    Returns:
+        The mutated values dict.
+    """
+    values.setdefault("flagger", {})
+
+    normalized = (strategy or "").strip().lower() or "rolling"
+
+    if normalized == "rolling":
+        values["flagger"]["enabled"] = False
+        if strategy_config:
+            if "max_surge" in strategy_config:
+                values["flagger"]["maxSurge"] = strategy_config["max_surge"]
+            if "max_unavailable" in strategy_config:
+                values["flagger"]["maxUnavailable"] = strategy_config["max_unavailable"]
+            if "progress_deadline_seconds" in strategy_config:
+                values["flagger"]["progressDeadlineSeconds"] = strategy_config["progress_deadline_seconds"]
+        return values
+
+    if normalized == "canary":
+        values["flagger"]["enabled"] = True
+        if strategy_config:
+            provider = strategy_config.get("provider")
+            if provider:
+                values["flagger"]["provider"] = provider
+            values["flagger"]["type"] = "canary"
+            if "interval" in strategy_config:
+                values["flagger"]["interval"] = strategy_config["interval"]
+            if "threshold" in strategy_config:
+                values["flagger"]["threshold"] = strategy_config["threshold"]
+            if "max_weight" in strategy_config:
+                values["flagger"]["maxWeight"] = strategy_config["max_weight"]
+            if "step_weight" in strategy_config:
+                values["flagger"]["stepWeight"] = strategy_config["step_weight"]
+            if "metrics" in strategy_config:
+                values["flagger"]["metrics"] = strategy_config["metrics"]
+        return values
+
+    # Unknown strategies are validated before this function is called.
+    return values
+
 
 def configure_ingress_for_local(values: dict, serve_name: str, namespace: str) -> None:
     """
