@@ -209,10 +209,80 @@ class ServeConfigRequest(BaseModel):
 
 
 class APIServeDeploymentConfigRequest(BaseModel):
-    deployment_strategy: Optional[str] = Field(None, description="Deployment strategy for the API serve.")
+    deployment_strategy: Optional[str] = Field(
+        None,
+        description="Deployment strategy for the API serve. Supported values: ROLLING, CANARY, BLUE_GREEN.",
+    )
     deployment_strategy_config: Optional[dict] = Field(None,
                                                        description="Deployment strategy configuration for the API serve.")
     environment_variables: Optional[dict] = Field(None, description="Environment variables for the API serve.")
+
+    @field_validator("deployment_strategy", mode="before")
+    def normalize_deployment_strategy(cls, value: Optional[str]) -> Optional[str]:
+        """Normalize deployment strategy input for consistent downstream behavior."""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return None
+            return value.upper()
+        raise RequestValidationError("deployment_strategy must be a string.")
+
+    @model_validator(mode="after")
+    def validate_deployment_strategy_config(self) -> "APIServeDeploymentConfigRequest":
+        """Validate strategy and config schema for API serve deployments."""
+        allowed = {"ROLLING", "CANARY", "BLUE_GREEN"}
+        strategy = self.deployment_strategy
+        if strategy is None:
+            return self
+        if strategy not in allowed:
+            raise RequestValidationError(f"Invalid deployment_strategy. Must be one of {sorted(allowed)}.")
+
+        cfg = self.deployment_strategy_config or {}
+        if not isinstance(cfg, dict):
+            raise RequestValidationError("deployment_strategy_config must be a JSON object (dict).")
+
+        def _expect_type(key: str, expected_types: tuple[type, ...]) -> None:
+            """Validate type of a config key if present."""
+            if key not in cfg:
+                return
+            if not isinstance(cfg[key], expected_types):
+                names = ", ".join(t.__name__ for t in expected_types)
+                raise RequestValidationError(f"deployment_strategy_config.{key} must be of type: {names}.")
+
+        # Rolling update knobs (native Deployment rollingUpdate)
+        _expect_type("maxSurge", (str, int))
+        _expect_type("maxUnavailable", (str, int))
+        _expect_type("progressDeadlineSeconds", (int,))
+
+        # Flagger analysis knobs
+        _expect_type("interval", (str,))
+        _expect_type("threshold", (int,))
+        _expect_type("maxWeight", (int,))
+        _expect_type("stepWeight", (int,))
+        _expect_type("iterations", (int,))
+        _expect_type("metrics", (list,))
+        _expect_type("webhooks", (list,))
+        _expect_type("skipAnalysis", (bool,))
+
+        # Basic semantic validations (only when keys are provided)
+        if "maxWeight" in cfg and not (0 <= cfg["maxWeight"] <= 100):
+            raise RequestValidationError("deployment_strategy_config.maxWeight must be between 0 and 100.")
+        if "stepWeight" in cfg and not (1 <= cfg["stepWeight"] <= 100):
+            raise RequestValidationError("deployment_strategy_config.stepWeight must be between 1 and 100.")
+        if "threshold" in cfg and cfg["threshold"] < 0:
+            raise RequestValidationError("deployment_strategy_config.threshold must be >= 0.")
+        if "iterations" in cfg and cfg["iterations"] < 1:
+            raise RequestValidationError("deployment_strategy_config.iterations must be >= 1.")
+
+        # Strategy-specific constraints (lightweight; defaults are applied server-side)
+        if strategy == "BLUE_GREEN" and ("maxWeight" in cfg or "stepWeight" in cfg):
+            raise RequestValidationError(
+                "BLUE_GREEN strategy does not support maxWeight/stepWeight; use iterations instead."
+            )
+
+        return self
 
 
 class WorkflowServeDeploymentConfigRequest(BaseModel):

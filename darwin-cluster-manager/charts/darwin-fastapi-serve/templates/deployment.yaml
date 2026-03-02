@@ -13,15 +13,15 @@ spec:
   {{- if not .Values.hpa.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
-  progressDeadlineSeconds: 600
+  progressDeadlineSeconds: {{ .Values.progressDeadlineSeconds | default 600 }}
   revisionHistoryLimit: 10
   selector:
     matchLabels:
       {{- include "service-deployment.selectorLabels" . | nindent 6 }}
   strategy:
     rollingUpdate:
-      maxSurge: {{ .Values.flagger.maxSurge }}
-      maxUnavailable: {{ .Values.flagger.maxUnavailable }}
+      maxSurge: {{ .Values.rollingUpdate.maxSurge | default .Values.flagger.maxSurge }}
+      maxUnavailable: {{ .Values.rollingUpdate.maxUnavailable | default .Values.flagger.maxUnavailable }}
     type: RollingUpdate
   template:
     metadata:

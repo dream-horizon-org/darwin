@@ -244,6 +244,12 @@ func (c *ResourceInstanceService) ResourceInstanceStatus(requestId string, resou
 	}
 	resourceInstanceStatus.Pods = pods
 
+	canary, err := kube_utils.GetFlaggerCanaryStatus(requestId, kubeConfigPath, resource.KubeNamespace, labelSelector)
+	if err != nil {
+		return nil, err
+	}
+	resourceInstanceStatus.Canary = canary
+
 	data := gin.H{"resource_id": resource.ResourceId, "status": resourceInstanceStatus}
 	return &dto.ResourceInstanceResponse{Status: "SUCCESS", Message: "Resource Instance Status Retrieved Successfully", Data: data}, nil
 }

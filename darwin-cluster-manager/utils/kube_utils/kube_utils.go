@@ -11,7 +11,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -351,4 +355,79 @@ func GetPodsStatus(requestId string, kubeConfigPath string, namespace string, la
 
 	logger.DebugR(requestId, "Pods fetched successfully")
 	return resources, nil
+}
+
+func GetFlaggerCanaryStatus(
+	requestId string,
+	kubeConfigPath string,
+	namespace string,
+	labelSelector string,
+) (*resource_instance.CanaryStatus, rest_errors.RestErr) {
+	// Get Flagger Canary status by label selector.
+	//
+	// Returns (nil, nil) when no Canary exists for the selector.
+	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
+	if err != nil {
+		logger.ErrorR(requestId, "Failed to build config from the config path", zap.Any("Error", err))
+		return nil, rest_errors.NewInternalServerError("Error getting k8s client config", err)
+	}
+
+	dyn, err := dynamic.NewForConfig(config)
+	if err != nil {
+		logger.ErrorR(requestId, "Failed to initiate dynamic k8s client", zap.Any("Error", err))
+		return nil, rest_errors.NewInternalServerError("Error initiating dynamic k8s client", err)
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "flagger.app",
+		Version:  "v1beta1",
+		Resource: "canaries",
+	}
+
+	list, err := dyn.Resource(gvr).Namespace(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		logger.ErrorR(requestId, "Failed to list canaries", zap.Any("Error", err))
+		return nil, rest_errors.NewInternalServerError("Error listing Flagger canaries", err)
+	}
+
+	if list == nil || len(list.Items) == 0 {
+		return nil, nil
+	}
+
+	item := list.Items[0]
+	return extractCanaryStatus(&item), nil
+}
+
+func extractCanaryStatus(obj *unstructured.Unstructured) *resource_instance.CanaryStatus {
+	// Extract Canary status fields from an unstructured object.
+	//
+	// This is resilient to missing fields and will return defaults when status fields
+	// are not present (e.g., right after creation).
+	if obj == nil {
+		return nil
+	}
+
+	status := &resource_instance.CanaryStatus{
+		Name: obj.GetName(),
+	}
+
+	if phase, found, _ := unstructured.NestedString(obj.Object, "status", "phase"); found {
+		status.Phase = phase
+	}
+	if weight, found, _ := unstructured.NestedInt64(obj.Object, "status", "canaryWeight"); found {
+		status.CanaryWeight = weight
+	}
+	if failed, found, _ := unstructured.NestedInt64(obj.Object, "status", "failedChecks"); found {
+		status.FailedChecks = failed
+	}
+	if ts, found, _ := unstructured.NestedString(obj.Object, "status", "lastTransitionTime"); found {
+		status.LastTransitionTime = ts
+	}
+
+	return status
 }

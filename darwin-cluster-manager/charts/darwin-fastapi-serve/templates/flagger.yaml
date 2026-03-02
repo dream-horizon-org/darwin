@@ -3,80 +3,95 @@ apiVersion: flagger.app/v1beta1
 kind: Canary
 metadata:
   name: {{ include "service-deployment.fullname" . }}
+  labels:
+    {{- include "service-deployment.labels" . | nindent 4 }}
 spec:
+  provider: {{ .Values.flagger.provider | default "nginx" }}
   # deployment reference
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ include "service-deployment.fullname" . }}
+  # ingress reference (Flagger will create a canary ingress based on this)
+  ingressRef:
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    name: {{ include "service-deployment.fullname" . }}-{{ .Release.Namespace }}-internal
   # the maximum time in seconds for the canary deployment
   # to make progress before it is rollback (default 600s)
   progressDeadlineSeconds: {{ .Values.flagger.progressDeadlineSeconds }}
   # HPA reference (optional)
+  {{- if .Values.hpa.enabled }}
   autoscalerRef:
+    {{- if eq .Values.hpa.memory.target "Utilization" }}
+    apiVersion: autoscaling/v2
+    {{- else }}
     apiVersion: autoscaling/v2beta2
+    {{- end }}
     kind: HorizontalPodAutoscaler
     name: {{ include "service-deployment.fullname" . }}
+  {{- end }}
   service:
-    # service port number
+    # ClusterIP service port number
     port: 80
-    # container port number or name (optional)
+    # container port number or name
     targetPort: app-port
-    # Istio gateways (optional)
-    gateways:
-      - {{ template "service-deployment.fullname" . }}-gateway
-    # Istio virtual service host names (optional)
-    hosts:
-    {{- range $.Values.ingressInt.hosts }}
-    - {{ . }}
-    {{- end }}
-    {{- range $.Values.ingressExt.hosts }}
-    - {{ . }}
-    {{- end }}
-    # Istio traffic policy (optional)
-    trafficPolicy:
-      tls:
-        # use ISTIO_MUTUAL when mTLS is enabled
-        mode: DISABLE
-    # Istio retry policy (optional)
   analysis:
     # schedule interval (default 60s)
     interval: {{ .Values.flagger.interval }}
     # max number of failed metric checks before rollback
     threshold: {{ .Values.flagger.threshold }}
+    {{- if hasKey .Values.flagger "skipAnalysis" }}
+    # deploy straight to production without the metrics and webhook checks
+    skipAnalysis: {{ .Values.flagger.skipAnalysis }}
+    {{- end }}
     # max traffic percentage routed to canary
     # percentage (0-100)
-    {{- if eq .Values.flagger.type "canary" }}
+    {{- if or (eq .Values.flagger.type "canary") (not .Values.flagger.type) }}
     maxWeight: {{ .Values.flagger.maxWeight }}
     # canary increment step
     # percentage (0-100)
     stepWeight: {{ .Values.flagger.stepWeight }}
-    {{- else if eq .Values.flagger.type "immute" }}
+    {{- else if eq .Values.flagger.type "bluegreen" }}
     iterations : {{ .Values.flagger.iterations }}
     {{- end }}
+    {{- if .Values.flagger.metrics }}
     metrics:
     {{- range $value := $.Values.flagger.metrics }}
     - name: {{ $value.name }}
-      templateRef:
-        name: {{ $.Release.Namespace }}-{{ template "service-deployment.fullname" $ }}-{{ $value.name }}
-        namespace: monitoring
       thresholdRange:
+        {{- if $value.thresholdRange.min }}
+        min: {{ $value.thresholdRange.min }}
+        {{- end }}
+        {{- if $value.thresholdRange.max }}
         max: {{ $value.thresholdRange.max }}
+        {{- end }}
       interval: {{ $value.interval }}
+      {{- if $value.templateRef }}
+      templateRef:
+        name: {{ $value.templateRef.name }}
+        {{- if $value.templateRef.namespace }}
+        namespace: {{ $value.templateRef.namespace }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.flagger.webhooks }}
+    webhooks:
+    {{- range $hook := $.Values.flagger.webhooks }}
+    - name: {{ $hook.name }}
+      {{- if $hook.type }}
+      type: {{ $hook.type }}
+      {{- end }}
+      url: {{ $hook.url }}
+      {{- if $hook.timeout }}
+      timeout: {{ $hook.timeout }}
+      {{- end }}
+      {{- if $hook.metadata }}
+      metadata:
+        {{- toYaml $hook.metadata | nindent 8 }}
+      {{- end }}
+    {{- end }}
     {{- end }}
 ---
-apiVersion: flagger.app/v1beta1
-kind: MetricTemplate
-metadata:
-  name: {{ .Release.Namespace }}-{{ template "service-deployment.fullname" . }}-sidecar-error-rate-measure
-  namespace: monitoring
-spec:
-  provider:
-    type: datadog
-    address: https://api.datadoghq.com
-    secretRef:
-      name: datadog-flagger
-  query: |-
-    {{ printf "100-sum:sidecar.istio_requests_total{cluster_name:%s,kube_deployment:%s*,kube_namespace:%s,response_code:2*}/sum:sidecar.istio_requests_total{cluster_name:%s,kube_deployment:%s*,kube_namespace:%s}*100" (.Values.cluster_name) ( include "service-deployment.fullname" .) (.Release.Namespace) (.Values.cluster_name) ( include "service-deployment.fullname" .) (.Release.Namespace)  }}
-
 {{- end }}

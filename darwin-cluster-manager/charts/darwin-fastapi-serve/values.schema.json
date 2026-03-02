@@ -3,6 +3,55 @@
     "type": "object",
     "required": [],
     "properties": {
+        "progressDeadlineSeconds": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "rollingUpdate": {
+            "type": "object",
+            "properties": {
+                "maxSurge": {
+                    "oneOf": [
+                        { "type": "string" },
+                        { "type": "integer" }
+                    ]
+                },
+                "maxUnavailable": {
+                    "oneOf": [
+                        { "type": "string" },
+                        { "type": "integer" }
+                    ]
+                }
+            }
+        },
+        "flagger": {
+            "type": "object",
+            "properties": {
+                "enabled": { "type": "boolean" },
+                "provider": { "type": "string" },
+                "type": { "type": "string", "enum": ["canary", "bluegreen"] },
+                "interval": { "type": "string" },
+                "threshold": { "type": "integer", "minimum": 0 },
+                "skipAnalysis": { "type": "boolean" },
+                "maxWeight": { "type": "integer", "minimum": 0, "maximum": 100 },
+                "stepWeight": { "type": "integer", "minimum": 1, "maximum": 100 },
+                "iterations": { "type": "integer", "minimum": 1 },
+                "maxSurge": {
+                    "oneOf": [
+                        { "type": "string" },
+                        { "type": "integer" }
+                    ]
+                },
+                "maxUnavailable": {
+                    "oneOf": [
+                        { "type": "string" },
+                        { "type": "integer" }
+                    ]
+                },
+                "metrics": { "type": "array" },
+                "webhooks": { "type": "array" }
+            }
+        },
         "hpa": {
             "type": "object",
             "required": [

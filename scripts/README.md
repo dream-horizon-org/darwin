@@ -16,3 +16,10 @@ Fast rebuild and redeploy Darwin services to the kind cluster without full platf
 ./scripts/fast-redeploy.sh <service-name1> [service-name2 ...]
 ```
 
+### `flagger-nginx-smoke.sh`
+Local smoke test for **Flagger + NGINX** progressive delivery using the `darwin-fastapi-serve` chart.
+
+```bash
+./scripts/flagger-nginx-smoke.sh
+```
+

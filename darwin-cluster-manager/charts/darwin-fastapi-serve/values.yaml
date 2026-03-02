@@ -10,6 +10,7 @@ replicaCount: 1
 logLevel: info
 name: ml-serve-demo
 cluster_name: darwin-prod-eks-cluster
+progressDeadlineSeconds: 600
 ui:
   color: "#34577c"
   message: ''
@@ -156,13 +157,17 @@ configServer:
   vaultToken: null
 labels: []
 org: dream11
+rollingUpdate:
+  maxSurge: 10%
+  maxUnavailable: 1
 flagger:
   metrics:
-  - name: sidecar-error-rate-measure
+  - name: request-success-rate
     thresholdRange:
-      max: 1
+      min: 99
     interval: 1m
   enabled: false
+  provider: nginx
   type: canary
   interval: 1m
   threshold: 2
@@ -173,3 +178,4 @@ flagger:
   maxSurge: 10%
   maxUnavailable: 1
   slackChannel: darwin-serve-alerts
+  webhooks: []

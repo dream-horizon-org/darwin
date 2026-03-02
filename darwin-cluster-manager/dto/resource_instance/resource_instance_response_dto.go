@@ -12,6 +12,15 @@ type PodsData struct {
 	Message string `json:"message"`
 }
 
+type CanaryStatus struct {
+	Name               string `json:"name"`
+	Phase              string `json:"phase"`
+	CanaryWeight       int64  `json:"canary_weight"`
+	FailedChecks       int64  `json:"failed_checks"`
+	LastTransitionTime string `json:"last_transition_time"`
+}
+
 type ResourceStatus struct {
-	Pods []PodsData `json:"pods"`
+	Pods   []PodsData    `json:"pods"`
+	Canary *CanaryStatus `json:"canary,omitempty"`
 }

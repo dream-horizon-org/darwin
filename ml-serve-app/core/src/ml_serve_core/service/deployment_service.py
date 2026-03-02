@@ -235,8 +235,12 @@ class DeploymentService:
     ):
         if api_deployment_config is None:
             environment_variables = None
+            deployment_strategy = None
+            deployment_strategy_config = None
         else:
             environment_variables = api_deployment_config.environment_variables
+            deployment_strategy = api_deployment_config.deployment_strategy
+            deployment_strategy_config = api_deployment_config.deployment_strategy_config
         values_json = generate_fastapi_values(
             name=serve.name,
             env=env.name,
@@ -246,6 +250,8 @@ class DeploymentService:
             serve_infra_config=infra_config,
             environment_variables=environment_variables,
             is_environment_protected=env.is_protected,
+            deployment_strategy=deployment_strategy,
+            deployment_strategy_config=deployment_strategy_config,
         )
 
         build_resp = await self.dcm_client.build_resource(

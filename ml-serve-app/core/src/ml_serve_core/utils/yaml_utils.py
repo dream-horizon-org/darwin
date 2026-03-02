@@ -213,8 +213,25 @@ def generate_fastapi_values(
         user_email: str,
         serve_infra_config: APIServeInfraConfig,
         environment_variables: Optional[dict[str, str]],
-        is_environment_protected: bool
+        is_environment_protected: bool,
+        deployment_strategy: Optional[str] = None,
+        deployment_strategy_config: Optional[dict] = None,
 ) -> dict:
+    """
+    Generate Helm values for a FastAPI serve deployment.
+
+    Args:
+        name: Base serve name.
+        env: Environment name.
+        runtime: Container image in the form repo:tag.
+        env_config: Environment configuration.
+        user_email: Requesting user (used for tagging).
+        serve_infra_config: Infra configuration stored for this serve.
+        environment_variables: Additional env vars to inject into the container.
+        is_environment_protected: Whether the environment uses protected naming rules.
+        deployment_strategy: Deployment strategy (ROLLING, CANARY, BLUE_GREEN).
+        deployment_strategy_config: Strategy-specific config dict.
+    """
     with pkg_resource.open_text(rs, FASTAPI_VALUES_TEMPLATE_NAME) as stream:
         stream_content = stream.read()
         values = yaml.safe_load(stream_content)
@@ -273,7 +290,86 @@ def generate_fastapi_values(
         serve_infra_config.fast_api_config_object.memory
     )
     update_node_selector(values, serve_infra_config.fast_api_config_object.node_capacity_type)
+    apply_deployment_strategy(values, deployment_strategy, deployment_strategy_config)
     return values
+
+
+def apply_deployment_strategy(values: dict, strategy: Optional[str], config: Optional[dict]) -> None:
+    """
+    Apply deployment strategy settings to Helm values in-place.
+
+    This function is intentionally tolerant to missing fields and will
+    apply sensible defaults while keeping backward compatibility.
+    """
+    if not strategy:
+        return
+
+    normalized = strategy.strip().upper() if isinstance(strategy, str) else ""
+    cfg = config or {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+
+    values.setdefault("flagger", {})
+    flagger = values["flagger"]
+
+    # Rolling update knobs always apply (even when using Flagger).
+    if "maxSurge" in cfg:
+        flagger["maxSurge"] = cfg["maxSurge"]
+    if "maxUnavailable" in cfg:
+        flagger["maxUnavailable"] = cfg["maxUnavailable"]
+    if "progressDeadlineSeconds" in cfg:
+        # Chart currently hardcodes progressDeadlineSeconds in the Deployment template,
+        # but we keep this value for future chart wiring/schema.
+        values["progressDeadlineSeconds"] = cfg["progressDeadlineSeconds"]
+
+    if normalized == "ROLLING":
+        # Default behavior: Flagger disabled, Kubernetes rolling update.
+        flagger["enabled"] = False
+        return
+
+    if normalized in {"CANARY", "BLUE_GREEN"}:
+        # Flagger-driven progressive delivery (NGINX provider per project decision).
+        flagger["enabled"] = True
+        flagger["provider"] = "nginx"
+
+        # Ensure NGINX ingress is used for traffic shifting.
+        values.setdefault("ingressInt", {})
+        values["ingressInt"]["ingressClass"] = "nginx"
+
+        # Analysis defaults
+        if "interval" in cfg:
+            flagger["interval"] = cfg["interval"]
+        else:
+            flagger.setdefault("interval", "1m")
+
+        if "threshold" in cfg:
+            flagger["threshold"] = cfg["threshold"]
+        else:
+            flagger.setdefault("threshold", 2)
+
+        if "skipAnalysis" in cfg:
+            flagger["skipAnalysis"] = cfg["skipAnalysis"]
+
+        # Optional metrics/webhooks passthrough (chart wiring added in Phase 3).
+        if "metrics" in cfg:
+            flagger["metrics"] = cfg["metrics"]
+        if "webhooks" in cfg:
+            flagger["webhooks"] = cfg["webhooks"]
+
+    if normalized == "CANARY":
+        flagger["type"] = "canary"
+        flagger["maxWeight"] = cfg.get("maxWeight", flagger.get("maxWeight", 60))
+        flagger["stepWeight"] = cfg.get("stepWeight", flagger.get("stepWeight", 20))
+        return
+
+    if normalized == "BLUE_GREEN":
+        # Flagger blue/green uses iterations instead of maxWeight/stepWeight.
+        flagger["type"] = "bluegreen"
+        flagger["iterations"] = cfg.get("iterations", flagger.get("iterations", 2))
+        # Ensure canary weight knobs are not accidentally carried over.
+        flagger.pop("maxWeight", None)
+        flagger.pop("stepWeight", None)
+        return
 
 
 def generate_fastapi_infra_values(api_serve_config: APIServeInfraConfig) -> dict:
