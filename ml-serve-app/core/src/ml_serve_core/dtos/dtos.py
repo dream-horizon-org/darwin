@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class FastApiConfig(BaseModel):
@@ -43,6 +43,7 @@ class EnvConfig(BaseModel):
         ft_redis_url: redis url for the environment
         workflow_url: workflow url for the environment
         namespace: namespace for the environment
+        enable_istio: whether Istio is available for canary deployments (default False)
     """
     domain_suffix: str
     cluster_name: str
@@ -51,3 +52,12 @@ class EnvConfig(BaseModel):
     ft_redis_url: str
     workflow_url: str
     namespace: str
+    enable_istio: Optional[bool] = False
+
+    @field_validator("enable_istio", mode="before")
+    @classmethod
+    def coerce_enable_istio(cls, v):
+        """Coerce None to False for backward compatibility with existing env_configs."""
+        if v is None:
+            return False
+        return v

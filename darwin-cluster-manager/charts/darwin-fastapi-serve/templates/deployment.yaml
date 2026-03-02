@@ -20,8 +20,10 @@ spec:
       {{- include "service-deployment.selectorLabels" . | nindent 6 }}
   strategy:
     rollingUpdate:
-      maxSurge: {{ .Values.flagger.maxSurge }}
-      maxUnavailable: {{ .Values.flagger.maxUnavailable }}
+      # Use rolling.* when set; fall back to flagger.* for backward compatibility.
+      # hasKey used for maxUnavailable because 0 is valid and default() treats 0 as empty.
+      maxSurge: {{ if .Values.rolling }}{{ .Values.rolling.maxSurge | default .Values.flagger.maxSurge }}{{ else }}{{ .Values.flagger.maxSurge }}{{ end }}
+      maxUnavailable: {{- if and .Values.rolling (hasKey .Values.rolling "maxUnavailable") }} {{ .Values.rolling.maxUnavailable }}{{- else }} {{ .Values.flagger.maxUnavailable }}{{- end }}
     type: RollingUpdate
   template:
     metadata:

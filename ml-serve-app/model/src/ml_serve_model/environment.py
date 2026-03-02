@@ -21,7 +21,7 @@ class Environment(models.Model):
         return EnvConfig(**self.env_configs)
 
     def _set_env_configs(self, env_configs: EnvConfig):
-        self.env_configs = env_configs.dict()
+        self.env_configs = env_configs.model_dump()
 
     @property
     def domain_suffix(self):
@@ -91,6 +91,17 @@ class Environment(models.Model):
     def namespace(self, value: str):
         env_configs = self._get_env_configs()
         env_configs.namespace = value
+        self._set_env_configs(env_configs)
+
+    @property
+    def enable_istio(self) -> bool:
+        """Whether Istio is available for canary deployments in this environment."""
+        return self._get_env_configs().enable_istio
+
+    @enable_istio.setter
+    def enable_istio(self, value: bool):
+        env_configs = self._get_env_configs()
+        env_configs.enable_istio = value
         self._set_env_configs(env_configs)
 
     class Meta:

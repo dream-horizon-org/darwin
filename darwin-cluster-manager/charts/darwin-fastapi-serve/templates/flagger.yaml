@@ -4,6 +4,8 @@ kind: Canary
 metadata:
   name: {{ include "service-deployment.fullname" . }}
 spec:
+  # Skip metrics and webhook analysis (manual promotion mode)
+  skipAnalysis: {{ .Values.flagger.skipAnalysis }}
   # deployment reference
   targetRef:
     apiVersion: apps/v1
@@ -11,7 +13,7 @@ spec:
     name: {{ include "service-deployment.fullname" . }}
   # the maximum time in seconds for the canary deployment
   # to make progress before it is rollback (default 600s)
-  progressDeadlineSeconds: {{ .Values.flagger.progressDeadlineSeconds }}
+  progressDeadlineSeconds: {{ .Values.flagger.progressDeadlineSeconds | default 600 }}
   # HPA reference (optional)
   autoscalerRef:
     apiVersion: autoscaling/v2beta2
@@ -54,6 +56,17 @@ spec:
     {{- else if eq .Values.flagger.type "immute" }}
     iterations : {{ .Values.flagger.iterations }}
     {{- end }}
+    {{- if .Values.flagger.webhooks }}
+    webhooks:
+    {{- $loadtesterNs := .Values.flagger.loadtesterNamespace | default .Release.Namespace }}
+    {{- $defaultGateUrl := printf "http://flagger-loadtester.%s.svc.cluster.local/gate/check" $loadtesterNs }}
+    {{- range .Values.flagger.webhooks }}
+    - name: {{ .name | quote }}
+      type: {{ .type | quote }}
+      url: {{ .url | default $defaultGateUrl | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.flagger.metrics }}
     metrics:
     {{- range $value := $.Values.flagger.metrics }}
     - name: {{ $value.name }}
@@ -64,6 +77,8 @@ spec:
         max: {{ $value.thresholdRange.max }}
       interval: {{ $value.interval }}
     {{- end }}
+    {{- end }}
+  {{- if .Values.flagger.metrics }}
 ---
 apiVersion: flagger.app/v1beta1
 kind: MetricTemplate
@@ -78,5 +93,6 @@ spec:
       name: datadog-flagger
   query: |-
     {{ printf "100-sum:sidecar.istio_requests_total{cluster_name:%s,kube_deployment:%s*,kube_namespace:%s,response_code:2*}/sum:sidecar.istio_requests_total{cluster_name:%s,kube_deployment:%s*,kube_namespace:%s}*100" (.Values.cluster_name) ( include "service-deployment.fullname" .) (.Release.Namespace) (.Values.cluster_name) ( include "service-deployment.fullname" .) (.Release.Namespace)  }}
+  {{- end }}
 
 {{- end }}

@@ -1,4 +1,5 @@
 import os
+import re
 
 import yaml
 from typing import Optional
@@ -27,6 +28,168 @@ ENV = os.getenv("ENV", "local")
 
 # Namespace where serves are deployed in local environment
 LOCAL_SERVE_NAMESPACE = os.getenv("LOCAL_SERVE_NAMESPACE", "serve")
+
+# Default rolling update params (Kubernetes RollingUpdate strategy)
+DEFAULT_MAX_SURGE = "25%"
+DEFAULT_MAX_UNAVAILABLE = 0
+DEFAULT_PROGRESS_DEADLINE_SECONDS = 600
+
+
+def _normalize_deployment_strategy(strategy: Optional[str]) -> str:
+    """
+    Normalize deployment strategy to lowercase 'rolling' or 'canary'.
+
+    Invalid or unknown values default to 'rolling' per design (conservative fallback).
+    Case-insensitive.
+
+    Args:
+        strategy: Raw deployment strategy string (e.g. "Rolling", "Canary", None).
+
+    Returns:
+        Normalized strategy: "rolling" or "canary", defaulting to "rolling".
+    """
+    if strategy is None or not isinstance(strategy, str):
+        return "rolling"
+    normalized = strategy.strip().lower()
+    if normalized == "canary":
+        return "canary"
+    return "rolling"
+
+
+# Kubernetes surge format: positive int or percentage string (e.g. "25%", "50%")
+_KUBE_SURGE_PERCENT_REGEX = re.compile(r"^\d+%$")
+
+
+def _is_valid_max_surge(value) -> bool:
+    """
+    Check if value is a valid Kubernetes maxSurge value.
+
+    Valid: positive int (>= 0), or non-empty string matching % format (e.g. "25%").
+
+    Args:
+        value: Raw max_surge value from config.
+
+    Returns:
+        True if valid, False otherwise.
+    """
+    if isinstance(value, int):
+        return value >= 0
+    if isinstance(value, str) and value.strip():
+        return bool(_KUBE_SURGE_PERCENT_REGEX.match(value.strip())) or value.strip().isdigit()
+    return False
+
+
+def _resolve_rolling_params(config: Optional[dict]) -> tuple[str, int]:
+    """
+    Resolve maxSurge and maxUnavailable from deployment_strategy_config.
+
+    Maps config keys: max_surge -> maxSurge, max_unavailable -> maxUnavailable.
+    Uses sensible defaults when config is omitted or keys are missing.
+
+    Validation (backward compatible, no crash on invalid config):
+    - max_unavailable: must be >= 0; if negative or non-int, fall back to 0.
+    - max_surge: must be positive int or non-empty string matching Kubernetes
+      surge formats (e.g. "25%"); if invalid/negative, fall back to "25%".
+
+    Args:
+        config: Optional deployment_strategy_config dict.
+
+    Returns:
+        Tuple of (maxSurge, maxUnavailable). maxSurge is string (e.g. "25%"),
+        maxUnavailable is int.
+    """
+    if not config or not isinstance(config, dict):
+        return DEFAULT_MAX_SURGE, DEFAULT_MAX_UNAVAILABLE
+
+    max_surge = config.get("max_surge")
+    max_unavailable = config.get("max_unavailable")
+
+    # Resolve max_unavailable: >= 0; invalid (negative, non-int, float) -> default 0
+    if max_unavailable is None:
+        unavail = DEFAULT_MAX_UNAVAILABLE
+    else:
+        try:
+            if isinstance(max_unavailable, float):
+                unavail = DEFAULT_MAX_UNAVAILABLE
+            else:
+                unavail = int(max_unavailable)
+                if unavail < 0:
+                    unavail = DEFAULT_MAX_UNAVAILABLE
+        except (TypeError, ValueError):
+            unavail = DEFAULT_MAX_UNAVAILABLE
+
+    # Resolve max_surge: positive int or valid surge string; invalid -> default "25%"
+    if max_surge is None:
+        surge = DEFAULT_MAX_SURGE
+    elif not _is_valid_max_surge(max_surge):
+        surge = DEFAULT_MAX_SURGE
+    elif isinstance(max_surge, int):
+        surge = str(max_surge)
+    else:
+        surge = str(max_surge).strip()
+
+    return surge, unavail
+
+
+def _apply_deployment_strategy_values(
+    values: dict,
+    deployment_strategy: str,
+    deployment_strategy_config: Optional[dict],
+    enable_istio: bool,
+    namespace: str,
+) -> None:
+    """
+    Apply flagger and rolling blocks to Helm values based on deployment strategy.
+
+    Rolling: flagger.enabled=false, rolling block with maxSurge/maxUnavailable.
+    Canary (when enable_istio): flagger.enabled=true, skipAnalysis, empty metrics,
+    single-step 0->100%, confirm-promotion webhook, and rolling params for Deployment.
+
+    Args:
+        values: The Helm values dict to modify (mutated in place).
+        deployment_strategy: Normalized strategy ("rolling" or "canary").
+        deployment_strategy_config: Optional config with max_surge, max_unavailable.
+        enable_istio: Whether Istio is available for canary.
+        namespace: Deployment namespace for webhook URL.
+    """
+    max_surge, max_unavailable = _resolve_rolling_params(deployment_strategy_config)
+    progress_deadline = DEFAULT_PROGRESS_DEADLINE_SECONDS
+    if deployment_strategy_config and isinstance(deployment_strategy_config, dict):
+        pd = deployment_strategy_config.get("progress_deadline_seconds")
+        if pd is not None:
+            progress_deadline = int(pd)
+
+    # Ensure rolling block exists
+    if "rolling" not in values:
+        values["rolling"] = {}
+    values["rolling"]["maxSurge"] = max_surge
+    values["rolling"]["maxUnavailable"] = max_unavailable
+
+    # Ensure flagger block exists
+    if "flagger" not in values:
+        values["flagger"] = {}
+
+    if deployment_strategy == "canary" and enable_istio:
+        values["flagger"]["enabled"] = True
+        values["flagger"]["skipAnalysis"] = True
+        values["flagger"]["metrics"] = []
+        values["flagger"]["maxWeight"] = 100
+        values["flagger"]["stepWeight"] = 100
+        values["flagger"]["maxSurge"] = max_surge
+        values["flagger"]["maxUnavailable"] = max_unavailable
+        values["flagger"]["progressDeadlineSeconds"] = progress_deadline
+        values["flagger"]["loadtesterNamespace"] = namespace
+        values["flagger"]["webhooks"] = [
+            {
+                "name": "manual-promotion-gate",
+                "type": "confirm-promotion",
+                "url": f"http://flagger-loadtester.{namespace}.svc.cluster.local/gate/check",
+            }
+        ]
+    else:
+        values["flagger"]["enabled"] = False
+        values["flagger"]["maxSurge"] = max_surge
+        values["flagger"]["maxUnavailable"] = max_unavailable
 
 
 def configure_ingress_for_local(values: dict, serve_name: str, namespace: str) -> None:
@@ -137,7 +300,40 @@ def generate_fastapi_values_for_one_click_model_deployment(
         tracking_uri: str,
         tracking_username: str,
         tracking_password: str,
+        deployment_strategy: Optional[str] = None,
+        deployment_strategy_config: Optional[dict] = None,
+        enable_istio: bool = False,
 ) -> dict:
+    """
+    Generate Helm values for one-click model deployment (FastAPI serve).
+
+    Args:
+        name: Serve name.
+        env: Environment name.
+        runtime: Container image (repository:tag).
+        env_config: Environment configuration.
+        user_email: User email for tags.
+        environment_variables: Optional env vars to inject.
+        cores: CPU cores per pod.
+        memory: Memory (Gi) per pod.
+        min_replicas: Minimum replicas.
+        max_replicas: Maximum replicas (HPA).
+        node_capacity_type: Karpenter capacity type (spot/on-demand).
+        storage_strategy: Model cache strategy (emptydir/pvc).
+        model_uri: MLflow model URI.
+        model_downloader_image: Image for model downloader.
+        model_cache_pvc_name: PVC name for model cache.
+        model_cache_path: Path for model cache.
+        tracking_uri: MLflow tracking URI.
+        tracking_username: MLflow tracking username.
+        tracking_password: MLflow tracking password.
+        deployment_strategy: Optional "rolling" or "canary" (case-insensitive).
+        deployment_strategy_config: Optional config with max_surge, max_unavailable.
+        enable_istio: Whether Istio is available for canary.
+
+    Returns:
+        Dict of Helm values for darwin-fastapi-serve chart.
+    """
     with pkg_resource.open_text(rs, FASTAPI_VALUES_TEMPLATE_NAME) as stream:
         stream_content = stream.read()
         values = yaml.safe_load(stream_content)
@@ -202,6 +398,15 @@ def generate_fastapi_values_for_one_click_model_deployment(
         'downloaderImage': model_downloader_image,
         'pvcName': model_cache_pvc_name
     }
+
+    strategy = _normalize_deployment_strategy(deployment_strategy)
+    _apply_deployment_strategy_values(
+        values,
+        deployment_strategy=strategy,
+        deployment_strategy_config=deployment_strategy_config,
+        enable_istio=enable_istio,
+        namespace=env_config.namespace,
+    )
     return values
 
 
@@ -213,8 +418,30 @@ def generate_fastapi_values(
         user_email: str,
         serve_infra_config: APIServeInfraConfig,
         environment_variables: Optional[dict[str, str]],
-        is_environment_protected: bool
+        is_environment_protected: bool,
+        deployment_strategy: Optional[str] = None,
+        deployment_strategy_config: Optional[dict] = None,
+        enable_istio: bool = False,
 ) -> dict:
+    """
+    Generate Helm values for FastAPI serve deployment.
+
+    Args:
+        name: Serve name.
+        env: Environment name.
+        runtime: Container image (repository:tag).
+        env_config: Environment configuration.
+        user_email: User email for tags.
+        serve_infra_config: API serve infra config (replicas, resources, etc.).
+        environment_variables: Optional env vars to inject.
+        is_environment_protected: Whether environment is protected (affects serve name).
+        deployment_strategy: Optional "rolling" or "canary" (case-insensitive).
+        deployment_strategy_config: Optional config with max_surge, max_unavailable.
+        enable_istio: Whether Istio is available for canary (when strategy=canary).
+
+    Returns:
+        Dict of Helm values for darwin-fastapi-serve chart.
+    """
     with pkg_resource.open_text(rs, FASTAPI_VALUES_TEMPLATE_NAME) as stream:
         stream_content = stream.read()
         values = yaml.safe_load(stream_content)
@@ -273,6 +500,15 @@ def generate_fastapi_values(
         serve_infra_config.fast_api_config_object.memory
     )
     update_node_selector(values, serve_infra_config.fast_api_config_object.node_capacity_type)
+
+    strategy = _normalize_deployment_strategy(deployment_strategy)
+    _apply_deployment_strategy_values(
+        values,
+        deployment_strategy=strategy,
+        deployment_strategy_config=deployment_strategy_config,
+        enable_istio=enable_istio,
+        namespace=env_config.namespace,
+    )
     return values
 
 

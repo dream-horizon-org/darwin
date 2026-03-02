@@ -250,9 +250,16 @@ POST /api/v1/serve/deploy-model
   "memory": 8,
   "node_capacity": "spot",
   "min_replicas": 1,
-  "max_replicas": 3
+  "max_replicas": 3,
+  "deployment_strategy": "rolling",
+  "deployment_strategy_config": {
+    "max_surge": "25%",
+    "max_unavailable": 0
+  }
 }
 ```
+
+**Deployment strategy:** Optional `deployment_strategy` (`"rolling"` or `"canary"`) and `deployment_strategy_config` (`max_surge`, `max_unavailable`). Canary requires `enable_istio: true` on the environment; otherwise falls back to rolling.
 
 **How it works:**
 ```
@@ -453,12 +460,18 @@ For more control over the deployment process, use Artifact Builder to create cus
      "artifact_version": "v1.0.0",
      "api_serve_deployment_config": {
        "deployment_strategy": "rolling",
+       "deployment_strategy_config": {
+         "max_surge": "25%",
+         "max_unavailable": 0
+       },
        "environment_variables": {
          "MODEL_PATH": "/models/production"
        }
      }
    }
    ```
+
+   **Deployment strategy options:** `deployment_strategy` can be `"rolling"` (default) or `"canary"`. Use `deployment_strategy_config` for `max_surge`, `max_unavailable`, or `progress_deadline_seconds`. Canary requires `enable_istio: true` on the target environment; otherwise the system falls back to rolling.
 
 ### Updating Infrastructure Configuration
 
@@ -513,6 +526,32 @@ POST /api/v1/environment
 | `subnets` | AWS subnets for ALB (comma-separated) | No (defaults to empty) |
 | `ft_redis_url` | Redis URL for feature store | Yes (can be empty) |
 | `workflow_url` | Workflow service URL | Yes (can be empty) |
+| `enable_istio` | Enable Istio for canary deployments in this environment | No (default: false) |
+
+**Enabling Istio per environment:** Set `enable_istio: true` in `environment_configs` when creating or updating an environment. Canary deployments require Istio; if canary is requested but `enable_istio` is false, the system falls back to rolling.
+
+```bash
+# Create environment with Istio enabled
+POST /api/v1/environment
+{
+  "name": "prod",
+  "environment_configs": {
+    "domain_suffix": ".mycompany.com",
+    "cluster_name": "prod-cluster",
+    "namespace": "serve",
+    "security_group": "sg-xxx",
+    "ft_redis_url": "",
+    "workflow_url": "",
+    "enable_istio": true
+  }
+}
+
+# Update existing environment to enable Istio
+PATCH /api/v1/environment/prod
+{
+  "enable_istio": true
+}
+```
 
 ### Managing Environments
 
@@ -534,6 +573,47 @@ PATCH /api/v1/environment/{environment_name}
 
 # Delete environment
 DELETE /api/v1/environment/{environment_name}
+```
+
+## Canary Manual Gate Workflow
+
+When using `deployment_strategy: "canary"` with `enable_istio: true`, deployments use Flagger with a manual promotion gate. The canary waits for operator approval before promoting to primary.
+
+### Prerequisites
+
+- **Istio** installed in the cluster (for traffic splitting)
+- **Flagger** installed (included in darwin-fastapi-serve chart when canary is enabled)
+- **flagger-loadtester** deployed in the target namespace (or a shared namespace reachable by the Canary webhook)
+
+Deploy flagger-loadtester if not already present:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/fluxcd/flagger/main/artifacts/flagger/canary-deployment.yaml
+# Or use your chart's loadtester deployment
+```
+
+### Open Gate (Promote Canary)
+
+To approve and promote a canary to primary:
+
+```bash
+kubectl -n <namespace> exec -it deploy/flagger-loadtester -- sh -c \
+  'curl -d "{\"name\":\"<serve-name>-<env>\",\"namespace\":\"<namespace>\"}" http://localhost:8080/gate/open'
+```
+
+Example for serve `my-model` in env `prod` (namespace `serve`):
+
+```bash
+kubectl -n serve exec -it deploy/flagger-loadtester -- sh -c \
+  'curl -d "{\"name\":\"my-model-prod\",\"namespace\":\"serve\"}" http://localhost:8080/gate/open'
+```
+
+### Close Gate (Pause Promotion)
+
+To close the gate and prevent promotion:
+
+```bash
+curl -d '{"name":"<canary-name>","namespace":"<namespace>"}' http://<loadtester-host>:8080/gate/close
 ```
 
 ## Artifact Builder: FastAPI Best Practices

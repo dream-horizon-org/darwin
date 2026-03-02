@@ -124,6 +124,12 @@ configServer:
 labels: []
 org: ORGANIZATION_NAME
 
+# Deployment strategy: rolling (Kubernetes RollingUpdate) or canary (Flagger)
+# Values are overridden by generate_fastapi_values based on deployment_strategy
+rolling:
+  maxSurge: "25%"
+  maxUnavailable: 0
+
 # Slack notifications flagger
 flagger:
   enabled: false

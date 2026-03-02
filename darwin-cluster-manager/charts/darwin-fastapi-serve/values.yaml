@@ -156,7 +156,20 @@ configServer:
   vaultToken: null
 labels: []
 org: dream11
+
+# Rolling update strategy for Deployment (used when flagger.enabled=false or as fallback)
+rolling:
+  maxSurge: "25%"
+  maxUnavailable: 0
+
 flagger:
+  # Manual canary mode: skipAnalysis=true, metrics=[], webhooks with confirm-promotion
+  skipAnalysis: false
+  # Webhooks for manual gating (e.g. confirm-promotion at loadtester /gate/check).
+  # When non-empty, rendered in Canary analysis. URL built from loadtesterNamespace if not set per webhook.
+  webhooks: []
+  # Namespace for flagger-loadtester service (default: release namespace)
+  loadtesterNamespace: ""
   metrics:
   - name: sidecar-error-rate-measure
     thresholdRange:
@@ -166,7 +179,7 @@ flagger:
   type: canary
   interval: 1m
   threshold: 2
-  skipAnalysis: false
+  progressDeadlineSeconds: 600
   maxWeight: 60
   stepWeight: 20
   iterations: 2

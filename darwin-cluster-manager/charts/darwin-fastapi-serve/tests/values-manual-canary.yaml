@@ -1,0 +1,10 @@
+# Values for manual canary mode validation
+flagger:
+  enabled: true
+  skipAnalysis: true
+  metrics: []
+  webhooks:
+    - name: manual-promotion-gate
+      type: confirm-promotion
+      # url omitted - built from loadtesterNamespace (default: .Release.Namespace)
+  loadtesterNamespace: ""

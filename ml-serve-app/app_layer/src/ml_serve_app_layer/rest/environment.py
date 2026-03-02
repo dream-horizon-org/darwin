@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from ml_serve_app_layer.dtos.requests import EnvironmentRequest, EnvironmentConfigRequest
 from ml_serve_app_layer.utils.auth_utils import AuthorizedUser
 from ml_serve_app_layer.utils.response_util import Response
+from ml_serve_core.dtos.dtos import EnvConfig
 from ml_serve_core.service.environment_service import EnvironmentService
 from ml_serve_model import Environment, Deployment, ActiveDeployment, APIServeInfraConfig, WorkflowServeInfraConfig
 
@@ -20,7 +21,20 @@ class EnvironmentRouter:
         self.router.post("/environment")(self.create_environment)
 
     async def get_environment(self, env_name: str):
-        return await self.environment_service.get_environment_by_name(env_name)
+        """Get environment by name. Returns env_configs with enable_istio (default False if absent)."""
+        env = await self.environment_service.get_environment_by_name(env_name)
+        if not env:
+            return Response.not_found_error_response(f"Environment with name {env_name} not found")
+        # Enrich env_configs via EnvConfig so enable_istio is always present (default False for legacy records)
+        env_configs = EnvConfig(**env.env_configs).model_dump()
+        return {
+            "id": env.id,
+            "name": env.name,
+            "env_configs": env_configs,
+            "is_protected": env.is_protected,
+            "created_at": env.created_at,
+            "updated_at": env.updated_at,
+        }
 
     async def create_environment(self, request: EnvironmentRequest, user: AuthorizedUser):
         request.validation_for_create_request()
@@ -32,10 +46,14 @@ class EnvironmentRouter:
                 f"Environment with name '{request.name}' already exists. Environment names must be unique."
             )
 
+        config_dict = request.environment_configs.model_dump(exclude_none=True)
+        # Ensure enable_istio is stored (default False when omitted)
+        if "enable_istio" not in config_dict:
+            config_dict["enable_istio"] = False
         env = await Environment.create(
             name=request.name,
             is_protected=False,  # Default to false, can be changed in database if needed
-            env_configs=request.environment_configs.dict()
+            env_configs=config_dict,
         )
         return Response.success_response(
             f"Environment '{request.name}' created successfully",
@@ -68,6 +86,9 @@ class EnvironmentRouter:
 
         if request.namespace:
             env.namespace = request.namespace
+
+        if request.enable_istio is not None:
+            env.enable_istio = request.enable_istio
 
         await env.save()
 

@@ -20,8 +20,12 @@ from ml_serve_core.config.configs import Config
 from ml_serve_core.dtos.dtos import EnvConfig
 from ml_serve_core.service.serve_config_service import ServeConfigService
 from ml_serve_core.utils.utils import get_host_name, get_service_url, get_service_url_for_one_click
-from ml_serve_core.utils.yaml_utils import generate_fastapi_values, generate_fastapi_infra_values, \
-    generate_fastapi_values_for_one_click_model_deployment
+from ml_serve_core.utils.yaml_utils import (
+    generate_fastapi_values,
+    generate_fastapi_infra_values,
+    generate_fastapi_values_for_one_click_model_deployment,
+    _normalize_deployment_strategy,
+)
 from ml_serve_core.utils.storage_strategy import determine_storage_strategy
 from ml_serve_model import Serve, Artifact, Environment, APIServeInfraConfig, User, ScheduledWorkflowDeployment, \
     Deployment
@@ -128,6 +132,26 @@ class DeploymentService:
             deployment_request: DeploymentRequest,
             user: User
     ):
+        """
+        Deploy an artifact to a serve in the target environment.
+
+        For API serves, reads deployment_strategy from the request (or previous
+        deployment), resolves effective strategy based on env.enable_istio, and
+        returns api_deployment_resp including fallback fields when canary was
+        requested but Istio is not available.
+
+        Args:
+            serve: The serve to deploy to.
+            artifact: The artifact (image) to deploy.
+            serve_config: Serve configuration.
+            env: Target environment.
+            deployment_request: Deployment request with optional api_serve_deployment_config.
+            user: User initiating the deployment.
+
+        Returns:
+            For API serves: dict with service_url and optionally deployment_strategy_*
+            fallback fields. For workflow serves: None.
+        """
         previous_active_deployment = await ActiveDeployment.get_or_none(serve=serve, environment=env)
         api_deployment_resp = None
 
@@ -193,6 +217,26 @@ class DeploymentService:
             api_deployment_config: APIServeDeploymentConfigRequest,
             user: User
     ):
+        """
+        Deploy an API serve (FastAPI or other backend) to the target environment.
+
+        Stores deployment_strategy and deployment_strategy_config from the request
+        in AppLayerDeployment for audit. Returns deployment and response dict from
+        deploy_fastapi_serve (including fallback fields when applicable).
+
+        Args:
+            serve: The serve to deploy.
+            artifact: The artifact (image) to deploy.
+            env: Target environment.
+            api_serve_config: API serve infrastructure config.
+            api_deployment_config: Deployment config (strategy, config, env vars).
+            user: User initiating the deployment.
+
+        Returns:
+            Tuple of (Deployment, response_dict). Response dict includes service_url
+            and optionally deployment_strategy_requested, deployment_strategy_applied,
+            fallback_reason when fallback occurred.
+        """
         resp = None
         if api_serve_config.backend_type == BackendType.FastAPI.value:
             resp = await self.deploy_fastapi_serve(
@@ -224,6 +268,39 @@ class DeploymentService:
 
         return deployment, resp
 
+    def _resolve_deployment_strategy(
+        self,
+        requested_strategy: Optional[str],
+        enable_istio: bool,
+    ) -> tuple[str, Optional[str], Optional[str], Optional[str]]:
+        """
+        Resolve effective deployment strategy from request and environment capability.
+
+        When canary is requested but Istio is not enabled for the environment,
+        falls back to rolling and returns fallback metadata.
+
+        Args:
+            requested_strategy: Raw strategy from request (e.g. "rolling", "canary", None).
+            enable_istio: Whether Istio is available in the target environment.
+
+        Returns:
+            Tuple of (effective_strategy, deployment_strategy_requested,
+            deployment_strategy_applied, fallback_reason).
+            - effective_strategy: Strategy to pass to values generation ("rolling" or "canary").
+            - deployment_strategy_requested: Normalized requested value, or None if no fallback.
+            - deployment_strategy_applied: Effective strategy, or None if no fallback.
+            - fallback_reason: Reason string when fallback occurred, or None.
+        """
+        normalized = _normalize_deployment_strategy(requested_strategy)
+        if normalized == "canary" and not enable_istio:
+            return (
+                "rolling",
+                normalized,
+                "rolling",
+                "Istio not enabled for environment",
+            )
+        return (normalized, None, None, None)
+
     async def deploy_fastapi_serve(
             self,
             serve: Serve,
@@ -233,19 +310,55 @@ class DeploymentService:
             infra_config: APIServeInfraConfig,
             user: User
     ):
+        """
+        Deploy a FastAPI serve to the target environment via DCM.
+
+        Reads deployment_strategy and deployment_strategy_config from the request,
+        resolves effective strategy (canary vs rolling) based on env.enable_istio,
+        and passes the effective strategy to Helm values generation. When canary
+        is requested but Istio is not available, falls back to rolling and includes
+        fallback metadata in the response.
+
+        Args:
+            serve: The serve to deploy.
+            artifact: The artifact (image) to deploy.
+            env: Target environment.
+            api_deployment_config: Deployment config (strategy, config, env vars).
+            infra_config: API serve infrastructure config.
+            user: User initiating the deployment.
+
+        Returns:
+            Dict with service_url and, when fallback occurred,
+            deployment_strategy_requested, deployment_strategy_applied, fallback_reason.
+        """
         if api_deployment_config is None:
             environment_variables = None
+            deployment_strategy = None
+            deployment_strategy_config = None
         else:
             environment_variables = api_deployment_config.environment_variables
+            deployment_strategy = api_deployment_config.deployment_strategy
+            deployment_strategy_config = api_deployment_config.deployment_strategy_config
+
+        env_config = EnvConfig(**env.env_configs)
+        enable_istio = env_config.enable_istio or False
+
+        effective_strategy, req_strategy, applied_strategy, fallback_reason = (
+            self._resolve_deployment_strategy(deployment_strategy, enable_istio)
+        )
+
         values_json = generate_fastapi_values(
             name=serve.name,
             env=env.name,
             runtime=artifact.image_url,
-            env_config=EnvConfig(**env.env_configs),
+            env_config=env_config,
             user_email=user.username,
             serve_infra_config=infra_config,
             environment_variables=environment_variables,
             is_environment_protected=env.is_protected,
+            deployment_strategy=effective_strategy,
+            deployment_strategy_config=deployment_strategy_config,
+            enable_istio=enable_istio,
         )
 
         build_resp = await self.dcm_client.build_resource(
@@ -263,9 +376,14 @@ class DeploymentService:
             darwin_resource=FASTAPI_SERVE_RESOURCE_NAME
         )
 
-        return {
-            "service_url": get_service_url(serve.name, env.name, EnvConfig(**env.env_configs), env.is_protected)
+        result = {
+            "service_url": get_service_url(serve.name, env.name, env_config, env.is_protected)
         }
+        if fallback_reason is not None:
+            result["deployment_strategy_requested"] = req_strategy
+            result["deployment_strategy_applied"] = applied_strategy
+            result["fallback_reason"] = fallback_reason
+        return result
 
     async def deploy_workflow_serve(
             self,
@@ -375,6 +493,11 @@ class DeploymentService:
         """
         Update the APIServeConfig and redeploy the serve.
 
+        Tries to update the existing artifact via DCM. If update fails (e.g. artifact
+        missing), performs a full rebuild. When doing a full rebuild, preserves
+        deployment_strategy and deployment_params from the stored AppLayerDeployment,
+        resolving canary vs rolling based on env.enable_istio.
+
         Note: This will only work if the serve has been deployed before.
         If no active deployment exists, the infra config will be updated in the database
         but no redeployment will occur (user must do a fresh deployment).
@@ -423,20 +546,36 @@ class DeploymentService:
                 f"Performing full rebuild. Error: {e}"
             )
 
-            # Generate full values (not just infra)
+            # Get existing deployment strategy and env vars from AppLayerDeployment
+            app_layer_deployment = await AppLayerDeployment.get_or_none(deployment=current_deployment)
+            env_config = EnvConfig(**env.env_configs)
+            enable_istio = env_config.enable_istio or False
+
+            stored_strategy = None
+            stored_strategy_config = None
+            if app_layer_deployment:
+                stored_strategy = app_layer_deployment.deployment_strategy
+                stored_strategy_config = app_layer_deployment.deployment_params
+
+            effective_strategy, _, _, _ = self._resolve_deployment_strategy(
+                stored_strategy, enable_istio
+            )
+
+            # Generate full values (not just infra), preserving deployment strategy
             full_values = generate_fastapi_values(
                 name=serve.name,
                 env=env.name,
                 runtime=artifact.image_url,
-                env_config=EnvConfig(**env.env_configs),
+                env_config=env_config,
                 user_email=user.username,
                 serve_infra_config=api_serve_config,
                 environment_variables=None,  # Will use existing env vars from deployment
                 is_environment_protected=env.is_protected,
+                deployment_strategy=effective_strategy,
+                deployment_strategy_config=stored_strategy_config,
+                enable_istio=enable_istio,
             )
 
-            # Get existing environment variables from the deployment
-            app_layer_deployment = await AppLayerDeployment.get_or_none(deployment=current_deployment)
             if app_layer_deployment and app_layer_deployment.environment_variables:
                 for key, val in app_layer_deployment.environment_variables.items():
                     full_values['envs'][str.upper(key)] = val
@@ -510,6 +649,22 @@ class DeploymentService:
         )
 
     async def deploy_model(self, request: ModelDeploymentRequest, user: User):
+        """
+        One-click model deployment: deploy an MLflow model directly to a FastAPI serve.
+
+        Resolves deployment strategy from request (optional deployment_strategy,
+        deployment_strategy_config). When canary is requested but env.enable_istio
+        is false, falls back to rolling and includes fallback fields in the response.
+        Persists chosen strategy and params in AppLayerDeployment for audit.
+
+        Args:
+            request: ModelDeploymentRequest with model_uri, env, and optional strategy.
+            user: User initiating the deployment.
+
+        Returns:
+            Dict with service_url and, when fallback occurred,
+            deployment_strategy_requested, deployment_strategy_applied, fallback_reason.
+        """
         # Validate model URI exists in MLflow before proceeding
         is_valid, error_msg = await self.mlflow_client.validate_model_uri(request.model_uri)
         if not is_valid:
@@ -610,6 +765,12 @@ class DeploymentService:
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+        # Resolve effective deployment strategy (canary + !env.enable_istio -> rolling fallback)
+        enable_istio = env_config.enable_istio or False
+        effective_strategy, req_strategy, applied_strategy, fallback_reason = (
+            self._resolve_deployment_strategy(request.deployment_strategy, enable_istio)
+        )
+
         values_json = generate_fastapi_values_for_one_click_model_deployment(
             name=serve.name,
             env=request.env,
@@ -630,6 +791,9 @@ class DeploymentService:
             tracking_uri=self.config.mlflow_tracking_uri,
             tracking_username=self.config.mlflow_tracking_username,
             tracking_password=self.config.mlflow_tracking_password,
+            deployment_strategy=effective_strategy,
+            deployment_strategy_config=request.deployment_strategy_config,
+            enable_istio=enable_istio,
         )
 
         artifact_identifier = f"{env.name}-{serve.name}-{artifact.version}"
@@ -649,6 +813,10 @@ class DeploymentService:
             darwin_resource=FASTAPI_SERVE_RESOURCE_NAME
         )
 
+        # Persist deployment strategy for audit (normalized requested value)
+        stored_strategy = _normalize_deployment_strategy(request.deployment_strategy)
+        stored_params = request.deployment_strategy_config
+
         async with in_transaction():
             deployment = await Deployment.create(
                 serve=serve,
@@ -658,16 +826,21 @@ class DeploymentService:
             )
             await AppLayerDeployment.create(
                 deployment=deployment,
-                deployment_strategy=None,
-                deployment_params=None,
+                deployment_strategy=stored_strategy,
+                deployment_params=stored_params,
                 environment_variables=environment_variables
             )
 
         await self._update_active_deployment(serve, env, deployment)
 
-        return {
+        result = {
             "service_url": get_service_url_for_one_click(serve.name, env_config)
         }
+        if fallback_reason is not None:
+            result["deployment_strategy_requested"] = req_strategy
+            result["deployment_strategy_applied"] = applied_strategy
+            result["fallback_reason"] = fallback_reason
+        return result
 
     async def undeploy_model(self, request: ModelUndeployRequest) -> dict:
         """

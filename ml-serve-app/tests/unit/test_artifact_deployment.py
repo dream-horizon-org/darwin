@@ -7,6 +7,7 @@ deployment through DCM with mocked external dependencies.
 import pytest
 from unittest.mock import AsyncMock, patch
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from ml_serve_app_layer.dtos.requests import (
     CreateServeRequest,
@@ -393,4 +394,58 @@ class TestServeConfiguration:
         assert config is not None
         assert config.id == created_config.id
         assert config.fast_api_config["cores"] == 2
+
+
+@pytest.mark.unit
+class TestAPIServeDeploymentConfigRequestValidation:
+    """Unit tests for APIServeDeploymentConfigRequest.deployment_strategy validation."""
+
+    def test_deployment_strategy_rolling_accepted_and_normalized(self):
+        """deployment_strategy='rolling' is accepted and normalized to lowercase."""
+        req = APIServeDeploymentConfigRequest(deployment_strategy="rolling")
+        assert req.deployment_strategy == "rolling"
+
+        for value in ("Rolling", "ROLLING", "  rolling  "):
+            req = APIServeDeploymentConfigRequest(deployment_strategy=value)
+            assert req.deployment_strategy == "rolling"
+
+    def test_deployment_strategy_canary_accepted_and_normalized(self):
+        """deployment_strategy='canary' is accepted and normalized to lowercase."""
+        req = APIServeDeploymentConfigRequest(deployment_strategy="canary")
+        assert req.deployment_strategy == "canary"
+
+        for value in ("Canary", "CANARY", "  canary  "):
+            req = APIServeDeploymentConfigRequest(deployment_strategy=value)
+            assert req.deployment_strategy == "canary"
+
+    def test_deployment_strategy_none_or_omitted_accepted(self):
+        """deployment_strategy=None or omitted is accepted."""
+        req = APIServeDeploymentConfigRequest()
+        assert req.deployment_strategy is None
+
+        req2 = APIServeDeploymentConfigRequest(deployment_strategy=None)
+        assert req2.deployment_strategy is None
+
+    def test_deployment_strategy_blank_treated_as_omitted(self):
+        """deployment_strategy='' or whitespace-only is treated as omitted."""
+        req = APIServeDeploymentConfigRequest(deployment_strategy="")
+        assert req.deployment_strategy is None
+
+        req2 = APIServeDeploymentConfigRequest(deployment_strategy="   ")
+        assert req2.deployment_strategy is None
+
+    def test_deployment_strategy_invalid_raises_validation_error(self):
+        """Invalid deployment_strategy raises ValidationError (FastAPI returns 400)."""
+        with pytest.raises(ValidationError) as exc_info:
+            APIServeDeploymentConfigRequest(deployment_strategy="invalid")
+        err_str = str(exc_info.value)
+        assert "deployment_strategy" in err_str
+        assert "rolling" in err_str or "canary" in err_str
+
+    def test_deployment_strategy_blue_green_rejected(self):
+        """deployment_strategy='blue-green' is rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            APIServeDeploymentConfigRequest(deployment_strategy="blue-green")
+        err_str = str(exc_info.value)
+        assert "deployment_strategy" in err_str
 

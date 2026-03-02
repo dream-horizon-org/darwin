@@ -214,6 +214,32 @@ class APIServeDeploymentConfigRequest(BaseModel):
                                                        description="Deployment strategy configuration for the API serve.")
     environment_variables: Optional[dict] = Field(None, description="Environment variables for the API serve.")
 
+    @field_validator("deployment_strategy", mode="before")
+    def validate_deployment_strategy(cls, value):
+        """
+        Validate and normalize deployment_strategy when provided.
+
+        Accepts None/blank as None. Accepts case-insensitive 'rolling'/'canary'
+        and normalizes to lowercase. Rejects anything else with ValueError so
+        FastAPI returns 400.
+        """
+        if value is None:
+            return None
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if not normalized:
+                return None
+            if normalized not in ("rolling", "canary"):
+                raise ValueError(
+                    "deployment_strategy must be 'rolling' or 'canary', got "
+                    f"'{value}'"
+                )
+            return normalized
+        raise ValueError(
+            "deployment_strategy must be a string ('rolling' or 'canary'), "
+            f"got {type(value).__name__}"
+        )
+
 
 class WorkflowServeDeploymentConfigRequest(BaseModel):
     input_parameters: dict = Field({}, description="Input parameters for the workflow serve.")
@@ -247,6 +273,10 @@ class EnvironmentConfigRequest(BaseModel):
     ft_redis_url: Optional[str] = Field(None, description="Redis URL for the environment.")
     workflow_url: Optional[str] = Field(None, description="Workflow URL for the environment.")
     namespace: Optional[str] = Field(None, description="Namespace for the environment.")
+    enable_istio: Optional[bool] = Field(
+        None,
+        description="Whether Istio is available in this environment for canary deployments.",
+    )
 
     def validation_for_create_request(self):
         if self.domain_suffix is None:
@@ -305,6 +335,41 @@ class ModelDeploymentRequest(BaseModel):
 
     min_replicas: int = Field(1, ge=1, le=100, description="Minimum number of replicas (1–100).")
     max_replicas: int = Field(1, ge=1, le=100, description="Maximum number of replicas (1–100).")
+
+    deployment_strategy: Optional[str] = Field(
+        None,
+        description="Deployment strategy: 'rolling' or 'canary'. Defaults to rolling when omitted.",
+    )
+    deployment_strategy_config: Optional[dict] = Field(
+        None,
+        description="Strategy-specific config (e.g. max_surge, max_unavailable for rolling).",
+    )
+
+    @field_validator("deployment_strategy", mode="before")
+    def validate_deployment_strategy(cls, value):
+        """
+        Validate and normalize deployment_strategy when provided.
+
+        If provided, must be 'rolling' or 'canary' (case-insensitive).
+        Returns normalized lowercase. None/empty string treated as omitted.
+        Invalid values raise ValueError with clear message for 400 response.
+        """
+        if value is None:
+            return None
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if not normalized:
+                return None
+            if normalized not in ("rolling", "canary"):
+                raise ValueError(
+                    "deployment_strategy must be 'rolling' or 'canary', got "
+                    f"'{value}'"
+                )
+            return normalized
+        raise ValueError(
+            "deployment_strategy must be a string ('rolling' or 'canary'), "
+            f"got {type(value).__name__}"
+        )
 
     @model_validator(mode="after")
     def validate_replica_range(self) -> 'ModelDeploymentRequest':

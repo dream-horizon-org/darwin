@@ -1,6 +1,7 @@
 # ===========================
 # Darwin project files
 # ===========================
+openspec/
 .setup/
 .cursor/
 kind/shared-storage/
